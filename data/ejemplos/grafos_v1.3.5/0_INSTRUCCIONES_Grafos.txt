@@ -1,0 +1,52 @@
+INSTRUCCIONES DE CARGA EN GRAFOS v.1.3.5
+============================================
+
+Proyecto: Ejemplo pequeño (14 nodos)  |  Nodos: 14  |  Arcos en la matriz: 74  |  Factor de escala: ×100 (enteros)
+Criterio de la matriz de coste: cost
+Formato: separador TAB, saltos de línea CRLF, '#' = sin valor.
+Nota: el índice de cada nodo en Grafos es el de esta tabla (0 = primer nodo).
+
+TABLA DE NODOS (índice → id → nombre)
+  0	0	Punto 00
+  1	1	Punto 01
+  2	2	Punto 02
+  3	3	Punto 03
+  4	4	Punto 04
+  5	5	Punto 05
+  6	6	Punto 06
+  7	7	Punto 07
+  8	8	Punto 08
+  9	9	Punto 09
+  10	10	Punto 10
+  11	11	Punto 11
+  12	12	Punto 12
+  13	13	Punto 13
+
+ORDEN DE CARGA (una carga a la vez, por separado)
+
+1) Matriz coste (arcos) — archivo 1_matriz_coste_arcos.txt
+   Menú: importar → «Matriz coste (arcos)» · Modo: SUSTITUIR.
+2) Matriz máximo (arcos) — archivo 2_matriz_maximo_arcos.txt
+   Menú: importar → «Matriz máximo (arcos)» · Modo: SUSTITUIR. (capacidades para flujo máximo)
+3) Coordenadas — archivo 3_coordenadas_XY_nodos.txt (i<TAB>x<TAB>y)
+   Menú: importar → «Matriz etiqueta y coord XY (nodos)» · Modo: ACTUALIZAR (con SUSTITUIR se pierden los arcos).
+   Los nodos quedan separados al menos 10 px.
+4) Valores de nodo (demand) — archivo 4_valores_nodo_2col.txt (i<TAB>valor, 2 columnas)
+   Menú: importar → «Matriz etiqueta y valor (nodos)» · Modo: ACTUALIZAR.
+
+USO
+  Clic IZQUIERDO sobre un nodo = ORIGEN (amarillo). Clic DERECHO = DESTINO (rojo).
+  Caminos: menú de caminos → Camino mínimo – Alg. Dijkstra (origen–destino); la ventana lista el costo a todos los nodos desde el origen.
+  Todos los caminos mínimos – Alg. FloydWarshall; árboles: Árbol de valor total mínimo/máximo – Alg. Kruskal o Prim.
+  Flujo máximo – Alg. FordFulkerson (origen–destino) usa la matriz máximo.
+
+VALORES ESPERADOS (calculados sobre los enteros exportados)
+  • Suma de todos los pares ordenados (Floyd-Warshall, pares conectados): 209710
+  • Costos mínimos desde el nodo 0 (0 (Punto 00)) a todos: [0, 654, 845, 987, 485, 714, 1176, 914, 233, 524, 1567, 794, 974, 967]
+  • Dijkstra 0→9: costo: 524
+  • Dijkstra 0→9: camino: 0 > 9
+  • Árbol de valor total mínimo (suma de aristas, cada arista una vez; 13 aristas): 5856
+  • Árbol de valor total máximo (cada arista una vez): 13067
+
+NO VERIFICADO: la forma exacta en que Grafos presenta el valor del árbol (una vez por arista vs. dos arcos) y el CVRP/VRP-XML
+no se ha comprobado contra la interfaz; el CVRP requiere crear la estructura VRP-XML en «Gestión de datos VRP-XML».

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grafos Lab</title>
+<meta name="description" content="Análisis de grafos y logística: ingesta de datos desconocidos, algoritmos, rutas, escenarios e informes.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 20 20%27%3E%3Ctext y=%2715%27 font-size=%2716%27%3E%E2%97%88%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo" aria-hidden="true">◈</span><h1>Grafos Lab</h1></div>
+  <nav id="tabs" role="tablist" aria-label="Secciones">
+    <button role="tab" data-tab="ingesta" aria-selected="true">1 · Ingesta</button>
+    <button role="tab" data-tab="datos">2 · Datos</button>
+    <button role="tab" data-tab="analisis">3 · Análisis</button>
+    <button role="tab" data-tab="escenarios">4 · Escenarios</button>
+    <button role="tab" data-tab="preguntas">5 · Preguntas</button>
+    <button role="tab" data-tab="exportar">6 · Exportar</button>
+  </nav>
+  <div class="tools">
+    <select id="projectSel" aria-label="Proyecto activo"></select>
+    <button id="themeBtn" class="ghost" aria-label="Alternar modo claro/oscuro" title="Modo claro/oscuro">Tema</button>
+  </div>
+</header>
+<div id="toasts" aria-live="polite"></div>
+<main>
+  <!-- INGESTA -->
+  <section id="tab-ingesta" class="panel active">
+    <div class="cols">
+      <div class="card">
+        <h2>Cargar datos o informes</h2>
+        <p class="muted">Acepta CSV, TSV, Excel, JSON, GeoJSON, SQLite/SQL, GraphML, GEXF, listas de aristas, matrices, archivos de importación de Grafos v.1.3.5 y informes Word/PDF/Excel. No se asumen columnas: usted confirma el mapeo.</p>
+        <label class="drop" id="drop" tabindex="0">
+          <input type="file" id="fileInput" multiple hidden>
+          <strong>Arrastre archivos aquí</strong><span>o haga clic para elegir (varios a la vez: p. ej. matriz + coordenadas + valores de Grafos)</span>
+        </label>
+        <div id="uploadErr"></div>
+        <h3>O use un ejemplo</h3>
+        <div class="row" id="samples"></div>
+        <h3>Plantillas de entrada</h3>
+        <div class="row" id="templates"></div>
+      </div>
+      <div class="card" id="mappingCard" hidden>
+        <h2>Revisión y mapeo</h2>
+        <div id="mappingBody"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DATOS -->
+  <section id="tab-datos" class="panel">
+    <div class="card">
+      <div class="row between"><h2>Datos del proyecto</h2>
+        <div class="row"><button id="saveData" class="primary">Guardar cambios</button><button id="genEdgesBtn">Generar aristas…</button><button id="layoutBtn">Reordenar nodos</button></div></div>
+      <div id="warnings"></div>
+      <div class="subtabs" id="dataTabs"><button data-d="nodes" class="on">Nodos</button><button data-d="edges">Aristas</button><button data-d="vehicles">Vehículos</button><button data-d="params">Parámetros</button><button data-d="versions">Versiones</button></div>
+      <div id="dataBody" class="tablewrap"></div>
+    </div>
+  </section>
+
+  <!-- ANALISIS -->
+  <section id="tab-analisis" class="panel">
+    <div class="work">
+      <aside class="side card">
+        <h2>Algoritmo</h2>
+        <select id="algoSel" aria-label="Algoritmo"></select>
+        <div id="algoParams"></div>
+        <div class="row">
+          <button id="runBtn" class="primary">Ejecutar</button>
+          <button id="cancelBtn" hidden>Cancelar</button>
+        </div>
+        <div class="progress" id="progress" hidden><div></div><span></span></div>
+        <hr>
+        <h3>Selección en el grafo</h3>
+        <p class="muted small">Clic izquierdo = <b class="o">origen</b> · clic derecho = <b class="d">destino</b>. Calcula Dijkstra al instante.</p>
+        <div class="row small"><span>Origen: <b id="orgLbl">—</b></span><span>Destino: <b id="dstLbl">—</b></span><button id="clearSel" class="ghost">Limpiar</button></div>
+        <div class="row small"><label>Criterio <select id="critSel"><option value="cost">Costo</option><option value="distance">Distancia</option><option value="time">Tiempo</option><option value="emissions">Emisiones</option><option value="hops">Arcos</option></select></label></div>
+        <hr>
+        <h3>Corridas anteriores</h3>
+        <div id="runList" class="runlist"></div>
+      </aside>
+      <div class="center card">
+        <div class="row between wrap">
+          <div class="row">
+            <button id="viewGraph" class="on seg">Grafo</button><button id="viewMap" class="seg">Mapa</button>
+            <label class="chk"><input type="checkbox" id="showW"> pesos</label>
+            <label class="chk"><input type="checkbox" id="showLbl" checked> nombres</label>
+            <select id="typeFilter" aria-label="Filtrar por tipo"><option value="">Todos los tipos</option></select>
+          </div>
+          <div class="row anim">
+            <button id="aPrev" title="Paso anterior">⏮</button><button id="aPlay" title="Reproducir/Pausa">▶</button><button id="aNext" title="Paso siguiente">⏭</button>
+            <input type="range" id="aSlider" min="0" max="0" value="0" aria-label="Paso del algoritmo"><span id="aLbl" class="small muted">0/0</span>
+            <select id="aSpeed" aria-label="Velocidad"><option value="900">lento</option><option value="400" selected>normal</option><option value="120">rápido</option></select>
+          </div>
+        </div>
+        <div id="stage"><div id="cy" aria-label="Lienzo del grafo"></div><div id="map" hidden></div></div>
+        <div id="legend" class="legend small"></div>
+        <div id="stepNote" class="stepnote small" aria-live="polite"></div>
+      </div>
+      <aside class="right card">
+        <div class="subtabs" id="resTabs">
+          <button data-r="answer" class="on">Respuesta</button><button data-r="steps">Paso a paso</button><button data-r="why">Razonamiento</button>
+          <button data-r="exec">Resumen</button><button data-r="tech">Informe</button><button data-r="control">Control</button><button data-r="tables">Tablas</button>
+        </div>
+        <div id="resBody" class="resbody"><p class="muted">Ejecute un algoritmo o haga clic en dos nodos.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ESCENARIOS -->
+  <section id="tab-escenarios" class="panel">
+    <div class="cols">
+      <div class="card"><h2>Comparar ejecuciones</h2><p class="muted">Marque ≥2 ejecuciones (la primera es la base) para ver deltas porcentuales.</p><div id="cmpList" class="runlist"></div><div class="row"><button id="cmpBtn" class="primary">Comparar</button></div><div id="cmpOut"></div></div>
+      <div class="card"><h2>Crear escenario</h2>
+        <p class="muted">Cierre de nodos/aristas, cambio de flota o sensibilidad: se ejecutan desde «Análisis» (categoría Escenarios) o aquí con un clic.</p>
+        <div class="stack">
+          <label>Nodos a cerrar (ids separados por coma)<input id="scClosed" placeholder="p. ej. 3,5"></label>
+          <button id="scFail">Simular falla de esos nodos</button>
+          <button id="scRes">Proponer enlaces de resiliencia</button>
+          <label>Parámetro a variar<select id="scParam"><option>c_km</option><option>c_hora</option><option>speed</option><option>road_factor</option><option>e_km</option></select></label>
+          <label>Algoritmo a repetir<select id="scAlgo"></select></label>
+          <button id="scSens">Sensibilidad (×0.8 … ×1.2)</button>
+        </div>
+        <div id="scOut"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PREGUNTAS -->
+  <section id="tab-preguntas" class="panel">
+    <div class="card narrow">
+      <h2>Pregunte sobre el proyecto</h2>
+      <p class="muted">Ejemplos: «¿cuál es la ruta más barata entre A y B si cierro C?», «árbol mínimo», «flujo máximo de 0 a 9», «VRP con capacidad 120», «p-mediana con p=3». Toda cifra proviene de un cálculo trazable.</p>
+      <div class="row"><input id="qIn" class="grow" placeholder="Escriba su pregunta…" aria-label="Pregunta"><button id="qBtn" class="primary">Preguntar</button></div>
+      <div id="qOut"></div>
+    </div>
+  </section>
+
+  <!-- EXPORTAR -->
+  <section id="tab-exportar" class="panel">
+    <div class="cols">
+      <div class="card"><h2>Informes de una ejecución</h2>
+        <label>Ejecución<select id="expRun"></select></label>
+        <div class="row wrap"><button data-x="word">Word (.docx)</button><button data-x="pdf">PDF</button><button data-x="excel">Excel</button><button data-x="png">PNG</button><button data-x="svg">SVG</button><button data-x="geojson">GeoJSON</button></div>
+        <h3>Datos del proyecto</h3>
+        <div class="row wrap"><button data-x="graphml">GraphML</button><button data-x="gexf">GEXF</button><button data-x="json">JSON</button><button data-x="csv">CSV (zip)</button><button data-x="sqlite">SQLite</button></div>
+        <h3>Todo en un clic</h3><button data-x="zip" class="primary">Paquete ZIP completo</button>
+      </div>
+      <div class="card"><h2>Paquete Grafos v.1.3.5</h2>
+        <p class="muted">Matrices NxN (arcos), coordenadas <code>i⇥x⇥y</code>, valores <code>i⇥valor</code>, TAB, CRLF, <code>#</code> = sin valor, e instrucciones con valores esperados.</p>
+        <div class="stack">
+          <label>Factor de escala (enteros)<select id="gScale"><option value="1">×1</option><option value="100" selected>×100</option><option value="1000">×1000</option></select></label>
+          <label>Criterio<select id="gCrit"><option value="cost">Costo</option><option value="distance">Distancia</option><option value="time">Tiempo</option><option value="emissions">Emisiones</option></select></label>
+          <label>Campo de valores de nodo<select id="gVal"><option value="demand">Demanda</option><option value="supply">Oferta</option></select></label>
+          <label class="chk"><input type="checkbox" id="gSep" checked> separar nodos (mín. 10 px)</label>
+          <label>Origen de control<select id="gSrc"></select></label><label>Destino de control<select id="gDst"></select></label>
+          <button id="gBtn" class="primary">Descargar paquete Grafos</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="vendor/cytoscape.min.js"></script>
+<script src="vendor/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

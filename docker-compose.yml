@@ -1,0 +1,13 @@
+services:
+  grafos:
+    build: .
+    ports: ["8000:8000"]
+    volumes: ["grafos-data:/data"]
+    environment:
+      GRAFOS_WORKERS: "2"
+      GRAFOS_MAX_TIME: "120"
+      GRAFOS_MAX_NODES: "5000"
+      # ANTHROPIC_API_KEY: ""   # opcional: ayuda de un LLM para extraer parámetros de informes
+    restart: unless-stopped
+volumes:
+  grafos-data:
