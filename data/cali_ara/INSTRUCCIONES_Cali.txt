@@ -1,0 +1,31 @@
+RECORRIDO DEL SUPERVISOR – TIENDAS ARA CALI (Anexo B)
+====================================================
+
+ARCHIVOS
+- Grafos_v1.3.5/1_matriz_coste_arcos.txt   : matriz de distancias en metros (enteros), arcos simétricos.
+- Grafos_v1.3.5/3_coordenadas_XY_nodos.txt : coordenadas X,Y de cada nodo (separadas al menos 10 px).
+- Grafos_v1.3.5/0_INSTRUCCIONES_Grafos.txt : instrucciones y valores esperados generados por la app.
+- ARA_Cali_base_de_datos.xlsx              : tiendas, direcciones, coordenadas, matriz y resultados.
+
+NODOS
+- Nodo 0 = Centro de Distribución central. PROVISIONAL: centroide de las 25 tiendas.
+  Reemplácelo por el punto que definió en anyLogistix y vuelva a generar la matriz.
+- Nodos 1 a 25 = tiendas (ver hoja «Tiendas» del Excel).
+
+PASOS EN GRAFOS v1.3.5 (una carga a la vez)
+1) Importar la matriz: menú de importación → «Matriz coste (arcos)» → archivo 1_matriz_coste_arcos.txt → modo SUSTITUIR.
+2) Importar coordenadas: «Matriz etiqueta y coord XY (nodos)» → archivo 3_coordenadas_XY_nodos.txt → modo ACTUALIZAR.
+   (Con SUSTITUIR se pierden los arcos.)
+3) Clic IZQUIERDO = origen (amarillo). Clic DERECHO = destino (rojo).
+
+RECORRIDO CON UN SUPERVISOR
+4) Menú de rutas → «Viajante de comercio (TSP) a coste mínimo - MILP».
+   Origen = nodo 0 (el CD).
+5) Resultado de referencia de la app: 72.05 km. Orden: 0 > 3 > 12 > 1 > 16 > 4 > 17 > 6 > 22 > 18 > 14 > 8 > 20 > 13 > 5 > 15 > 9 > 10 > 24 > 2 > 19 > 25 > 21 > 7 > 23 > 11 > 0.
+   Grafos usa un modelo MILP: si su valor es menor, use ese (la app da una heurística).
+
+RECORRIDO CON DOS SUPERVISORES
+6) Menú de rutas → «m Viajantes de comercio (m-TSP) a coste mínimo - MILP (origen)». m = 2. Origen = nodo 0.
+   Referencia de la app: 72.44 km en total.
+
+NOTA: las coordenadas de las tiendas vienen de OpenStreetMap; 5 tiendas (nodos 2, 5, 8, 15, 16 y 19 según la hoja «Tiendas») tienen ubicación aproximada a nivel de calle. Una tienda puede estar a pocos cientos de metros de su dirección real.

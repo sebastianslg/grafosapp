@@ -1,0 +1,252 @@
+[
+ {
+  "n": 1,
+  "tienda": "Cali - VALLE GRANDE",
+  "direccion": "Calle 25 # 75-201, Cali Valle del Cauca",
+  "q": "Calle 25 75 201",
+  "lat": 3.3945978,
+  "lon": -76.5243771,
+  "precision": "dirección exacta",
+  "osm": "Calle 25, La Hacienda, Comuna 17, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico, 7"
+ },
+ {
+  "n": 2,
+  "tienda": "Cali - LOS ALAMOS",
+  "direccion": "Avenida 3 Norte con Calle 57 Norte, Cali Valle del Cauca",
+  "q": "Avenida 3 Norte con Calle 57 Norte",
+  "lat": 3.4786314,
+  "lon": -76.5168038,
+  "precision": "solo calle (aprox.)",
+  "osm": "Avenida 3 Norte, Vipasa, Comuna 2, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico, "
+ },
+ {
+  "n": 3,
+  "tienda": "Cali - PORVENIR CALI",
+  "direccion": "Calle 32 # 5-51, Cali Valle del Cauca",
+  "q": "Calle 32 5 51",
+  "lat": 3.4242758,
+  "lon": -76.5119805,
+  "precision": "dirección exacta",
+  "osm": "Calle 32, San Carlos, Comuna 11, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico, 76"
+ },
+ {
+  "n": 4,
+  "tienda": "Cali - Quintas Don Simon",
+  "direccion": "Calle 14 # 77 LT 3B, Cali Valle del Cauca",
+  "q": "Calle 14 77",
+  "lat": 3.387378,
+  "lon": -76.5326069,
+  "precision": "dirección exacta",
+  "osm": "Calle 14, Ciudadela Pasoancho, Comuna 17, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pac"
+ },
+ {
+  "n": 5,
+  "tienda": "Cali - Los Lagos",
+  "direccion": "Calle 72 U # 26 K - 15, Cali Valle del Cauca",
+  "q": "Calle 72 U 26 K - 15",
+  "lat": 3.4413894,
+  "lon": -76.4900493,
+  "precision": "calle aprox.",
+  "osm": null
+ },
+ {
+  "n": 6,
+  "tienda": "Cali - Valle de Lili",
+  "direccion": "Calle 45 # 93 - 36, Cali Valle del Cauca",
+  "q": "Calle 45 93 36",
+  "lat": 3.3873853,
+  "lon": -76.518374,
+  "precision": "dirección exacta",
+  "osm": "Calle 45, Caney, Comuna 17, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico, 760026,"
+ },
+ {
+  "n": 7,
+  "tienda": "Cali - Capri",
+  "direccion": "Carrera 70 # 10A - 128, Cali Valle del Cauca",
+  "q": "Carrera 70 10A - 128",
+  "lat": 3.4318358,
+  "lon": -76.5392657,
+  "precision": "dirección exacta",
+  "osm": "Carrera 29, 3 de Julio, Comuna 19, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico, "
+ },
+ {
+  "n": 8,
+  "tienda": "Cali - Los Robles",
+  "direccion": "Carrera 28 F # 72R - 17, Cali Valle del Cauca",
+  "q": "Carrera 28 F 72R - 17",
+  "lat": 3.4271929,
+  "lon": -76.4926586,
+  "precision": "calle aprox.",
+  "osm": null
+ },
+ {
+  "n": 9,
+  "tienda": "Cali - Villa Colombia",
+  "direccion": "Carrera 8 # 52 - 116, Cali Valle del Cauca",
+  "q": "Carrera 8 52 116",
+  "lat": 3.452951,
+  "lon": -76.5188005,
+  "precision": "dirección exacta",
+  "osm": "Carrera 8, Barrio Obrero, Comuna 9, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico,"
+ },
+ {
+  "n": 10,
+  "tienda": "Cali - Las Delicias",
+  "direccion": "Calle 44 # 3 - 55, Cali Valle del Cauca",
+  "q": "Calle 44 3 55",
+  "lat": 3.4536476,
+  "lon": -76.5053084,
+  "precision": "dirección exacta",
+  "osm": "Calle 44, Base Aérea Marco Fidel Suárez, Comuna 7, Cali ciudad, Cali, Sur, Valle del Cauca"
+ },
+ {
+  "n": 11,
+  "tienda": "Cali - Parcelacion Ponce",
+  "direccion": "Calle 18 # 127 - 175, Cali Valle del Cauca",
+  "q": "Calle 18 127 175",
+  "lat": 3.4360737,
+  "lon": -76.5228002,
+  "precision": "dirección exacta",
+  "osm": "Calle 18, Aranjuez, Comuna 9, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico, 76001"
+ },
+ {
+  "n": 12,
+  "tienda": "Cali - Republica de Israel",
+  "direccion": "Carrera 46 # 42 - 25, Cali Valle del Cauca",
+  "q": "Carrera 46 42 25",
+  "lat": 3.409894,
+  "lon": -76.5180792,
+  "precision": "dirección exacta",
+  "osm": "Carrera 46, Villa del Sur, Comuna 11, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífic"
+ },
+ {
+  "n": 13,
+  "tienda": "Cali - Manuela Beltran",
+  "direccion": "Calle 112 # 26A - 10, Cali Valle del Cauca",
+  "q": "Calle 112 26A - 10",
+  "lat": 3.4261164,
+  "lon": -76.4689058,
+  "precision": "dirección exacta",
+  "osm": "Calle 112, Promociones Populares B, Comuna 14, Cali ciudad, Cali, Sur, Valle del Cauca, RA"
+ },
+ {
+  "n": 14,
+  "tienda": "Cali - Olimpico",
+  "direccion": "Carrera 37 # 10 - 15, Cali Valle del Cauca",
+  "q": "Carrera 37 10 15",
+  "lat": 3.4100717,
+  "lon": -76.4976256,
+  "precision": "dirección exacta",
+  "osm": "Carrera 37, El Retiro, Comuna 15, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico, 7"
+ },
+ {
+  "n": 15,
+  "tienda": "Cali - La Floresta",
+  "direccion": "Carrera 15 # 33 H - 08 LC 3, Cali Valle del Cauca",
+  "q": "Carrera 15 33 H - 08",
+  "lat": 3.4507118,
+  "lon": -76.5120808,
+  "precision": "calle aprox.",
+  "osm": null
+ },
+ {
+  "n": 16,
+  "tienda": "Cali - Caldas",
+  "direccion": "Carrera 70 # 1 Bis # 21, Cali Valle del Cauca",
+  "q": "Carrera 70 1 Bis 21",
+  "lat": 3.3925208,
+  "lon": -76.5262931,
+  "precision": "calle aprox.",
+  "osm": null
+ },
+ {
+  "n": 17,
+  "tienda": "Cali - Alameda Av Roosevelt",
+  "direccion": "Calle 6 # 27 - 44, Cali Valle del Cauca",
+  "q": "Calle 6 27 44",
+  "lat": 3.3496868,
+  "lon": -76.5479327,
+  "precision": "dirección exacta",
+  "osm": "Calle 6, Parcelaciones Pance, Comuna 22, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pací"
+ },
+ {
+  "n": 18,
+  "tienda": "Cali - Antonio Nariño",
+  "direccion": "Carrera 41B # 40 - 83, Cali Valle del Cauca",
+  "q": "Carrera 41B 40 83",
+  "lat": 3.4073436,
+  "lon": -76.503405,
+  "precision": "dirección exacta",
+  "osm": "Carrera 41B, Ciudad Córdoba, Comuna 15, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacíf"
+ },
+ {
+  "n": 19,
+  "tienda": "Cali - La Flora CL 44N",
+  "direccion": "Calle 44N # 4 - 127, Cali Valle del Cauca",
+  "q": "Calle 44N 4 127",
+  "lat": 3.4801486,
+  "lon": -76.5214611,
+  "precision": "calle aprox.",
+  "osm": null
+ },
+ {
+  "n": 20,
+  "tienda": "Cali - Alfonso Bonilla",
+  "direccion": "Carrera 27 # 08 - 38, Cali Valle del Cauca",
+  "q": "Carrera 27 08 38",
+  "lat": 3.4119618,
+  "lon": -76.4683371,
+  "precision": "dirección exacta",
+  "osm": "Carrera 27, Calimio Desepaz, Comuna 21, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacíf"
+ },
+ {
+  "n": 21,
+  "tienda": "Cali - Cristobal Colon",
+  "direccion": "CR 39 # 19-11, Cali Valle del Cauca",
+  "q": "Carrera 39 19 11",
+  "lat": 3.4220522,
+  "lon": -76.5414554,
+  "precision": "dirección exacta",
+  "osm": "Carrera 39, Eucarístico, Comuna 19, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico,"
+ },
+ {
+  "n": 22,
+  "tienda": "Cali - Caney",
+  "direccion": "CL 48 # 80-26, Cali Valle del Cauca",
+  "q": "Calle 48 80 26",
+  "lat": 3.4020424,
+  "lon": -76.5109723,
+  "precision": "dirección exacta",
+  "osm": "Calle 48, Mariano Ramos, Comuna 16, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico,"
+ },
+ {
+  "n": 23,
+  "tienda": "Cali - Carrera 23D",
+  "direccion": "CR 23D # 9-31, Cali Valle del Cauca",
+  "q": "Carrera 23D 9 31",
+  "lat": 3.4332956,
+  "lon": -76.5290987,
+  "precision": "dirección exacta",
+  "osm": "Carrera 23D, Junín, Comuna 9, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico, 72002"
+ },
+ {
+  "n": 24,
+  "tienda": "Cali - Torres de Comfandi",
+  "direccion": "CL 56 # 18-110, Cali Valle del Cauca",
+  "q": "Calle 56 18 110",
+  "lat": 3.4779491,
+  "lon": -76.5013099,
+  "precision": "dirección exacta",
+  "osm": "Calle 56, Torres de Comfandi, Comuna 5, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacíf"
+ },
+ {
+  "n": 25,
+  "tienda": "CALI - SUCRE",
+  "direccion": "CR 10 #19-35, Cali Valle del Cauca",
+  "q": "Carrera 10 19 35",
+  "lat": 3.4462196,
+  "lon": -76.5377521,
+  "precision": "dirección exacta",
+  "osm": "Carrera 10, San Antonio, Comuna 3, Cali ciudad, Cali, Sur, Valle del Cauca, RAP Pacífico, "
+ }
+]
