@@ -1,0 +1,49 @@
+{
+ "dijkstra": {
+  "title": "Camino mínimo – Dijkstra",
+  "value": 1972.2,
+  "message": "De 2 (Shanghái) a 25 (Changchun): 1972.20, ruta 2 > 15 > 25",
+  "status": "optimal",
+  "paths": [
+   [
+    "2",
+    "15",
+    "25"
+   ]
+  ]
+ },
+ "bellman_ford": {
+  "title": "Camino mínimo – Bellman-Ford",
+  "value": 1972.2,
+  "message": "De 2 (Shanghái) a 25 (Changchun): 1972.20, ruta 2 > 15 > 25",
+  "status": "optimal",
+  "paths": [
+   [
+    "2",
+    "15",
+    "25"
+   ]
+  ]
+ },
+ "floyd_warshall": {
+  "title": "Todos los caminos mínimos – Floyd-Warshall",
+  "value": 837378.6,
+  "message": "Matriz 25×25 de costos mínimos entre todos los pares.",
+  "status": "optimal",
+  "paths": []
+ },
+ "kruskal": {
+  "title": "Árbol de valor total mínimo – Kruskal",
+  "value": 8130.1,
+  "message": "árbol mínimo: 24 aristas, valor total 8130.10.",
+  "status": "optimal",
+  "paths": []
+ },
+ "prim": {
+  "title": "Árbol de valor total mínimo – Prim",
+  "value": 8130.1,
+  "message": "Árbol mínimo (Prim) desde 11 (Hangzhou): 24 aristas, valor 8130.10.",
+  "status": "optimal",
+  "paths": []
+ }
+}
