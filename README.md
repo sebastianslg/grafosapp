@@ -20,6 +20,19 @@ docker compose up --build        # → http://localhost:8000
 Variables opcionales: `GRAFOS_DB` (ruta SQLite), `GRAFOS_WORKERS`, `GRAFOS_MAX_TIME` (s por cálculo), `GRAFOS_MAX_NODES`,
 `ANTHROPIC_API_KEY` (ayuda opcional de un LLM para extraer parámetros de informes; sin clave se usan reglas).
 
+## Resumen ejecutivo completo
+
+Al estilo de los informes de clase (puntos numerados, tablas, comparaciones en %, conclusión y recomendación). En el panel de resultados,
+pestaña **Resumen ejecutivo** → *Generar*. Cada cifra sale de un cálculo hecho en ese momento; la app vuelve a resolver el problema en escenarios:
+
+- **Resumen en una mirada** con cifras clave, datos y supuestos del modelo, resultado principal.
+- **Desglose del costo** (fijo / distancia / tiempo, con %) e impulsores; utilización de capacidad.
+- **Comparación con alternativas** en %: cada tipo de flota por separado, línea base ingenua, rutas alternativas y criticidad de nodos (caminos), árbol de caminos vs. expansión, ampliación de arcos del corte (flujos), p−1 / p+1 (localización), número de drones (FSTSP).
+- **Sensibilidad:** demanda +40 % (si no es factible, cuántos vehículos adicionales hacen falta), costos ±20 % con las mismas rutas.
+- **Calidad:** óptimo vs. heurístico, **ruido de la heurística** (misma instancia con otras estrategias de búsqueda) y cota inferior solo cuando es informativa.
+- Riesgos, **conclusión** (cierre con cifras) y **recomendación y siguientes pasos**; valores de control.
+- El texto es **editable** en la app y lo editado es lo que sale en el Word y el PDF (resumen primero, anexos con paso a paso, razonamiento e informe técnico después).
+
 ## Recorrido de uso (5 minutos)
 
 1. **Ingesta** → «Ejemplo con flota (25 nodos)» (o arrastre sus archivos; puede subir varios a la vez).
@@ -89,7 +102,7 @@ pip install -r backend/requirements-dev.txt
 cd backend && python -m pytest tests -q
 ```
 
-57 pruebas: cada algoritmo contra NetworkX/fuerza bruta/casos conocidos, factibilidad de CVRP/VRPSPD/VRPTW (capacidad y ventanas verificadas de forma
+81 pruebas: cada algoritmo contra NetworkX/fuerza bruta/casos conocidos, factibilidad de CVRP/VRPSPD/VRPTW (capacidad y ventanas verificadas de forma
 independiente), reproducibilidad, ingesta (Grafos, CSV con acentos/coma decimal, Excel, JSON, GeoJSON, SQL, Word y PDF) y archivos mal formados, y
 todas las exportaciones (el Word y el Excel se reabren, el paquete Grafos se re-importa).
 

@@ -130,3 +130,8 @@ def list_runs(pid: str):
         out.append({"id": r["id"], "key": r["key"], "title": res.get("title"), "status": res.get("status"), "value": res.get("value"),
                     "message": res.get("message"), "created": r["created"], "params": json.loads(r["params"])})
     return out
+
+
+def update_run_result(rid: str, result: dict):
+    with _lock, _con() as c:
+        c.execute("update runs set result=? where id=?", (_dump(result), rid))

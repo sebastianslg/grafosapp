@@ -71,8 +71,74 @@ for k, a in ALGOS.items():
         a["params"] = a["params"] + _CLOSED_ALL
 
 
+GOALS = {
+    "dijkstra": "Encuentra la ruta más barata (o corta, o rápida) entre dos puntos, o hacia todos los demás.",
+    "bellman_ford": "Como Dijkstra, pero admite costos negativos y permite buscar el camino máximo en un DAG.",
+    "astar": "Ruta más barata entre dos puntos usando coordenadas para buscar más rápido.",
+    "floyd_warshall": "Calcula el costo mínimo entre TODOS los pares de nodos y entrega la matriz completa.",
+    "k_shortest": "Lista los k mejores caminos distintos entre dos puntos (para tener alternativas).",
+    "critical_path": "En un proyecto de actividades (sin ciclos) halla el camino más largo: la duración total.",
+    "kruskal": "Conecta todos los nodos al menor (o mayor) costo total sin formar ciclos.",
+    "prim": "Igual que Kruskal, pero haciendo crecer el árbol desde un nodo raíz.",
+    "sp_tree": "Reúne los caminos mínimos desde un origen en un solo árbol (o los de máxima capacidad).",
+    "max_flow": "¿Cuánto se puede enviar de un origen a un destino respetando capacidades? Incluye el corte mínimo.",
+    "min_cut": "Encuentra los arcos que limitan el flujo entre dos puntos (el cuello de botella).",
+    "min_cost_flow": "Reparte oferta y demanda por la red (con transbordos) al menor costo.",
+    "transport": "Asigna unidades de orígenes con oferta a destinos con demanda al menor costo.",
+    "assignment": "Empareja agentes con tareas uno a uno al menor costo total.",
+    "components": "Dice si la red está conectada y cuántos pedazos separados tiene.",
+    "articulation": "Detecta los nodos y enlaces que, si fallan, parten la red en dos.",
+    "degrees": "Mide qué nodos son más conectados e importantes (grado, centralidad).",
+    "diameter": "Halla la distancia más larga entre dos nodos y el centro de la red.",
+    "cycles": "Cuenta los ciclos independientes de la red y dice si tiene ciclos dirigidos.",
+    "euler": "Recorre todas las aristas una sola vez volviendo al inicio (si es posible).",
+    "coloring": "Pinta los nodos con el mínimo de colores sin que dos vecinos coincidan.",
+    "p_median": "Elige p instalaciones que minimizan la distancia promedio ponderada a los clientes.",
+    "p_center": "Elige p instalaciones que minimizan la distancia al cliente más lejano.",
+    "max_cover": "Elige p instalaciones que cubren la mayor demanda dentro de un radio.",
+    "fixed_charge": "Decide cuántas y cuáles instalaciones abrir equilibrando costo fijo y distancias.",
+    "tsp": "Recorrido de costo mínimo que visita cada punto una vez y regresa al inicio.",
+    "mtsp": "Reparte los puntos entre m recorridos que salen del mismo origen.",
+    "cvrp": "Rutas de reparto desde un depósito respetando la capacidad de cada vehículo.",
+    "vrpspd": "Rutas de reparto donde cada cliente recibe y también entrega carga (recogida y entrega).",
+    "vrptw": "Rutas de reparto respetando las ventanas horarias de cada cliente.",
+    "hetero": "Rutas con una flota de vehículos distintos (capacidad, costos, velocidad).",
+    "multidepot": "Rutas de reparto con varios depósitos.",
+    "periodic": "Planifica visitas repetidas en varios días y arma las rutas de cada día.",
+    "fstsp": "Combina un camión con drones que entregan paquetes mientras el camión sigue su ruta.",
+    "chinese_postman": "Recorre todas las calles (aristas) al menor costo, repitiendo lo mínimo.",
+    "rural_postman": "Igual que el cartero chino, pero solo hay que cubrir algunas aristas obligatorias.",
+    "failure": "Simula la falla de nodos o enlaces y mide el impacto en la conexión y los costos.",
+    "resilience": "Propone qué enlaces nuevos agregar para que la red no tenga puntos frágiles.",
+    "fleet_change": "Resuelve el mismo reparto con distintas flotas (diésel, eléctrica…) y las compara.",
+    "sensitivity": "Repite un algoritmo variando un costo para ver cuánto cambia el resultado.",
+}
+REQUIRED = {"dijkstra": ["source"], "bellman_ford": ["source"], "astar": ["source", "target"], "k_shortest": ["source", "target"], "sp_tree": ["source"],
+            "max_flow": ["source", "target"], "min_cut": ["source", "target"], "max_cover": ["radius"], "rural_postman": ["required_edges"],
+            "fleet_change": ["fleets"], "sensitivity": ["algorithm"], "failure": []}
+ADVANCED = {"closed_nodes", "closed_edges", "time_limit", "default_capacity", "candidates", "customers", "facility_capacity", "auto_balance"}
+HINTS = {"source": "Haga clic izquierdo en el grafo o elíjalo aquí.", "target": "Haga clic derecho en el grafo o elíjalo aquí.",
+         "depot": "Si lo deja vacío se usa el depósito del proyecto.", "nodes": "Ids separados por coma. Vacío = todos los que tengan demanda.",
+         "closed_nodes": "Simula que estos nodos no existen.", "closed_edges": "Pares [origen, destino], p. ej. [[\"A\",\"B\"]].",
+         "capacity": "Reemplaza la capacidad de la flota del proyecto.", "p": "Número de instalaciones a ubicar.",
+         "required_edges": "Pares [origen, destino] que deben recorrerse, p. ej. [[\"A\",\"B\"]].", "fleets": "{\"Diésel\": [vehículos...], \"Eléctrica\": [...]}",
+         "time_limit": "Más tiempo = mejores rutas en problemas grandes (máx. 120 s)."}
+
+
 def catalog():
-    return [{"key": k, "name": a["name"], "category": a["cat"], "params": a["params"]} for k, a in ALGOS.items()]
+    from ..explain import WHY
+    out = []
+    for k, a in ALGOS.items():
+        ps = []
+        for p_ in a["params"]:
+            q = dict(p_)
+            q["required"] = p_["name"] in REQUIRED.get(k, [])
+            q["advanced"] = p_["name"] in ADVANCED
+            q["hint"] = HINTS.get(p_["name"], "")
+            ps.append(q)
+        out.append({"key": k, "name": a["name"], "category": a["cat"], "params": ps, "goal": GOALS.get(k, ""),
+                    "how": (WHY.get(k) or ("", "", ""))[0], "equation": (WHY.get(k) or ("", "", ""))[1]})
+    return out
 
 
 def run(key: str, project: dict, params: dict | None = None, progress=None, cancel=None) -> dict:

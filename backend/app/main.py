@@ -15,7 +15,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Body
 from fastapi.responses import JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import store, ingest, export, samples, ask as askmod
+from . import store, ingest, export, samples, ask as askmod, fullexec
 from .algos import registry
 from .algos.common import AlgoError, Cancelled
 from .algos.scenarios import compare_runs
@@ -319,6 +319,58 @@ def get_run(rid: str):
     return J(r)
 
 
+def _summary_job(jid: str, rid: str, opts: dict):
+    job = JOBS[jid]
+    run_ = store.get_run(rid)
+    p = store.get_project(run_["project_id"])
+
+    def progress(f, msg=""):
+        job["progress"], job["message"] = f, msg
+    try:
+        job["status"] = "running"
+        opts["time"] = min(int(opts.get("time", 4)), 30)
+        summ = clean(fullexec.build_summary(p, run_["result"], opts, progress))
+        res = run_["result"]
+        res["full_summary"] = summ
+        store.update_run_result(rid, res)
+        job.update(status="done", progress=1.0, summary=summ, run_id=rid)
+    except AlgoError as e:
+        job.update(status="error", error=str(e), tipo="calculo")
+    except Exception as e:
+        job.update(status="error", error=f"Error interno al generar el resumen: {type(e).__name__}: {e}", tipo="interno")
+
+
+@app.post("/api/runs/{rid}/summary")
+def make_summary(rid: str, body: dict = Body(default={}), wait: bool = Query(False)):
+    if not store.get_run(rid):
+        raise HTTPException(404, "Ejecución inexistente")
+    jid = uuid.uuid4().hex[:10]
+    JOBS[jid] = {"id": jid, "status": "queued", "progress": 0.0, "cancel": False, "algorithm": "summary", "t": time.time()}
+    fut = POOL.submit(_summary_job, jid, rid, dict(body))
+    if wait:
+        fut.result()
+        j = JOBS[jid]
+        if j["status"] == "error":
+            return J({"error": j["error"], "tipo": j.get("tipo")}, 422)
+        return J({"summary": j["summary"]})
+    return J({"job_id": jid})
+
+
+@app.put("/api/runs/{rid}/summary")
+def save_summary(rid: str, body: dict = Body(...)):
+    r = store.get_run(rid)
+    if not r:
+        raise HTTPException(404, "Ejecución inexistente")
+    s = body.get("summary")
+    if not isinstance(s, dict) or "sections" not in s:
+        raise HTTPException(422, "Resumen inválido: se esperaba {sections: [...]}")
+    s["edited"] = True
+    res = r["result"]
+    res["full_summary"] = s
+    store.update_run_result(rid, res)
+    return {"ok": True}
+
+
 @app.post("/api/projects/{pid}/ask")
 def ask(pid: str, body: dict = Body(...)):
     p = need(pid)
@@ -366,9 +418,10 @@ def export_(pid: str, kind: str, run_id: str | None = None, scale: int | None = 
             if not res:
                 raise HTTPException(422, "Elija una ejecución (run_id) para generar el informe.")
             img = export.graph_image(p, res)
+            summ = res.get("full_summary") or fullexec.build_summary(p, res, {"light": True})
             if kind == "word":
-                return _file(export.to_word(p, res, exp, img), f"informe_{nm}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-            return _file(export.to_pdf(p, res, exp, img), f"informe_{nm}.pdf", "application/pdf")
+                return _file(export.to_word(p, res, exp, img, summary=summ), f"informe_{nm}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            return _file(export.to_pdf(p, res, exp, img, summary=summ), f"informe_{nm}.pdf", "application/pdf")
         if kind in ("png", "svg"):
             return _file(export.graph_image(p, res, kind), f"grafo_{nm}.{kind}", "image/png" if kind == "png" else "image/svg+xml")
         if kind in ("graphml", "gexf"):

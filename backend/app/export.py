@@ -293,7 +293,40 @@ def _shade(cell, fill="E6E8EB"):
     tcPr.append(sh)
 
 
-def to_word(project: dict, result: dict, explanation: dict, image: bytes | None = None, template: bytes | None = None) -> bytes:
+def _summary_docx(d, summary):
+    from docx.shared import Pt
+    d.add_heading("Resumen ejecutivo", 1)
+    figs = summary.get("key_figures") or []
+    if figs:
+        cols = min(3, len(figs))
+        rows = -(-len(figs) // cols)
+        t = d.add_table(rows=rows, cols=cols)
+        _set_borders(t)
+        for i, f in enumerate(figs):
+            c = t.cell(i // cols, i % cols)
+            c.text = ""
+            pr = c.paragraphs[0]
+            r1 = pr.add_run(str(f["value"]))
+            r1.bold = True
+            r1.font.size = Pt(13)
+            pr2 = c.add_paragraph()
+            r2 = pr2.add_run(str(f["label"]))
+            r2.font.size = Pt(8)
+            _shade(c, "F1F2F4")
+        d.add_paragraph()
+    for sec in summary.get("sections", []):
+        d.add_heading(sec["heading"], 2)
+        for ptxt in sec.get("paragraphs", []):
+            d.add_paragraph(ptxt)
+        for bl in sec.get("bullets", []):
+            d.add_paragraph(bl, style="List Bullet")
+        for tb in sec.get("tables", []):
+            if tb.get("rows"):
+                _add_table(d, tb)
+                d.add_paragraph()
+
+
+def to_word(project: dict, result: dict, explanation: dict, image: bytes | None = None, template: bytes | None = None, summary: dict | None = None) -> bytes:
     import docx
     from docx.shared import Pt, RGBColor, Inches
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -311,21 +344,26 @@ def to_word(project: dict, result: dict, explanation: dict, image: bytes | None 
     for r in t.runs:
         r.font.color.rgb = RGBColor(0, 0, 0)
     d.add_paragraph(f"Proyecto: {project['name']} · {len(project['nodes'])} nodos · {len(project['edges'])} aristas")
-    d.add_heading("Resumen ejecutivo", 1)
-    for ln in explanation["executive"]["short"]:
-        d.add_paragraph(ln, style="List Bullet")
-    d.add_heading("Respuesta directa", 1)
+    if summary:
+        _summary_docx(d, summary)
+        d.add_page_break()
+        d.add_heading("Anexo A. Respuesta directa", 1)
+    else:
+        d.add_heading("Resumen ejecutivo", 1)
+        for ln in explanation["executive"]["short"]:
+            d.add_paragraph(ln, style="List Bullet")
+        d.add_heading("Respuesta directa", 1)
     d.add_paragraph(explanation["answer"])
     if image:
         d.add_picture(io.BytesIO(image), width=Inches(6.2))
         d.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-    d.add_heading("Paso a paso entre nodos", 1)
+    d.add_heading("Anexo B. Paso a paso entre nodos" if summary else "Paso a paso entre nodos", 1)
     for blk in explanation["steps"][:10]:
         d.add_heading(blk["label"], 3)
         d.add_paragraph(blk["summary"])
         for ln in blk["lines"][:60]:
             d.add_paragraph(ln, style="List Number")
-    d.add_heading("Razonamiento de elección", 1)
+    d.add_heading("Anexo C. Razonamiento de elección" if summary else "Razonamiento de elección", 1)
     r = explanation["reasoning"]
     d.add_paragraph(r["algorithm_choice"])
     if r["equation"]:
@@ -335,7 +373,7 @@ def to_word(project: dict, result: dict, explanation: dict, image: bytes | None 
         if r.get(k):
             d.add_paragraph(r[k])
     d.add_paragraph("Restricciones activas: " + "; ".join(r["active_constraints"]))
-    d.add_heading("Informe técnico", 1)
+    d.add_heading("Anexo D. Informe técnico" if summary else "Informe técnico", 1)
     for sec in explanation["technical"]:
         d.add_heading(sec["heading"], 2)
         for ptxt in sec["paragraphs"]:
@@ -387,7 +425,7 @@ def _add_table(d, tb, max_rows=80):
 
 # ---------- PDF ----------
 
-def to_pdf(project: dict, result: dict, explanation: dict, image: bytes | None = None) -> bytes:
+def to_pdf(project: dict, result: dict, explanation: dict, image: bytes | None = None, summary: dict | None = None) -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
@@ -401,7 +439,28 @@ def to_pdf(project: dict, result: dict, explanation: dict, image: bytes | None =
     doc = SimpleDocTemplate(b, pagesize=A4, leftMargin=2 * cm, rightMargin=2 * cm, topMargin=2 * cm, bottomMargin=2 * cm, title=result["title"])
     S = [Paragraph(escape(result["title"]), T), Paragraph(escape(f"Proyecto: {project['name']}"), ss["Normal"]), Spacer(1, 8),
          Paragraph("Resumen ejecutivo", H)]
-    S += [Paragraph("• " + escape(x), ss["Normal"]) for x in explanation["executive"]["short"]]
+    grid = TableStyle([("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#7A7F87")), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E6E8EB")), ("FONTSIZE", (0, 0), (-1, -1), 7.5), ("VALIGN", (0, 0), (-1, -1), "TOP")])
+    if summary:
+        figs = summary.get("key_figures") or []
+        if figs:
+            ft = Table([[Paragraph(f"<b>{escape(str(f['value']))}</b><br/><font size=7>{escape(str(f['label']))}</font>", ss["Normal"]) for f in figs[i:i + 3]] for i in range(0, len(figs), 3)])
+            ft.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#7A7F87"))]))
+            S.append(ft)
+        for sec in summary.get("sections", []):
+            S.append(Paragraph(escape(sec["heading"]), H))
+            S += [Paragraph(escape(x), ss["Normal"]) for x in sec.get("paragraphs", [])]
+            S += [Paragraph("• " + escape(x), ss["Normal"]) for x in sec.get("bullets", [])]
+            for tb in sec.get("tables", []):
+                if tb.get("rows"):
+                    S.append(Paragraph(f"<b>{escape(tb['title'])}</b>", ss["Normal"]))
+                    cell = ParagraphStyle("c", parent=ss["Normal"], fontSize=7, leading=8.5)
+                    data = [[Paragraph(escape(str(c)), cell) for c in tb["columns"]]] + [[Paragraph(escape(str(c)[:90]), cell) for c in row] for row in tb["rows"][:40]]
+                    t_ = Table(data, repeatRows=1)
+                    t_.setStyle(grid)
+                    S += [t_, Spacer(1, 6)]
+        S.append(PageBreak())
+    else:
+        S += [Paragraph("• " + escape(x), ss["Normal"]) for x in explanation["executive"]["short"]]
     S += [Paragraph("Respuesta directa", H), Paragraph(escape(explanation["answer"]), ss["Normal"])]
     if image:
         S.append(Image(io.BytesIO(image), width=15 * cm, height=10.5 * cm))
@@ -528,8 +587,10 @@ def full_zip(project: dict, results: list[dict], explanations: list[dict], scena
             z.writestr(f"Grafos_v1.3.5/{name}", data)
         for i, (r, e) in enumerate(zip(results, explanations), 1):
             img = graph_image(project, r)
-            z.writestr(f"informe_{i}_{r.get('key', 'x')}.docx", to_word(project, r, e, img))
-            z.writestr(f"informe_{i}_{r.get('key', 'x')}.pdf", to_pdf(project, r, e, img))
+            from .fullexec import build_summary
+            sm = r.get("full_summary") or build_summary(project, r, {"light": True})
+            z.writestr(f"informe_{i}_{r.get('key', 'x')}.docx", to_word(project, r, e, img, summary=sm))
+            z.writestr(f"informe_{i}_{r.get('key', 'x')}.pdf", to_pdf(project, r, e, img, summary=sm))
             z.writestr(f"resultado_{i}_{r.get('key', 'x')}.json", json.dumps(r, ensure_ascii=False, default=str, indent=1))
         if has_coords(project):
             z.writestr("grafo.geojson", to_geojson(project, results[-1] if results else None))

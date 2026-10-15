@@ -139,9 +139,16 @@ def _held_karp(C):
     return best, [0] + seq + [0]
 
 
+STRATEGIES = {"path_cheapest_arc": routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC,
+              "savings": routing_enums_pb2.FirstSolutionStrategy.SAVINGS,
+              "parallel_cheapest_insertion": routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION,
+              "christofides": routing_enums_pb2.FirstSolutionStrategy.CHRISTOFIDES,
+              "best_insertion": routing_enums_pb2.FirstSolutionStrategy.LOCAL_CHEAPEST_INSERTION}
+
+
 def _routing_params(ctx):
     sp = pywrapcp.DefaultRoutingSearchParameters()
-    sp.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    sp.first_solution_strategy = STRATEGIES.get(ctx.params.get("strategy", "path_cheapest_arc"), STRATEGIES["path_cheapest_arc"])
     sp.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
     sp.time_limit.FromSeconds(max(1, ctx.time_limit))
     sp.solution_limit = int(ctx.params.get("solution_limit", 2000))   # límite fijo → reproducible
@@ -373,7 +380,11 @@ def solve_vrp(ctx: Ctx, mode: str = "cvrp") -> dict:
             em += M.em[a][b]
             cpk = v.get("cost_per_km")
             cost += M.cost[a][b] if cpk is None else cpk * M.km[a][b] + c_hora * (M.km[a][b] * 60 / v["speed"] if v.get("speed") else M.time[a][b]) / 60
-        cost += v.get("fixed_cost") or 0
+        fixed = v.get("fixed_cost") or 0
+        cost += fixed
+        cpk_ = v.get("cost_per_km")
+        cost_dist = (cpk_ if cpk_ is not None else ctx.p["params"].get("c_km", 1.0)) * km
+        cost_time = c_hora * (km * 60 / v["speed"] if (cpk_ is not None and v.get("speed")) else tm) / 60
         if v.get("emissions_per_km"):
             em = v["emissions_per_km"] * km
         stops = [nodes[a] for a in seq]
@@ -382,7 +393,7 @@ def solve_vrp(ctx: Ctx, mode: str = "cvrp") -> dict:
         load = sum(dem[a] for a in seq) / unitsf
         routes.append({"vehicle": k + 1, "label": v["label"], "type": v.get("type"), "stops": stops,
                        "nodes": M.expand(stops), "cost": cost, "km": km, "time_min": tm, "emissions": em,
-                       "load": load, "arrivals": arr, "pickup": sum(pick[a] for a in seq) / unitsf if spd else None,
+                       "load": load, "arrivals": arr, "fixed": fixed, "cost_dist": cost_dist, "cost_time": cost_time, "pickup": sum(pick[a] for a in seq) / unitsf if spd else None,
                        "capacity": v.get("capacity")})
         total_cost += cost
         total_km += km
@@ -403,8 +414,8 @@ def vrp(ctx: Ctx, mode: str = "cvrp"):
     for r in sv["routes"]:
         lab = f"{r['label']}"
         res["paths"].append({"label": lab, "nodes": r["nodes"], "stops": r["stops"], "cost": r["cost"],
-                             "vehicle": r["vehicle"], "totals": {"w": r["cost"], "distance": r["km"], "time": r["time_min"],
-                                                                "emissions": r["emissions"]},
+                             "vehicle": r["vehicle"], "vtype": r["type"], "fixed": r["fixed"], "cost_dist": r["cost_dist"], "cost_time": r["cost_time"],
+                             "totals": {"w": r["cost"], "distance": r["km"], "time": r["time_min"], "emissions": r["emissions"]},
                              "load": r["load"], "capacity": r["capacity"], "arrivals": r["arrivals"]})
         res["highlight_edges"] += [[a, b, f"veh{r['vehicle']}"] for a, b in zip(r["nodes"][:-1], r["nodes"][1:])]
         res["tables"].append({"title": f"Ruta {r['vehicle']} – {lab}",
