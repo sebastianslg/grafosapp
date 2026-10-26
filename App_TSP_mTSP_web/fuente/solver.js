@@ -1,0 +1,319 @@
+/* Modelos de optimización exactos para TSP y m-TSP (MILP). Independiente del solver:
+   recibe ctx.solve(lpText, {timeLimit, gap}) -> {ok, status, obj, gap, val(nombre)}. */
+(function (root) {
+  'use strict';
+  const INF = Infinity;
+
+  /* ---------- constructor de modelos y escritura en formato LP ---------- */
+  class Model {
+    constructor() { this.vars = []; this.idx = new Map(); this.cons = []; }
+    addVar(name, cost, lb, ub, int) {
+      this.idx.set(name, this.vars.length);
+      this.vars.push({ name, cost, lb, ub, int });
+      return name;
+    }
+    addCon(names, coefs, lo, hi) { this.cons.push({ names, coefs, lo, hi }); }
+    toLP() {
+      const fmt = (c) => { const a = Math.abs(c); const s = a === Math.round(a) ? String(a) : a.toFixed(6); return (c < 0 ? '- ' : '+ ') + s; };
+      const expr = (names, coefs) => {
+        const out = []; let line = [];
+        names.forEach((n, i) => {
+          const c = Array.isArray(coefs) ? coefs[i] : coefs;
+          if (c === 0) return;
+          line.push(fmt(c) + ' ' + n);
+          if (line.length >= 8) { out.push(line.join(' ')); line = []; }
+        });
+        if (line.length) out.push(line.join(' '));
+        return out.join('\n   ');
+      };
+      const L = ['Minimize'];
+      const on = [], oc = [];
+      this.vars.forEach((v) => { if (v.cost !== 0) { on.push(v.name); oc.push(v.cost); } });
+      L.push(' obj: ' + (on.length ? expr(on, oc) : '0 ' + this.vars[0].name));
+      L.push('Subject To');
+      this.cons.forEach((c, k) => {
+        if (!c.names.length) return;
+        const e = expr(c.names, c.coefs);
+        if (!e) return;
+        if (c.lo === c.hi) L.push(' r' + k + ': ' + e + ' = ' + c.lo);
+        else {
+          if (c.lo > -INF) L.push(' r' + k + 'a: ' + e + ' >= ' + c.lo);
+          if (c.hi < INF) L.push(' r' + k + 'b: ' + e + ' <= ' + c.hi);
+        }
+      });
+      L.push('Bounds');
+      const bin = [], gen = [];
+      this.vars.forEach((v) => {
+        if (v.int && v.lb === 0 && v.ub === 1) { bin.push(v.name); return; }
+        if (v.int) gen.push(v.name);
+        if (v.lb === 0 && v.ub === INF) return;
+        L.push(' ' + (v.lb === -INF ? '-inf' : v.lb) + ' <= ' + v.name + ' <= ' + (v.ub === INF ? 'inf' : v.ub));
+      });
+      if (bin.length) { L.push('Binary'); for (let i = 0; i < bin.length; i += 10) L.push(' ' + bin.slice(i, i + 10).join(' ')); }
+      if (gen.length) { L.push('General'); for (let i = 0; i < gen.length; i += 10) L.push(' ' + gen.slice(i, i + 10).join(' ')); }
+      L.push('End');
+      return L.join('\n');
+    }
+  }
+
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  const log = (ctx, s) => { if (ctx && ctx.log) ctx.log(s); };
+
+  /* ---------- TSP exacto (asignación + cortes de subtour DFJ) ---------- */
+  function ciclos(succ) {
+    const vis = new Set(), out = [];
+    for (let a = 0; a < succ.length; a++) {
+      if (vis.has(a)) continue;
+      const c = []; let u = a;
+      while (!vis.has(u)) { vis.add(u); c.push(u); u = succ[u]; }
+      out.push(c);
+    }
+    return out;
+  }
+
+  async function tspCore(E, ctx, opts) {
+    const N = E.length, t0 = now();
+    const m = new Model(), nm = (i, j) => 'x_' + i + '_' + j;
+    const ent = Array.from({ length: N }, () => []), sal = Array.from({ length: N }, () => []);
+    const has = new Set();
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      if (i !== j && isFinite(E[i][j])) { m.addVar(nm(i, j), E[i][j], 0, 1, true); sal[i].push(nm(i, j)); ent[j].push(nm(i, j)); has.add(i + ',' + j); }
+    }
+    for (let i = 0; i < N; i++) { m.addCon(sal[i], 1, 1, 1); m.addCon(ent[i], 1, 1, 1); }
+    let cortes = 0;
+    for (;;) {
+      const left = opts.tiempo - (now() - t0) / 1000;
+      if (left <= 0.5) return { estado: 'límite de tiempo (sin tour válido)', cortes };
+      const sol = await ctx.solve(m.toLP(), { timeLimit: left, gap: opts.brecha });
+      if (!sol.ok) return { estado: sol.status, cortes };
+      const succ = new Array(N).fill(-1);
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (has.has(i + ',' + j) && sol.val(nm(i, j)) > 0.5) succ[i] = j;
+      if (succ.includes(-1)) return { estado: 'infactible', cortes };
+      const cs = ciclos(succ);
+      log(ctx, 'TSP: ' + cs.length + ' subcircuito(s), ' + cortes + ' cortes');
+      if (cs.length === 1) return { estado: sol.status, succ, obj: sol.obj, gap: sol.gap, cortes };
+      for (const S of cs) {
+        const inS = new Set(S), inter = [], front = [];
+        for (const i of S) for (let j = 0; j < N; j++) if (has.has(i + ',' + j)) (inS.has(j) ? inter : front).push(nm(i, j));
+        if (inter.length <= front.length) m.addCon(inter, 1, -INF, S.length - 1);
+        else m.addCon(front, 1, 1, INF);
+        cortes++;
+      }
+    }
+  }
+
+  /* D: matriz (Infinity = sin arco). modo: ciclo | abierto | fijo | libre */
+  async function tsp(D, ctx, o) {
+    const t0 = now(), n = D.length, s = o.origen || 0;
+    let E;
+    if (o.modo === 'ciclo') E = D.map((r) => r.slice());
+    else {
+      E = Array.from({ length: n + 1 }, () => new Array(n + 1).fill(INF));
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) E[i][j] = D[i][j];
+      if (o.modo === 'abierto') { for (let i = 0; i < n; i++) E[i][n] = 0; E[s][n] = INF; E[n][s] = 0; }
+      else if (o.modo === 'fijo') { E[o.fin][n] = 0; E[n][s] = 0; }
+      else { for (let i = 0; i < n; i++) { E[i][n] = 0; E[n][i] = 0; } }
+    }
+    const r = await tspCore(E, ctx, o);
+    if (!r.succ) return { estado: r.estado, rutas: [] };
+    let ruta = [], u;
+    if (o.modo === 'ciclo') { ruta = [s]; u = r.succ[s]; while (u !== s) { ruta.push(u); u = r.succ[u]; } ruta.push(s); }
+    else { u = o.modo === 'libre' ? r.succ[n] : s; while (u !== n) { ruta.push(u); u = r.succ[u]; } }
+    const dist = ruta.slice(1).reduce((a, v, i) => a + D[ruta[i]][v], 0);
+    return { estado: r.estado, objetivo: dist, rutas: [ruta], dists: [dist], gap: r.gap, cortes: r.cortes, seg: (now() - t0) / 1000 };
+  }
+
+  /* ---------- m-TSP: suma mínima, dos índices ---------- */
+  async function mtspSuma(D, ctx, o) {
+    const t0 = now(), n = D.length, h = o.deposito || 0, m = o.m;
+    const cl = []; for (let i = 0; i < n; i++) if (i !== h) cl.push(i);
+    const nc = cl.length, lmin = Math.max(0, o.lmin | 0), lmax = o.lmax ? o.lmax : nc;
+    const C = D.map((r) => r.slice());
+    if (o.abierto) for (let i = 0; i < n; i++) if (isFinite(C[i][h])) C[i][h] = 0;
+    const M = new Model(), nm = (i, j) => 'x_' + i + '_' + j, has = new Set();
+    const ent = {}, sal = {};
+    [...cl, h].forEach((i) => { ent[i] = []; sal[i] = []; });
+    for (const i of [...cl, h]) for (const j of [...cl, h]) if (i !== j && isFinite(C[i][j])) {
+      M.addVar(nm(i, j), C[i][j], 0, 1, true); sal[i].push(nm(i, j)); ent[j].push(nm(i, j)); has.add(i + ',' + j);
+    }
+    for (const i of cl) { M.addCon(ent[i], 1, 1, 1); M.addCon(sal[i], 1, 1, 1); }
+    M.addCon(sal[h], 1, m, m); M.addCon(ent[h], 1, m, m);
+    const libre = lmin <= 1 && lmax >= nc;
+    if (!libre) {
+      for (const i of cl) M.addVar('p_' + i, 0, 1, lmax, false);
+      for (const i of cl) {
+        if (has.has(h + ',' + i)) M.addCon(['p_' + i, nm(h, i)], [1, lmax - 1], -INF, lmax);
+        if (lmin > 1 && has.has(i + ',' + h)) M.addCon(['p_' + i, nm(i, h)], [1, -lmin], 0, INF);
+      }
+      for (const i of cl) for (const j of cl) if (i !== j && has.has(i + ',' + j)) {
+        M.addCon(['p_' + j, 'p_' + i, nm(i, j)], [1, -1, -lmax], 1 - lmax, INF);
+        if (lmin > 1) M.addCon(['p_' + j, 'p_' + i, nm(i, j)], [1, -1, lmax - 2], -INF, lmax - 1);
+      }
+    }
+    let cortes = 0, gapIt = Math.max(o.brecha, 0.02), valida = null, sol;
+    for (;;) {
+      const left = o.tiempo - (now() - t0) / 1000;
+      if (left <= 0.5) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
+      if (!sol.ok) { if (!valida) return { estado: sol.status, rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      const succ = {};
+      for (const key of has) { const [i, j] = key.split(',').map(Number); if (i !== h && sol.val(nm(i, j)) > 0.5) succ[i] = j; }
+      const vis = new Set();
+      for (const j of sal[h].map((s) => +s.split('_')[2])) if (sol.val(nm(h, j)) > 0.5) { let u = j; while (u !== h && !vis.has(u)) { vis.add(u); u = succ[u] === undefined ? h : succ[u]; } }
+      const cs = [];
+      for (const i of cl) if (!vis.has(i)) { const c = []; let u = i; while (!vis.has(u) && u !== h) { vis.add(u); c.push(u); u = succ[u]; } cs.push(c); }
+      log(ctx, 'm-TSP: ' + cs.length + ' subcircuito(s), ' + cortes + ' cortes');
+      if (!cs.length) {
+        valida = sol;
+        if (gapIt > o.brecha * 1.0001 && sol.status === 'óptimo' && o.tiempo - (now() - t0) / 1000 > 2) { gapIt = o.brecha; continue; }
+        break;
+      }
+      for (const S of cs) {
+        const inter = [];
+        for (const i of S) for (const j of S) if (has.has(i + ',' + j)) inter.push(nm(i, j));
+        M.addCon(inter, 1, -INF, S.length - 1); cortes++;
+      }
+    }
+    const succ = {}, starts = [];
+    for (const key of has) { const [i, j] = key.split(',').map(Number); if (sol.val(nm(i, j)) > 0.5) { if (i === h) starts.push(j); else succ[i] = j; } }
+    const rutas = [];
+    for (const j of starts) { const r = [h, j]; let u = j; while (succ[u] !== undefined && succ[u] !== h) { u = succ[u]; r.push(u); } if (!o.abierto) r.push(h); rutas.push(r); }
+    return finRutas(D, rutas, sol, cortes, t0);
+  }
+
+  /* ---------- m-TSP: minimizar la ruta más larga (índice de vehículo) ---------- */
+  async function mtspMax(D, ctx, o) {
+    const t0 = now(), n = D.length, h = o.deposito || 0, m = o.m;
+    const cl = []; for (let i = 0; i < n; i++) if (i !== h) cl.push(i);
+    const nc = cl.length, lmin = Math.max(1, o.lmin | 0), lmax = o.lmax ? o.lmax : nc;
+    const C = D.map((r) => r.slice());
+    if (o.abierto) for (let i = 0; i < n; i++) if (isFinite(C[i][h])) C[i][h] = 0;
+    const M = new Model(), nodes = [...cl, h], xs = [];
+    const X = (k, i, j) => 'x_' + k + '_' + i + '_' + j, Y = (k, i) => 'y_' + k + '_' + i;
+    M.addVar('z', 1, 0, INF, false);
+    const arcs = [];
+    for (const i of nodes) for (const j of nodes) if (i !== j && isFinite(C[i][j])) arcs.push([i, j]);
+    const has = new Set(arcs.map(([i, j]) => i + ',' + j));
+    for (let k = 0; k < m; k++) {
+      for (const [i, j] of arcs) M.addVar(X(k, i, j), 1e-3 * C[i][j], 0, 1, true);
+      for (const i of cl) M.addVar(Y(k, i), 0, 0, 1, true);
+      M.addCon(cl.filter((j) => has.has(h + ',' + j)).map((j) => X(k, h, j)), 1, 1, 1);
+      M.addCon(cl.filter((i) => has.has(i + ',' + h)).map((i) => X(k, i, h)), 1, 1, 1);
+      for (const i of cl) {
+        const a = nodes.filter((j) => j !== i && has.has(j + ',' + i)).map((j) => X(k, j, i)).concat([Y(k, i)]);
+        const b = nodes.filter((j) => j !== i && has.has(i + ',' + j)).map((j) => X(k, i, j)).concat([Y(k, i)]);
+        M.addCon(a, a.map((_, q) => (q === a.length - 1 ? -1 : 1)), 0, 0);
+        M.addCon(b, b.map((_, q) => (q === b.length - 1 ? -1 : 1)), 0, 0);
+      }
+      for (let a = 0; a < cl.length; a++) for (let b = a + 1; b < cl.length; b++) {
+        const i = cl[a], j = cl[b];
+        if (has.has(i + ',' + j) && has.has(j + ',' + i)) M.addCon([X(k, i, j), X(k, j, i), Y(k, i)], [1, 1, -1], -INF, 0);
+      }
+      M.addCon(cl.map((i) => Y(k, i)), 1, lmin, lmax);
+      M.addCon(arcs.map(([i, j]) => X(k, i, j)).concat(['z']), arcs.map(([i, j]) => C[i][j]).concat([-1]), -INF, 0);
+    }
+    for (const i of cl) M.addCon(Array.from({ length: m }, (_, k) => Y(k, i)), 1, 1, 1);
+    for (let k = 1; k < m; k++) cl.forEach((j, pos) => {
+      const prev = cl.slice(0, pos).map((l) => Y(k - 1, l));
+      M.addCon([Y(k, j), ...prev], [1, ...prev.map(() => -1)], -INF, 0);
+    });
+    let cortes = 0, gapIt = Math.max(o.brecha, 0.05), valida = null, sol;
+    for (;;) {
+      const left = o.tiempo - (now() - t0) / 1000;
+      if (left <= 0.5) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
+      if (!sol.ok) { if (!valida) return { estado: sol.status, rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      const cs = [];
+      for (let k = 0; k < m; k++) {
+        const succ = {}, vis = new Set();
+        for (const [i, j] of arcs) if (i !== h && sol.val(X(k, i, j)) > 0.5) succ[i] = j;
+        for (const j of cl) if (has.has(h + ',' + j) && sol.val(X(k, h, j)) > 0.5) { let u = j; while (u !== h && !vis.has(u)) { vis.add(u); u = succ[u] === undefined ? h : succ[u]; } }
+        for (const i of cl) if (sol.val(Y(k, i)) > 0.5 && !vis.has(i) && succ[i] !== undefined) { const c = []; let u = i; while (!vis.has(u) && succ[u] !== undefined) { vis.add(u); c.push(u); u = succ[u]; } if (c.length) cs.push(c); }
+      }
+      log(ctx, 'm-TSP (ruta más larga): ' + cs.length + ' subcircuito(s), ' + cortes + ' cortes');
+      if (!cs.length) {
+        valida = sol;
+        if (gapIt > o.brecha * 1.0001 && sol.status === 'óptimo' && o.tiempo - (now() - t0) / 1000 > 2) { gapIt = o.brecha; continue; }
+        break;
+      }
+      for (const S of cs) for (let k = 0; k < m; k++) {
+        const inter = []; for (const i of S) for (const j of S) if (has.has(i + ',' + j)) inter.push(X(k, i, j));
+        for (const hh of new Set([S[0], S[S.length >> 1]])) {
+          const ys = S.filter((i) => i !== hh).map((i) => Y(k, i));
+          M.addCon(inter.concat(ys), inter.map(() => 1).concat(ys.map(() => -1)), -INF, 0);
+        }
+        cortes++;
+      }
+    }
+    const rutas = [];
+    for (let k = 0; k < m; k++) {
+      const succ = {}; let st = null;
+      for (const [i, j] of arcs) if (sol.val(X(k, i, j)) > 0.5) { if (i === h) st = j; else succ[i] = j; }
+      const r = [h, st]; let u = st; while (succ[u] !== undefined && succ[u] !== h) { u = succ[u]; r.push(u); }
+      if (!o.abierto) r.push(h); rutas.push(r);
+    }
+    return finRutas(D, rutas, sol, cortes, t0);
+  }
+
+  function finRutas(D, rutas, sol, cortes, t0) {
+    rutas.sort((a, b) => b.length - a.length);
+    const dists = rutas.map((r) => r.slice(1).reduce((s, v, i) => s + D[r[i]][v], 0));
+    return { estado: sol.status, rutas, dists, total: dists.reduce((a, b) => a + b, 0), maxima: Math.max(...dists),
+             gap: sol.gap, cortes, seg: (now() - t0) / 1000 };
+  }
+
+  async function mtsp(D, ctx, o) {
+    const r = o.objetivo === 'maximo' ? await mtspMax(D, ctx, o) : await mtspSuma(D, ctx, o);
+    if (r.rutas && r.rutas.length) r.objetivo = o.objetivo === 'maximo' ? r.maxima : r.total;
+    return r;
+  }
+
+  /* ---------- lectura de datos ---------- */
+  function haversine(la1, lo1, la2, lo2) {
+    const R = 6371.0088, p = Math.PI / 180, dl = (lo2 - lo1) * p, a = Math.sin((la2 - la1) * p / 2) ** 2 + Math.cos(la1 * p) * Math.cos(la2 * p) * Math.sin(dl / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+  const num = (s) => { const t = String(s).trim().replace(',', '.'); if (t === '' || t === '#' || /^(inf|nan|-|∞)$/i.test(t)) return INF; const v = Number(t); return isNaN(v) ? INF : v; };
+  function parseTable(text) {
+    const lines = text.replace(/\r/g, '').split('\n').filter((l) => l.trim() !== '');
+    if (!lines.length) throw new Error('No hay datos.');
+    const f = lines[0], sep = f.includes('\t') ? '\t' : (f.split(';').length > f.split(',').length ? ';' : ',');
+    return lines.map((l) => l.split(sep).map((c) => c.trim().replace(/^"|"$/g, '')));
+  }
+  /* devuelve {D, ids, nombres, coords|null, tipo} */
+  function cargar(text, opt) {
+    const rows = parseTable(text), head = rows[0].map((h) => h.toLowerCase());
+    const find = (...al) => head.findIndex((h) => al.includes(h));
+    const cLat = find('lat', 'latitud', 'latitude'), cLon = find('lon', 'lng', 'long', 'longitud', 'longitude');
+    const cO = find('origen', 'desde', 'from', 'source'), cD = find('destino', 'hasta', 'to', 'target'), cC = find('costo', 'coste', 'cost', 'peso', 'distancia', 'weight', 'km');
+    if (cO >= 0 && cD >= 0 && cC >= 0) {
+      const ids = [], pos = new Map();
+      const g = (x) => { if (!pos.has(x)) { pos.set(x, ids.length); ids.push(x); } return pos.get(x); };
+      rows.slice(1).forEach((r) => { g(r[cO]); g(r[cD]); });
+      const n = ids.length, D = Array.from({ length: n }, () => new Array(n).fill(INF));
+      rows.slice(1).forEach((r) => { const i = pos.get(r[cO]), j = pos.get(r[cD]), c = num(r[cC]); D[i][j] = c; if (!opt.dirigido) D[j][i] = c; });
+      for (let i = 0; i < n; i++) D[i][i] = INF;
+      return { D, ids, nombres: null, coords: null, tipo: 'aristas' };
+    }
+    if (cLat >= 0 && cLon >= 0) {
+      const cId = find('id', 'nodo', 'node', 'n', '#'), cN = find('nombre', 'name', 'ciudad', 'tienda', 'city');
+      const body = rows.slice(1), n = body.length;
+      const lat = body.map((r) => Number(r[cLat].replace(',', '.'))), lon = body.map((r) => Number(r[cLon].replace(',', '.')));
+      const D = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => i === j ? INF :
+        (opt.metrica === 'euclidiana' ? Math.hypot(lat[i] - lat[j], lon[i] - lon[j]) : haversine(lat[i], lon[i], lat[j], lon[j])) * opt.factor));
+      return { D, ids: body.map((r, i) => (cId >= 0 ? r[cId] : String(i + 1))), nombres: cN >= 0 ? body.map((r) => r[cN]) : null, coords: lat.map((a, i) => [a, lon[i]]), tipo: 'coordenadas' };
+    }
+    // matriz cuadrada
+    const n = rows.length - 1, conEtq = rows[0].length === n + 1 || (rows[0].length === n && isNaN(Number(rows[1][0])));
+    let ids, body;
+    if (conEtq) { ids = rows[0].slice(rows[0].length - n); body = rows.slice(1).map((r) => r.slice(r.length - n)); }
+    else { ids = Array.from({ length: rows.length }, (_, i) => String(i + 1)); body = rows; }
+    const m = body.length;
+    if (body.some((r) => r.length !== m)) throw new Error('La matriz no es cuadrada (' + m + ' filas, ' + body[0].length + ' columnas).');
+    const D = body.map((r, i) => r.map((c, j) => (i === j ? INF : num(c))));
+    return { D, ids, nombres: null, coords: null, tipo: 'matriz' };
+  }
+
+  root.Solver = { Model, tsp, mtsp, cargar, haversine };
+  if (typeof module !== 'undefined' && module.exports) module.exports = root.Solver;
+})(typeof globalThis !== 'undefined' ? globalThis : this);

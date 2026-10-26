@@ -1,0 +1,21 @@
+SOLUCIONADOR DE TSP Y m-TSP POR OPTIMIZACION
+=============================================
+Como abrirlo (sin instalar nada):
+  * Doble clic en  TSP_mTSP_Optimizacion.html   (se abre en Chrome, Edge o Firefox; funciona sin internet)
+  * o ejecutar  python abrir_app.py   (solo abre el mismo archivo en el navegador)
+
+Como usarlo:
+  1. "Cargar ejemplo (15 puntos)"  o pegar/abrir sus datos (matriz de distancias, aristas o coordenadas).
+  2. Elegir el problema: TSP (circuito, camino abierto, origen-destino, libre) o m-TSP
+     (numero de viajantes, minimo/maximo de clientes por ruta, objetivo, rutas abiertas).
+  3. "Resolver". Se muestran el estado (optimo probado o no), la distancia, la brecha, las rutas y un mapa.
+     Se pueden descargar las rutas en CSV o imprimir/guardar en PDF.
+
+Metodo: programacion entera mixta (MILP) resuelta con HiGHS (compilado a WebAssembly, incrustado en el HTML).
+No usa algoritmos de grafos ni heuristicas. TSP: asignacion + eliminacion de subtours (Dantzig-Fulkerson-Johnson).
+m-TSP: formulacion de dos indices con contadores de posicion (balance) y formulacion por vehiculo (ruta mas larga).
+
+Verificacion rapida con el ejemplo de 15 puntos: TSP circuito = 68,014 km; m-TSP m=3 = 73,853 km;
+m-TSP m=3 con 4 a 5 clientes por ruta = 84,699 km; m-TSP minimizando la ruta mas larga = 29,799 km.
+
+Carpeta version_Jupyter: la misma herramienta como cuaderno de Python/Jupyter (requiere instalar Python y pip install -r requirements.txt).

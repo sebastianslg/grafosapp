@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solucionador TSP y m-TSP</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1b2430; --mute:#5d6b7c; --line:#d9dee5; --acc:#0b5cab; --acc2:#e8f1fb; --ok:#14733f; --warn:#9a5b00; --bad:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12161b; --card:#1b2129; --ink:#e7ebf0; --mute:#9aa7b6; --line:#2e3742; --acc:#6aaeea; --acc2:#1d2a38; --ok:#5cd08b; --warn:#f0b35a; --bad:#ff8f86; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,Segoe UI,Roboto,Arial,sans-serif; }
+  header { padding:22px 20px 8px; max-width:1100px; margin:0 auto; }
+  h1 { margin:0; font-size:24px; } h1 small { font-weight:400; color:var(--mute); font-size:15px; display:block; margin-top:4px; }
+  main { max-width:1100px; margin:0 auto; padding:8px 20px 40px; display:grid; gap:16px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; }
+  h2 { margin:0 0 10px; font-size:17px; } h2 span { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:50%; background:var(--acc); color:var(--bg); font-size:13px; margin-right:8px; }
+  textarea { width:100%; min-height:150px; font:13px/1.4 ui-monospace,Consolas,monospace; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:8px; resize:vertical; }
+  label { display:inline-flex; flex-direction:column; font-size:12.5px; color:var(--mute); gap:3px; margin:6px 14px 6px 0; }
+  label.inline { flex-direction:row; align-items:center; gap:6px; }
+  input, select { font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; min-width:90px; }
+  button { font:inherit; border:1px solid var(--acc); background:var(--acc); color:var(--bg); border-radius:6px; padding:7px 14px; cursor:pointer; margin:4px 8px 4px 0; }
+  button.sec { background:transparent; color:var(--acc); } button:disabled { opacity:.5; cursor:not-allowed; }
+  .row { display:flex; flex-wrap:wrap; align-items:flex-end; }
+  .msg { margin:8px 0 0; font-size:13.5px; } .ok { color:var(--ok); } .err { color:var(--bad); } .mute { color:var(--mute); }
+  details { margin-top:8px; color:var(--mute); font-size:13.5px; } summary { cursor:pointer; color:var(--acc); }
+  details pre { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px; overflow:auto; font-size:12.5px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:6px 0 12px; }
+  .k { background:var(--acc2); border-radius:8px; padding:8px 12px; } .k b { display:block; font-size:19px; } .k span { font-size:12px; color:var(--mute); }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; } th,td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; } th { color:var(--mute); font-weight:600; }
+  #log { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:12px ui-monospace,Consolas,monospace; max-height:90px; overflow:auto; white-space:pre-wrap; color:var(--mute); margin-top:8px; }
+  #mapa { width:100%; max-width:640px; height:auto; background:var(--bg); border:1px solid var(--line); border-radius:8px; }
+  .hide { display:none; }
+  @media print { header p, #datos, #problema, button { display:none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Solucionador de TSP y m-TSP <small>Optimización exacta (programación entera mixta, solver HiGHS). Sin heurísticas ni algoritmos de grafos. Funciona sin internet.</small></h1>
+</header>
+<main>
+<section id="datos">
+  <h2><span>1</span>Datos</h2>
+  <textarea id="txt" spellcheck="false" placeholder="Pegue aquí una matriz de distancias, una lista de aristas (origen,destino,costo) o coordenadas (id,nombre,lat,lon)…"></textarea>
+  <div class="row">
+    <button id="bEjemplo" class="sec">Cargar ejemplo (15 puntos)</button>
+    <button id="bArchivo" class="sec">Abrir archivo .csv / .txt…</button>
+    <input type="file" id="archivo" accept=".csv,.tsv,.txt" class="hide">
+    <label>Distancia con coordenadas
+      <select id="metrica"><option value="haversine">Línea recta (km, haversine)</option><option value="euclidiana">Euclidiana (x = lat, y = lon)</option></select></label>
+    <label>Factor de rodeo <input id="factor" type="number" value="1.3" step="0.05" min="0.1" style="width:90px"></label>
+    <label class="inline"><input id="dirigido" type="checkbox"> Aristas dirigidas</label>
+    <button id="bCargar">Cargar datos</button>
+  </div>
+  <div id="estadoDatos" class="msg mute">Cargue el ejemplo o pegue sus datos.</div>
+  <details><summary>Formatos de datos aceptados</summary>
+<pre>1) MATRIZ (separada por tabulaciones, comas o punto y coma; "#" o vacío = no hay arco)
+   ,A,B,C
+   A,#,5,9
+   B,5,#,2
+   C,9,2,#
+
+2) ARISTAS (columnas origen, destino, costo; marque "dirigidas" si no son simétricas)
+   origen,destino,costo
+   A,B,5
+   B,C,2
+
+3) COORDENADAS (columnas lat y lon; opcionales id y nombre). Distancia = línea recta × factor
+   id,nombre,lat,lon
+   0,Depósito,4.60,-74.10
+   1,Cliente 1,4.65,-74.05</pre>
+  También puede copiar las celdas de Excel y pegarlas en el cuadro.</details>
+</section>
+
+<section id="problema">
+  <h2><span>2</span>Problema</h2>
+  <div class="row">
+    <label>Tipo
+      <select id="tipo">
+        <option value="tsp:ciclo">TSP — circuito (regresa al origen)</option>
+        <option value="tsp:abierto">TSP — camino abierto desde el origen</option>
+        <option value="tsp:fijo">TSP — camino de origen a destino</option>
+        <option value="tsp:libre">TSP — camino libre (inicio y fin libres)</option>
+        <option value="mtsp">m-TSP — varios viajantes</option>
+      </select></label>
+    <label>Origen / depósito <select id="origen"></select></label>
+    <label id="lDestino">Destino <select id="destino"></select></label>
+  </div>
+  <div class="row" id="opcMtsp">
+    <label>Viajantes (m) <input id="m" type="number" value="3" min="2" max="12" style="width:80px"></label>
+    <label>Mín. clientes por ruta <input id="lmin" type="number" value="1" min="1" style="width:90px"></label>
+    <label>Máx. clientes por ruta <input id="lmax" type="number" value="0" min="0" style="width:90px"></label>
+    <label>Objetivo
+      <select id="objetivo"><option value="suma">Mínima distancia total</option><option value="maximo">Minimizar la ruta más larga</option></select></label>
+    <label class="inline"><input id="abierto" type="checkbox"> Rutas abiertas (no regresan)</label>
+  </div>
+  <div class="row">
+    <label>Tiempo máximo (s) <input id="tiempo" type="number" value="120" min="5" style="width:90px"></label>
+    <button id="bResolver">Resolver</button><button id="bDetener" class="sec" disabled>Detener</button>
+  </div>
+  <div class="mute" style="font-size:12.5px">Máx. clientes por ruta: 0 = sin límite. El tiempo se agota → se entrega la mejor solución hallada y se indica que no está probada óptima.</div>
+  <div id="log" class="hide"></div>
+</section>
+
+<section id="resultado" class="hide">
+  <h2><span>3</span>Resultado</h2>
+  <div class="cards" id="cards"></div>
+  <div id="tabla"></div>
+  <div style="margin-top:12px"><svg id="mapa" viewBox="0 0 640 480"></svg></div>
+  <div class="row" style="margin-top:8px">
+    <button id="bCsv" class="sec">Descargar rutas (CSV)</button>
+    <button id="bImp" class="sec">Imprimir / guardar PDF</button>
+  </div>
+</section>
+</main>
+
+<script type="text/plain" id="wasm">%%WASM_B64%%</script>
+<script type="text/plain" id="workerSrc">
+%%HIGHS_JS%%
+;
+%%SOLVER_JS%%
+;
+(function () {
+  let highsP = null;
+  const b64 = (s) => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+  onmessage = async (e) => {
+    const d = e.data;
+    try {
+      if (!highsP) highsP = Module({ wasmBinary: b64(d.wasm) });
+      const highs = await highsP;
+      const ctx = {
+        log: (s) => postMessage({ type: 'log', s }),
+        solve: async (lp, o) => {
+          const r = highs.solve(lp, { time_limit: o.timeLimit, mip_rel_gap: o.gap, output_flag: false });
+          const st = r.Status, tiene = r.Columns && Object.keys(r.Columns).length && r.Columns[Object.keys(r.Columns)[0]].Primal !== undefined;
+          let status = st === 'Optimal' ? 'óptimo' : st === 'Infeasible' ? 'infactible' : st === 'Time limit reached' ? 'límite de tiempo (mejor solución encontrada, no probada óptima)' : st;
+          const ok = (st === 'Optimal' || st === 'Time limit reached') && tiene && isFinite(r.ObjectiveValue);
+          return { ok, status, obj: r.ObjectiveValue, gap: st === 'Optimal' ? 0 : null, val: (n) => (r.Columns[n] ? r.Columns[n].Primal : 0) };
+        }
+      };
+      let res;
+      if (d.kind === 'tsp') res = await Solver.tsp(d.D, ctx, d.opt);
+      else res = await Solver.mtsp(d.D, ctx, d.opt);
+      postMessage({ type: 'done', res });
+    } catch (err) { postMessage({ type: 'error', msg: String(err && err.message || err) }); }
+  };
+})();
+</script>
+
+<script>
+%%SOLVER_JS%%
+</script>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const EJEMPLO = `%%EJEMPLO%%`;
+  let red = null, worker = null, ultimo = null;
+  const COL = ['#d62728', '#1f77b4', '#2ca02c', '#9467bd', '#ff7f0e', '#8c564b', '#e377c2', '#17becf', '#bcbd22', '#7f7f7f', '#393b79', '#e7ba52'];
+
+  function msg(id, texto, cls) { const e = $(id); e.textContent = texto; e.className = 'msg ' + (cls || 'mute'); }
+  function etq(i) { return red.ids[i] + (red.nombres ? ' — ' + red.nombres[i] : ''); }
+
+  function cargarDatos() {
+    try {
+      const r = Solver.cargar($('txt').value, { factor: parseFloat($('factor').value) || 1, metrica: $('metrica').value, dirigido: $('dirigido').checked });
+      if (r.ids.length < 3) throw new Error('Se necesitan al menos 3 nodos.');
+      red = r;
+      for (const id of ['origen', 'destino']) {
+        $(id).innerHTML = '';
+        red.ids.forEach((_, i) => { const o = document.createElement('option'); o.value = i; o.textContent = etq(i); $(id).appendChild(o); });
+      }
+      $('destino').value = red.ids.length - 1;
+      const na = red.D.reduce((s, f) => s + f.filter(isFinite).length, 0);
+      msg('estadoDatos', '✔ ' + red.ids.length + ' nodos, ' + na + ' arcos (' + red.tipo + '). Elija el problema abajo.', 'ok');
+      $('resultado').classList.add('hide');
+    } catch (e) { red = null; msg('estadoDatos', '✖ ' + e.message, 'err'); }
+  }
+
+  function actualizarCampos() {
+    const t = $('tipo').value;
+    $('lDestino').classList.toggle('hide', t !== 'tsp:fijo');
+    $('opcMtsp').classList.toggle('hide', t !== 'mtsp');
+    $('origen').previousSibling.textContent = t === 'mtsp' ? 'Depósito ' : 'Origen ';
+    $('origen').parentElement.style.display = t === 'tsp:libre' ? 'none' : '';
+  }
+
+  function resolver() {
+    if (!red) { cargarDatos(); if (!red) return; }
+    const t = $('tipo').value, origen = parseInt($('origen').value || '0', 10), tiempo = Math.max(5, parseFloat($('tiempo').value) || 120);
+    let kind, opt;
+    if (t === 'mtsp') {
+      const m = parseInt($('m').value, 10), nc = red.ids.length - 1;
+      if (!(m >= 2 && m <= nc)) return msg('estadoDatos', 'El número de viajantes debe estar entre 2 y ' + nc + '.', 'err');
+      const lmin = parseInt($('lmin').value, 10) || 1, lmax = parseInt($('lmax').value, 10) || 0;
+      if (lmin * m > nc || (lmax && lmax * m < nc)) return msg('estadoDatos', 'Límites por ruta imposibles para ' + nc + ' clientes y ' + m + ' viajantes.', 'err');
+      kind = 'mtsp'; opt = { m, deposito: origen, lmin, lmax, objetivo: $('objetivo').value, abierto: $('abierto').checked, tiempo, brecha: 1e-6 };
+    } else {
+      const modo = t.split(':')[1], fin = parseInt($('destino').value, 10);
+      if (modo === 'fijo' && fin === origen) return msg('estadoDatos', 'El destino debe ser distinto del origen.', 'err');
+      kind = 'tsp'; opt = { modo, origen: modo === 'libre' ? 0 : origen, fin, tiempo, brecha: 1e-6 };
+    }
+    $('bResolver').disabled = true; $('bDetener').disabled = false;
+    $('log').classList.remove('hide'); $('log').textContent = 'Resolviendo…\n'; $('resultado').classList.add('hide');
+    const t0 = performance.now();
+    const timer = setInterval(() => { $('log').dataset.t = ((performance.now() - t0) / 1000).toFixed(0); }, 500);
+    const src = $('workerSrc').textContent;
+    worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    const fin = () => { clearInterval(timer); $('bResolver').disabled = false; $('bDetener').disabled = true; if (worker) { worker.terminate(); worker = null; } };
+    worker.onmessage = (e) => {
+      const d = e.data;
+      if (d.type === 'log') { $('log').textContent += d.s + '\n'; $('log').scrollTop = 1e9; }
+      else if (d.type === 'done') { fin(); mostrar(d.res, kind, opt); }
+      else if (d.type === 'error') { fin(); $('log').textContent += 'Error: ' + d.msg + '\n'; msg('estadoDatos', 'Error del solver: ' + d.msg, 'err'); }
+    };
+    worker.onerror = (e) => { fin(); $('log').textContent += 'Error: ' + e.message + '\n'; };
+    worker.postMessage({ wasm: $('wasm').textContent.trim(), kind, D: red.D, opt });
+  }
+
+  function detener() {
+    if (worker) { worker.terminate(); worker = null; }
+    $('bResolver').disabled = false; $('bDetener').disabled = true; $('log').textContent += 'Detenido por el usuario.\n';
+  }
+
+  const f3 = (x) => (Math.round(x * 1000) / 1000).toLocaleString('es-CO', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+
+  function mostrar(r, kind, opt) {
+    $('resultado').classList.remove('hide');
+    if (!r.rutas || !r.rutas.length) {
+      $('cards').innerHTML = '<div class="k"><b>' + r.estado + '</b><span>Estado</span></div>';
+      $('tabla').innerHTML = '<p class="err">No se obtuvo una solución. Verifique que los datos permitan una ruta completa o aumente el tiempo máximo.</p>';
+      $('mapa').innerHTML = ''; ultimo = null; return;
+    }
+    ultimo = r;
+    const optimo = r.estado === 'óptimo';
+    const k = [[r.estado.startsWith('límite') ? 'Límite de tiempo' : r.estado, 'Estado' + (optimo ? ' (óptimo probado)' : '')],
+               [f3(r.objetivo), kind === 'mtsp' && opt.objetivo === 'maximo' ? 'Ruta más larga' : 'Distancia total'],
+               [optimo ? '0 %' : (r.gap == null ? 'no disponible' : (r.gap * 100).toFixed(2) + ' %'), 'Brecha de optimalidad'],
+               [(r.seg || 0).toFixed(2) + ' s', 'Tiempo de cálculo']];
+    if (kind === 'mtsp') k.splice(2, 0, [f3(r.total), 'Distancia total de las rutas']);
+    $('cards').innerHTML = k.map((x) => '<div class="k"><b>' + x[0] + '</b><span>' + x[1] + '</span></div>').join('');
+    let h = '<table><tr><th>Ruta</th><th>Recorrido</th><th>Puntos</th><th>Distancia</th></tr>';
+    r.rutas.forEach((ru, i) => {
+      const puntos = kind === 'mtsp' ? ru.filter((v) => v !== opt.deposito).length : (opt.modo === 'ciclo' ? ru.length - 1 : ru.length);
+      h += '<tr><td><span style="color:' + COL[i % COL.length] + '">●</span> ' + (r.rutas.length > 1 ? i + 1 : '') + '</td><td>' + ru.map((v) => red.ids[v]).join(' → ') + '</td><td>' + puntos + '</td><td>' + f3(r.dists[i]) + '</td></tr>';
+    });
+    $('tabla').innerHTML = h + '</table>';
+    dibujar(r);
+  }
+
+  function dibujar(r) {
+    const W = 640, H = 480, P = 34, n = red.ids.length;
+    let pts;
+    if (red.coords) {
+      const la = red.coords.map((c) => c[0]), lo = red.coords.map((c) => c[1]);
+      const x0 = Math.min(...lo), x1 = Math.max(...lo), y0 = Math.min(...la), y1 = Math.max(...la);
+      const k = Math.min((W - 2 * P) / ((x1 - x0) || 1), (H - 2 * P) / ((y1 - y0) || 1));
+      pts = red.coords.map((c) => [P + (c[1] - x0) * k + ((W - 2 * P) - (x1 - x0) * k) / 2, H - P - (c[0] - y0) * k - ((H - 2 * P) - (y1 - y0) * k) / 2]);
+    } else pts = red.ids.map((_, i) => [W / 2 + (W / 2 - P) * Math.cos(2 * Math.PI * i / n - Math.PI / 2), H / 2 + (H / 2 - P) * Math.sin(2 * Math.PI * i / n - Math.PI / 2)]);
+    let s = '<defs>' + COL.map((c, i) => '<marker id="a' + i + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="' + c + '"/></marker>').join('') + '</defs>';
+    r.rutas.forEach((ru, i) => {
+      for (let j = 0; j < ru.length - 1; j++) {
+        const a = pts[ru[j]], b = pts[ru[j + 1]], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
+        s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + (b[0] - dx / L * 7) + '" y2="' + (b[1] - dy / L * 7) + '" stroke="' + COL[i % COL.length] + '" stroke-width="1.8" marker-end="url(#a' + (i % COL.length) + ')"/>';
+      }
+    });
+    pts.forEach((p, i) => { s += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4.5" fill="' + (i === r.rutas[0][0] ? '#111' : '#555') + '"/><text x="' + (p[0] + 7) + '" y="' + (p[1] - 6) + '" font-size="11" fill="currentColor">' + red.ids[i] + '</text>'; });
+    $('mapa').innerHTML = s; $('mapa').style.color = getComputedStyle(document.body).color;
+  }
+
+  function descargarCsv() {
+    if (!ultimo) return;
+    const L = ['ruta,orden,nodo,nombre,tramo,acumulado'];
+    ultimo.rutas.forEach((ru, i) => { let ac = 0; ru.forEach((v, j) => { const tr = j ? red.D[ru[j - 1]][v] : 0; ac += tr; L.push([i + 1, j, red.ids[v], '"' + (red.nombres ? red.nombres[v] : '') + '"', tr.toFixed(4), ac.toFixed(4)].join(',')); }); });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + L.join('\n')], { type: 'text/csv' })); a.download = 'rutas.csv'; a.click();
+  }
+
+  $('bEjemplo').onclick = () => { $('txt').value = EJEMPLO; cargarDatos(); };
+  $('bArchivo').onclick = () => $('archivo').click();
+  $('archivo').onchange = (e) => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { $('txt').value = rd.result; cargarDatos(); }; rd.readAsText(f); };
+  $('bCargar').onclick = cargarDatos; $('tipo').onchange = actualizarCampos;
+  $('bResolver').onclick = resolver; $('bDetener').onclick = detener; $('bCsv').onclick = descargarCsv; $('bImp').onclick = () => window.print();
+  actualizarCampos();
+})();
+</script>
+</body>
+</html>
