@@ -1,0 +1,16 @@
+SOLUCIONADOR DE TSP Y m-TSP POR OPTIMIZACION (Python)
+=====================================================
+EJECUTAR:   python ejecutar_app.py
+  - Abre solo el navegador con la aplicacion (servidor local 127.0.0.1:8765). Cerrar la ventana negra para terminar.
+  - Requiere Python 3.9+. La primera vez instala automaticamente el solver "highspy" (pip, ~10 MB).
+
+USO: "Cargar ejemplo (15 puntos)" o pegar/abrir datos (matriz de distancias, aristas o coordenadas lat/lon).
+     Elegir TSP (circuito, camino abierto, origen-destino, libre) o m-TSP (viajantes, min/max clientes por ruta,
+     minimizar distancia total o la ruta mas larga, rutas abiertas) -> Resolver.
+     Muestra estado (optimo probado), distancia, brecha, rutas y mapa; descarga CSV o imprime a PDF.
+
+METODO: programacion entera mixta (MILP) exacta con HiGHS. Sin algoritmos de grafos ni heuristicas.
+Verificacion con el ejemplo: TSP circuito = 68,014 km; m-TSP m=3 = 73,853; m=3 con 4-5 clientes/ruta = 84,699;
+m=3 minimizando la ruta mas larga = 29,799.
+
+version_Jupyter/: la misma herramienta como cuaderno Jupyter (pip install -r requirements.txt; jupyter notebook).
