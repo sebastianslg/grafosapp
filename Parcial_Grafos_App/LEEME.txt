@@ -28,6 +28,14 @@ PESOS, FLOTA Y RESTRICCIONES (correcciones de clase)
     con hora de salida y tiempo de servicio. El resultado muestra la hora de llegada a cada cliente.
   Todo con optimizacion exacta (MILP), sin heuristicas.
 
+FORMULAS DEL CURSO (Capitulo 4 - Ruteo de Vehiculos)
+  TSP: Min Z = sum c_ij x_ij; (1) entrar una vez, (2) salir una vez, (3) Miller-Tucker-Zemlin  u_i - u_j + n x_ij <= n-1.
+  m-TSP: ademas sum x_0j = m, sum x_j0 = m y MTZ con p (maximo de clientes por viajante): u_i - u_j + p x_ij <= p-1.
+  CVRP / VRPTW (flota, capacidad y ventanas): variables x_ijk, restricciones (1)-(9) de las diapositivas.
+  La pestana "Modelo" muestra las ecuaciones que se estan resolviendo. En "Problema" -> "Eliminacion de subtours" se elige
+  MTZ (formulas del curso, un solo modelo; por defecto) o cortes DFJ (mismo optimo, mas rapido con muchos nodos).
+  Todo es programacion entera mixta resuelta con HiGHS: sin algoritmos de grafos ni heuristicas.
+
 PROBLEMAS QUE RESUELVE
   Rutas:      TSP (circuito, abierto, origen-destino, libre), m-TSP (flota, pesos, balanceado, abierto, ventanas de tiempo, capacidad).
   Caminos:    camino minimo, caminos desde un origen (matriz), arbol de valor minimo.

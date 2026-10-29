@@ -108,7 +108,7 @@
     ['Otros', [['libre', 'Modelo propio (formato LP)']]],
   ];
   const CAMPOS = {
-    tsp: ['modo', 'origen', 'destino', 'tiempo'], mtsp: ['origen', 'flota', 'balanceado', 'abierto', 'lminmax', 'objetivo', 'vt', 'tiempo'],
+    tsp: ['modo', 'origen', 'destino', 'metodo', 'tiempo'], mtsp: ['origen', 'flota', 'balanceado', 'abierto', 'lminmax', 'objetivo', 'vt', 'metodo', 'tiempo'],
     camino: ['origen', 'destino'], desde: ['origen'], arbol: ['origen', 'tiempo'], flujomax: ['origen', 'destino'], flujocosto: [], cartero: [],
     pmediana: ['p', 'ponderar', 'tiempo'], pcentro: ['p', 'tiempo'], cobertura: ['radio', 'tiempo'], libre: ['lp', 'tiempo'],
   };
@@ -139,11 +139,12 @@
       <div class="fila" data-c="radio"><label class="campo">Radio de cobertura<input id="radio" type="number" min="0" value="1500"></label></div>
       <div class="fila" data-c="ponderar"><label class="check"><input type="checkbox" id="ponderar"> Ponderar por la demanda de cada nodo</label></div>
       <div class="fila" data-c="lp"><label class="campo" style="flex-basis:100%">Modelo en formato LP<textarea id="lp" rows="9" spellcheck="false" style="font:12px/1.4 var(--mono)">${LP_EJEMPLO}</textarea></label></div>
+      <div class="fila" data-c="metodo"><label class="campo">Eliminación de subtours<select id="metodo"><option value="mtz">MTZ · fórmulas del curso (un solo modelo)</option><option value="dfj">Cortes DFJ (más rápido, por iteraciones)</option></select></label></div>
       <div class="fila" data-c="tiempo"><label class="campo">Tiempo máximo (s)<input id="tiempo" type="number" min="5" value="120"></label></div>
       <p class="nota" id="ayudaProb" style="margin:0 0 10px"></p>
       <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn gris" id="bDetener" disabled>Detener</button></div>
       <div class="barra-prog oculto" id="prog"><i></i></div><div class="log oculto" id="log"></div>`;
-    $('problema').onchange = App.camposProblema; $('modo').onchange = App.camposProblema; $('balanceado').onchange = (e) => { S.ds.balanceado = e.target.checked; Datos.guardar(S.ds); App.camposProblema(); }; $('vtUsar').onchange = (e) => { S.ds.vt.usar = e.target.checked; Datos.guardar(S.ds); if (S.panel === 'nodos') App.renderPanel(); }; $('vtIni').onchange = (e) => { S.ds.vt.inicio = App.horas(e.target.value); Datos.guardar(S.ds); }; $('vtServ').onchange = (e) => { S.ds.vt.servicio = Math.max(0, +e.target.value || 0); Datos.guardar(S.ds); }; $('origen').onchange = App.pintarSeleccion; $('destino').onchange = App.pintarSeleccion;
+    $('problema').onchange = App.camposProblema; $('modo').onchange = App.camposProblema; $('metodo').onchange = (e) => { S.ds.metodo = e.target.value; Datos.guardar(S.ds); }; $('balanceado').onchange = (e) => { S.ds.balanceado = e.target.checked; Datos.guardar(S.ds); App.camposProblema(); }; $('vtUsar').onchange = (e) => { S.ds.vt.usar = e.target.checked; Datos.guardar(S.ds); if (S.panel === 'nodos') App.renderPanel(); }; $('vtIni').onchange = (e) => { S.ds.vt.inicio = App.horas(e.target.value); Datos.guardar(S.ds); }; $('vtServ').onchange = (e) => { S.ds.vt.servicio = Math.max(0, +e.target.value || 0); Datos.guardar(S.ds); }; $('origen').onchange = App.pintarSeleccion; $('destino').onchange = App.pintarSeleccion;
     $('bResolver').onclick = () => { const p = parametros(); if (p) App.lanzar(p.kind, p.opt, p.titulo, p.extra, p.datos); };
     $('bDetener').onclick = () => { if (!S.corriendo) return; App.ocupado(false); logLinea('Detenido por el usuario.'); App.crearWorker(); };
   }
@@ -160,10 +161,10 @@
     if (p === 'mtsp' && $('balanceado').checked) vis.delete('lminmax');
     document.querySelectorAll('#cProblema [data-c]').forEach((el) => el.classList.toggle('oculto', !vis.has(el.dataset.c)));
     $('tOrigen').textContent = ETQ_ORIGEN[p] || 'Origen'; $('ayudaProb').innerHTML = AYUDA[p] || '';
-    $('balanceado').checked = !!S.ds.balanceado; $('vtUsar').checked = !!S.ds.vt.usar; $('vtIni').value = App.hhmm(S.ds.vt.inicio); $('vtServ').value = S.ds.vt.servicio;
+    $('balanceado').checked = !!S.ds.balanceado; $('metodo').value = S.ds.metodo; $('vtUsar').checked = !!S.ds.vt.usar; $('vtIni').value = App.hhmm(S.ds.vt.inicio); $('vtServ').value = S.ds.vt.servicio;
     if (p === 'mtsp') App.renderFlota();
     if (['tsp', 'mtsp'].includes(p)) { const d = Datos.dcIdx(S.ds); if (d >= 0 && S.ultimoProblema !== p) $('origen').value = d; }
-    if (S.ultimoProblema !== p && ['nodos', 'aristas'].includes(S.panel)) setTimeout(() => App.renderPanel(), 0);
+    if (S.ultimoProblema !== p && ['nodos', 'aristas', 'modelo'].includes(S.panel)) setTimeout(() => App.renderPanel(), 0);
     S.ultimoProblema = p; App.pintarSeleccion();
   };
   App.renderFlota = () => {
@@ -186,7 +187,7 @@
     if (p === 'tsp') {
       if (n < 3) return aviso('El TSP necesita al menos 3 nodos.'); const modo = $('modo').value;
       if (modo === 'fijo' && o === d) return aviso('El destino debe ser distinto del origen.');
-      return { kind: 'tsp', opt: { modo, origen: modo === 'libre' ? 0 : o, fin: d, tiempo, brecha: 1e-6 }, titulo: 'TSP · ' + { ciclo: 'circuito', abierto: 'camino abierto', fijo: `camino de ${corto(o)} a ${corto(d)}`, libre: 'camino libre' }[modo] };
+      return { kind: 'tsp', opt: { modo, origen: modo === 'libre' ? 0 : o, fin: d, tiempo, brecha: 1e-6, metodo: ds.metodo }, titulo: 'TSP · ' + { ciclo: 'circuito', abierto: 'camino abierto', fijo: `camino de ${corto(o)} a ${corto(d)}`, libre: 'camino libre' }[modo] };
     }
     if (p === 'mtsp') {
       const veh = ds.flota.flatMap((t) => Array.from({ length: Math.round(+t.n || 0) }, () => ({ tipo: t.tipo, cap: t.cap > 0 ? +t.cap : Infinity, costoKm: +t.costoKm || 1, vel: +t.vel || 30, fijo: 0 })));
@@ -198,9 +199,9 @@
       const sumW = peso.reduce((a, v, i) => a + (i === o ? 0 : v), 0), tipos = new Set(veh.map((v) => v.tipo)), pesosUno = peso.every((v, i) => i === o || Math.abs(v - 1) < 1e-9) && (!pesoArco || pesoArco.every((f, i) => f.every((v, j) => i === j || !isFinite(v) || Math.abs(v - 1) < 1e-9)));
       const simple = tipos.size === 1 && veh.every((v) => v.cap >= sumW - 1e-9) && pesosUno && !usaVt;
       const tit = `m-TSP · ${m} vehículo(s)` + (bal ? ' · balanceado' : '') + (abierto ? ' · abierto' : '') + (usaVt ? ' · con ventanas' : '') + (obj === 'maximo' ? ' · ruta más costosa mínima' : '');
-      if (simple && m >= 2) return { kind: 'mtsp', opt: { m, deposito: o, lmin: bal ? Math.max(1, Math.floor(nc / m)) : Math.max(1, lmin), lmax: bal ? Math.ceil(nc / m) : lmax, objetivo: obj, abierto, tiempo, brecha: 1e-6 }, titulo: tit };
+      if (simple && m >= 2) return { kind: 'mtsp', opt: { m, deposito: o, lmin: bal ? Math.max(1, Math.floor(nc / m)) : Math.max(1, lmin), lmax: bal ? Math.ceil(nc / m) : lmax, objetivo: obj, abierto, tiempo, brecha: 1e-6, metodo: ds.metodo }, titulo: tit };
       const vt = usaVt ? { usar: true, inicio: ds.vt.inicio, servicio: (+ds.vt.servicio || 0) / 60, a: ds.nodos.map((x) => (x.vtOn ? x.vtA : 0)), b: ds.nodos.map((x) => (x.vtOn ? x.vtB : 48)) } : null;
-      return { kind: 'flota', opt: { deposito: o, vehiculos: veh, peso, pesoArco, balanceado: bal, lmin, lmax, abierto, objetivo: obj, vt, tiempo, brecha: 1e-6 }, titulo: tit };
+      return { kind: 'flota', opt: { deposito: o, vehiculos: veh, peso, pesoArco, balanceado: bal, lmin, lmax, abierto, objetivo: obj, vt, tiempo, brecha: 1e-6, metodo: ds.metodo }, titulo: tit };
     }
     if (p === 'camino') { if (o === d) return aviso('El destino debe ser distinto del origen.'); return { kind: 'camino', opt: { origen: o, destino: d }, titulo: `Camino mínimo ${corto(o)} → ${corto(d)}` }; }
     if (p === 'desde') return { kind: 'desde', opt: { origenes: [o] }, titulo: `Caminos mínimos desde ${corto(o)}`, extra: { cols: null } };

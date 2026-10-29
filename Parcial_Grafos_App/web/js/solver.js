@@ -80,6 +80,16 @@
       if (i !== j && isFinite(E[i][j])) { m.addVar(nm(i, j), E[i][j], 0, 1, true); sal[i].push(nm(i, j)); ent[j].push(nm(i, j)); has.add(i + ',' + j); }
     }
     for (let i = 0; i < N; i++) { m.addCon(sal[i], 1, 1, 1); m.addCon(ent[i], 1, 1, 1); }
+    if (opts.metodo === 'mtz') {   // fórmulas del curso: (1) y (2) grados 1; (3) Miller-Tucker-Zemlin  u_i − u_j + N·x_ij ≤ N − 1
+      for (let i = 1; i < N; i++) m.addVar('u_' + i, 0, 1, N - 1, false);
+      for (let i = 1; i < N; i++) for (let j = 1; j < N; j++) if (i !== j && has.has(i + ',' + j)) m.addCon(['u_' + i, 'u_' + j, nm(i, j)], [1, -1, N], -INF, N - 1);
+      const sol = await ctx.solve(m.toLP(), { timeLimit: opts.tiempo, gap: opts.brecha });
+      if (!sol.ok) return { estado: sol.status, cortes: 0 };
+      const succ = new Array(N).fill(-1);
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (has.has(i + ',' + j) && sol.val(nm(i, j)) > 0.5) succ[i] = j;
+      if (succ.includes(-1) || ciclos(succ).length !== 1) return { estado: 'sin tour válido (revise los datos)', cortes: 0 };
+      return { estado: sol.status, succ, obj: sol.obj, gap: sol.gap, cortes: 0 };
+    }
     let cortes = 0;
     for (;;) {
       const left = opts.tiempo - (now() - t0) / 1000;
@@ -150,6 +160,18 @@
         if (lmin > 1) M.addCon(['p_' + j, 'p_' + i, nm(i, j)], [1, -1, lmax - 2], -INF, lmax - 1);
       }
     }
+    if (o.metodo === 'mtz') {   // fórmulas del curso: (1) Σx0j = m, (2) Σxj0 = m, (3)(4) grados 1, (5) MTZ  u_i − u_j + p·x_ij ≤ p − 1
+      const pp = Math.max(2, lmax);
+      for (const i of cl) M.addVar('w_' + i, 0, 1, pp, false);
+      for (const i of cl) for (const j of cl) if (i !== j && has.has(i + ',' + j)) M.addCon(['w_' + i, 'w_' + j, nm(i, j)], [1, -1, pp], -INF, pp - 1);
+      const sol1 = await ctx.solve(M.toLP(), { timeLimit: o.tiempo, gap: o.brecha });
+      if (!sol1.ok) return { estado: sol1.status, rutas: [] };
+      const succ = {}, starts = [];
+      for (const key of has) { const [i, j] = key.split(',').map(Number); if (sol1.val(nm(i, j)) > 0.5) { if (i === h) starts.push(j); else succ[i] = j; } }
+      const rutas = [];
+      for (const j of starts) { const r = [h, j]; let u = j; while (succ[u] !== undefined && succ[u] !== h) { u = succ[u]; r.push(u); } if (!o.abierto) r.push(h); rutas.push(r); }
+      return finRutas(D, rutas, sol1, 0, t0);
+    }
     let cortes = 0, gapIt = Math.max(o.brecha, 0.02), valida = null, sol;
     for (;;) {
       const left = o.tiempo - (now() - t0) / 1000;
@@ -217,6 +239,11 @@
       const prev = cl.slice(0, pos).map((l) => Y(k - 1, l));
       M.addCon([Y(k, j), ...prev], [1, ...prev.map(() => -1)], -INF, 0);
     });
+    if (o.metodo === 'mtz') {   // MTZ del curso con p = máx. de clientes por ruta
+      const pp = Math.max(2, lmax);
+      for (const i of cl) M.addVar('w_' + i, 0, 1, pp, false);
+      for (const i of cl) for (const j of cl) if (i !== j && has.has(i + ',' + j)) { const xs = Array.from({ length: m }, (_, k) => X(k, i, j)); M.addCon(['w_' + i, 'w_' + j].concat(xs), [1, -1].concat(xs.map(() => pp)), -INF, pp - 1); }
+    }
     let cortes = 0, gapIt = Math.max(o.brecha, 0.05), valida = null, sol;
     for (;;) {
       const left = o.tiempo - (now() - t0) / 1000;

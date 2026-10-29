@@ -85,10 +85,10 @@
       $('pCamino').onclick = () => { const o = idx($('pO').value), d = idx($('pD').value); App.lanzar('camino', { origen: o, destino: d }, `Camino mínimo ${corto(o)} → ${corto(d)}`); };
       $('pMatrizBtn').onclick = () => { const orig = ds.nodos.map((n, i) => i).filter((i) => nodo(i).id >= 1 && nodo(i).id <= 10), cols = ds.nodos.map((n, i) => i).filter((i) => nodo(i).id >= 15 && nodo(i).id <= 25); App.lanzar('desde', { origenes: orig }, 'Caminos mínimos · origen Top 1–10 → destino Top 15–25', { cols }); };
       $('pArbol').onclick = () => { const r = idx($('pR').value); App.lanzar('arbol', { raiz: r, tiempo: 180 }, `Árbol de valor mínimo · raíz ${corto(r)}`); };
-      $('pTsp').onclick = () => App.lanzar('tsp', { modo: 'ciclo', origen: idx(1), tiempo: 120, brecha: 1e-6 }, 'TSP · circuito desde ' + corto(idx(1)));
-      $('pMtsp').onclick = () => App.lanzar('mtsp', { m: 2, deposito: idx(1), lmin: 1, lmax: 0, objetivo: 'suma', abierto: false, tiempo: 120, brecha: 1e-6 }, 'm-TSP · 2 viajantes');
+      $('pTsp').onclick = () => App.lanzar('tsp', { modo: 'ciclo', origen: idx(1), tiempo: 120, brecha: 1e-6, metodo: S.ds.metodo }, 'TSP · circuito desde ' + corto(idx(1)));
+      $('pMtsp').onclick = () => App.lanzar('mtsp', { m: 2, deposito: idx(1), lmin: 1, lmax: 0, objetivo: 'suma', abierto: false, tiempo: 120, brecha: 1e-6, metodo: S.ds.metodo }, 'm-TSP · 2 viajantes');
     } else {
-      const dep = () => Math.max(0, Datos.dcIdx(S.ds)), mt = (m, lmin, lmax, obj, tit) => () => App.lanzar('mtsp', { m, deposito: dep(), lmin, lmax, objetivo: obj || 'suma', abierto: false, tiempo: 180, brecha: 1e-6 }, tit);
+      const dep = () => Math.max(0, Datos.dcIdx(S.ds)), mt = (m, lmin, lmax, obj, tit) => () => App.lanzar('mtsp', { m, deposito: dep(), lmin, lmax, objetivo: obj || 'suma', abierto: false, tiempo: 180, brecha: 1e-6, metodo: S.ds.metodo }, tit);
       c.innerHTML = `<h2>Parcial · Punto 2</h2><p class="nota" style="margin-top:-4px">Recorrido de supervisores por las 25 tiendas ARA desde el <b>centro de distribución</b>. El CD no es un dato: <b>arrástrelo</b> a donde quiera o pida la ubicación óptima en la pestaña <b>CD</b>.</p>
         <div style="display:flex;flex-direction:column;gap:8px">
         <button class="btn sec" data-run id="c1">TSP · 1 supervisor (circuito)</button>
@@ -97,11 +97,48 @@
         <button class="btn sec" data-run id="c4">m-TSP · 3 supervisores, 8 y 9 tiendas</button>
         <button class="btn sec" data-run id="c5">m-TSP · 2 supervisores, ruta más larga mínima</button></div>
         <p class="nota" style="margin-top:10px">Sin límites por ruta, el óptimo puede dejar casi todas las tiendas a un solo supervisor; los límites balancean la carga.</p>`;
-      $('c1').onclick = () => App.lanzar('tsp', { modo: 'ciclo', origen: dep(), tiempo: 120, brecha: 1e-6 }, 'TSP · 1 supervisor (circuito)');
+      $('c1').onclick = () => App.lanzar('tsp', { modo: 'ciclo', origen: dep(), tiempo: 120, brecha: 1e-6, metodo: S.ds.metodo }, 'TSP · 1 supervisor (circuito)');
       $('c2').onclick = mt(2, 1, 0, 'suma', 'm-TSP · 2 supervisores, sin límites'); $('c3').onclick = mt(2, 12, 13, 'suma', 'm-TSP · 2 supervisores · 12–13 tiendas');
       $('c4').onclick = mt(3, 8, 9, 'suma', 'm-TSP · 3 supervisores · 8–9 tiendas'); $('c5').onclick = mt(2, 1, 0, 'maximo', 'm-TSP · 2 supervisores · ruta más larga mínima');
     }
     c.querySelectorAll('.btn').forEach((b) => (b.disabled = S.corriendo));
   }
   App.renderParcial = renderParcial;
+})();
+
+/* ---------- panel «Modelo»: las fórmulas del curso que se están resolviendo ---------- */
+(function () {
+  const { S, $ } = App;
+  const F = {
+    tsp: `<h3>TSP · formulación del curso</h3><pre class="formula">Min Z = Σᵢ Σⱼ cᵢⱼ · xᵢⱼ
+
+(1) Σᵢ≠ⱼ xᵢⱼ = 1        ∀ j ∈ N      entrar a cada cliente una vez
+(2) Σᵢ≠ⱼ xⱼᵢ = 1        ∀ j ∈ N      salir de cada cliente una vez
+(3) uᵢ − uⱼ + n·xᵢⱼ ≤ n − 1     2 ≤ i ≠ j ≤ n     (Miller-Tucker-Zemlin)
+
+xᵢⱼ ∈ {0,1}    cᵢⱼ = distancia euclidiana (o por carretera)</pre>
+      <p class="nota">Un solo programa entero mixto, sin iteraciones. El peso de todos los nodos y aristas es 1. «Camino abierto / libre» se obtiene con un nodo ficticio de costo 0.</p>`,
+    mtsp: `<h3>m-TSP · formulación del curso</h3><pre class="formula">Min Z = Σᵢ,ⱼ cᵢⱼ · xᵢⱼ
+
+(1) Σⱼ∈Δ⁺(0) x₀ⱼ = m              m viajantes salen del depósito
+(2) Σⱼ∈Δ⁻(0) xⱼ₀ = m              m viajantes llegan al depósito
+(3) Σⱼ xᵢⱼ = 1     ∀ i ∈ N∖{0}     entrar una vez
+(4) Σⱼ xⱼᵢ = 1     ∀ i ∈ N∖{0}     salir una vez
+(5) uᵢ − uⱼ + p·xᵢⱼ ≤ p − 1   ∀ i,j ≠ 0   (MTZ; p = máx. de clientes por viajante)</pre>
+      <p class="nota"><b>Agregados sobre el modelo base:</b> <b>balanceado</b> (l_mín ≤ clientes por ruta ≤ l_máx, con l = ⌊n/m⌋ y ⌈n/m⌉); <b>abierto</b> (el arco de regreso al depósito cuesta 0, así que la ruta termina en el último cliente); <b>pesos</b> de nodos (carga) y de aristas (multiplican cᵢⱼ).</p>
+      <h3 style="margin-top:12px">Con flota, capacidad y ventanas (CVRP / VRPTW)</h3><pre class="formula">Z = Σₖ Σᵢ Σⱼ cᵢⱼ · xᵢⱼₖ
+
+(1) Σₖ Σᵢ xᵢⱼₖ = 1        ∀ j ∈ N        entrar una vez (cada cliente, un vehículo)
+(2) Σₖ Σᵢ xⱼᵢₖ = 1        ∀ j ∈ N        salir una vez
+(3) Σₖ Σᵢ,ⱼ∈S xᵢⱼₖ ≤ |S| − 1   ∀ ∅ ≠ S ⊊ N     sub-tours (se agregan los violados)
+(4) Σᵢ xᵢⱼₖ − Σᵢ xⱼᵢₖ = 0     ∀ j ∈ N, k ∈ K   el que entra es el que sale
+(5) Σᵢ x₀ᵢₖ ≤ 1            ∀ k ∈ K          cada vehículo sale a lo más una vez
+(6) Σᵢ dⱼ · xⱼᵢₖ ≤ K₀ₖ     ∀ k ∈ K          capacidad de cada vehículo
+(7) sᵢₖ + servᵢ + tᵢ₀ − s₀ₖ + M·xᵢ₀ₖ ≤ M
+(8) sᵢₖ + servᵢ + tᵢⱼ − sⱼₖ + M·xᵢⱼₖ ≤ M
+(9) aᵢ ≤ sᵢₖ ≤ bᵢ            ∀ i ∈ N, k ∈ K   ventana de tiempo (franja horaria)</pre>
+      <p class="nota">Flota heterogénea: cada vehículo k tiene su capacidad K₀ₖ, costo por km y velocidad (tᵢⱼ = cᵢⱼ / velocidad). Las ventanas son estrictas: se puede esperar si se llega antes, no llegar tarde.</p>`,
+    otro: '<h3>Modelo</h3><p class="nota">Elija TSP o m-TSP en «Problema» para ver las fórmulas del curso que se resuelven. Los demás problemas (caminos, árbol, flujos, localización) usan sus modelos lineales estándar.</p>',
+  };
+  App.paneles.push({ id: 'modelo', titulo: 'Modelo', render: (el) => { const p = $('problema').value; el.innerHTML = (F[p] || F.otro) + `<p class="nota">Solver: HiGHS (programación lineal entera mixta). Método de sub-tours: <b>${S.ds.metodo === 'mtz' ? 'MTZ (fórmulas del curso)' : 'cortes DFJ'}</b>.</p>`; } });
 })();

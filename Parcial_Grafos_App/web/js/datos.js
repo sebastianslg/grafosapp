@@ -16,7 +16,7 @@
     ds.pesoArista = ds.pesoArista ? capInf(ds.pesoArista) : null;
     ds.vt = Object.assign({ usar: false, inicio: 8, servicio: 10 }, ds.vt || {});
     ds.flota = ds.flota && ds.flota.length ? ds.flota : [{ tipo: 'camión de reparto', n: 2, cap: 15, costoKm: 1, vel: 30 }, { tipo: 'tractocamión', n: 0, cap: 34, costoKm: 2.4, vel: 50 }];
-    ds.balanceado = !!ds.balanceado;
+    ds.balanceado = !!ds.balanceado; ds.metodo = ds.metodo === 'dfj' ? 'dfj' : 'mtz';
     ds.candidatos = ds.candidatos || []; ds.area = ds.area || null; ds.fondo = ds.fondo || null; ds.base = ds.base || 'calles';
     ds.dirigido = !!ds.dirigido; ds.factor = ds.factor || 1; ds.modoDist = (!ds.modoDist || ds.modoDist === 'recta') ? 'euclidiana' : ds.modoDist; ds.cap = ds.cap ? capInf(ds.cap) : null;
     ds.unidad = ds.unidad || 'km'; ds.centro = ds.centro || [ds.nodos[0].lat, ds.nodos[0].lon]; ds.zoom = ds.zoom || 12;
@@ -25,7 +25,7 @@
   const dcIdx = (ds) => ds.nodos.findIndex((n) => n.tipo === 'dc');
   const clientes = (ds) => ds.nodos.map((n, i) => i).filter((i) => ds.nodos[i].tipo !== 'dc');
   const serializar = (ds) => ({ clave: ds.clave, titulo: ds.titulo, subtitulo: ds.subtitulo, unidad: ds.unidad, centro: ds.centro, zoom: ds.zoom, origen_defecto: ds.origen_defecto,
-    nodos: ds.nodos, D: aNull(ds.D), cap: aNull(ds.cap), dirigido: ds.dirigido, factor: ds.factor, modoDist: ds.modoDist, pesoArista: aNull(ds.pesoArista), vt: ds.vt, flota: ds.flota, balanceado: ds.balanceado, candidatos: ds.candidatos, area: ds.area, fondo: ds.fondo, base: ds.base, usuario: !!ds.usuario, grafoRalo: !!ds.grafoRalo });
+    nodos: ds.nodos, D: aNull(ds.D), cap: aNull(ds.cap), dirigido: ds.dirigido, factor: ds.factor, modoDist: ds.modoDist, pesoArista: aNull(ds.pesoArista), vt: ds.vt, flota: ds.flota, balanceado: ds.balanceado, metodo: ds.metodo, candidatos: ds.candidatos, area: ds.area, fondo: ds.fondo, base: ds.base, usuario: !!ds.usuario, grafoRalo: !!ds.grafoRalo });
 
   async function cargar(clave) {
     let ds = null;

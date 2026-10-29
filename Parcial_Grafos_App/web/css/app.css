@@ -194,3 +194,5 @@ td input { width: 100%; background: transparent; padding: 4px 6px; min-height: 2
 .stats .caja div { min-width: 0; } .stats b { display: block; font-size: 18px; letter-spacing: -0.02em; line-height: 1.15; font-variant-numeric: tabular-nums; } .stats span { display: block; font-size: 11px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 table.flota td, table.flota th { padding: 3px 4px; } table.flota td input { width: 100%; min-width: 0; padding: 3px 5px; min-height: 28px; background: var(--fill); }
 input.bloq { opacity: 0.55; cursor: not-allowed; }
+
+pre.formula { background: var(--fill); border-radius: var(--r16); padding: 10px 12px; font: 12.5px/1.65 var(--mono); white-space: pre-wrap; overflow-x: auto; margin: 6px 0 10px; }
