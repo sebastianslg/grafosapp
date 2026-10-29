@@ -395,6 +395,185 @@
     return { estado: sol.status, objetivo: aristas.reduce((a, e) => a + e[2], 0), aristas, rutas: [], gap: sol.gap, seg: (now() - t0) / 1000 };
   }
 
-  root.Solver = { Model, tsp, mtsp, camino, caminosDesde, traza, arbol, cargar, haversine };
+  /* ---------- flujos de red ---------- */
+  const noAcotado = (st) => /unbounded|no acotado/i.test(String(st));
+  function arcosRed(D, cap) {
+    const n = D.length, arcs = [];
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (i !== j && isFinite(D[i][j])) {
+      const c = cap && cap[i] && isFinite(cap[i][j]) ? cap[i][j] : INF;
+      if (c > 0) arcs.push([i, j, D[i][j], c]);
+    }
+    return arcs;
+  }
+  async function flujoMax(D, cap, ctx, o) {
+    const t0 = now(), n = D.length, s = o.origen, t = o.destino, M = new Model(), arcs = arcosRed(D, cap);
+    const sal = Array.from({ length: n }, () => []), ent = Array.from({ length: n }, () => []);
+    arcs.forEach(([i, j, , c]) => { const nm = 'f_' + i + '_' + j; M.addVar(nm, 0, 0, c, false); sal[i].push(nm); ent[j].push(nm); });
+    M.addVar('v', -1, 0, INF, false);
+    for (let u = 0; u < n; u++) {
+      const names = sal[u].concat(ent[u]), coefs = sal[u].map(() => 1).concat(ent[u].map(() => -1));
+      if (u === s) { names.push('v'); coefs.push(-1); } else if (u === t) { names.push('v'); coefs.push(1); }
+      M.addCon(names, coefs, 0, 0);
+    }
+    const sol = await ctx.solve(M.toLP(), { timeLimit: o.tiempo || 60, gap: 1e-9 });
+    if (!sol.ok) return { estado: noAcotado(sol.status) ? 'no acotado: el corte mínimo no tiene capacidad finita (asigne capacidades a las aristas)' : sol.status, flujos: [] };
+    const flujos = arcs.map(([i, j, c, k]) => [i, j, sol.val('f_' + i + '_' + j), k]).filter((f) => f[2] > 1e-9);
+    return { estado: sol.status, objetivo: -sol.obj, flujos, rutas: [], seg: (now() - t0) / 1000 };
+  }
+  async function flujoCosto(D, cap, ctx, o) {
+    const t0 = now(), n = D.length, b = o.balance, M = new Model(), arcs = arcosRed(D, cap);
+    if (Math.abs(b.reduce((a, v) => a + v, 0)) > 1e-9) return { estado: 'infactible: la oferta total debe igualar la demanda total (suma de balances = 0)', flujos: [] };
+    const sal = Array.from({ length: n }, () => []), ent = Array.from({ length: n }, () => []);
+    arcs.forEach(([i, j, c, k]) => { const nm = 'f_' + i + '_' + j; M.addVar(nm, c, 0, k, false); sal[i].push(nm); ent[j].push(nm); });
+    for (let u = 0; u < n; u++) M.addCon(sal[u].concat(ent[u]), sal[u].map(() => 1).concat(ent[u].map(() => -1)), b[u], b[u]);
+    const sol = await ctx.solve(M.toLP(), { timeLimit: o.tiempo || 60, gap: 1e-9 });
+    if (!sol.ok) return { estado: sol.status === 'infactible' ? 'infactible: las capacidades o conexiones no permiten enviar todo' : sol.status, flujos: [] };
+    const flujos = arcs.map(([i, j, c, k]) => [i, j, sol.val('f_' + i + '_' + j), k, c]).filter((f) => f[2] > 1e-9);
+    return { estado: sol.status, objetivo: sol.obj, flujos, rutas: [], seg: (now() - t0) / 1000 };
+  }
+  /* cartero chino: cuántas veces recorrer cada arista para cubrirlas todas con costo mínimo (la red debe ser conexa) */
+  async function cartero(D, ctx, o) {
+    const t0 = now(), n = D.length, M = new Model(), arcs = [];
+    if (o.dirigido) { for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (i !== j && isFinite(D[i][j])) arcs.push([i, j, D[i][j]]); }
+    else for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (isFinite(D[i][j])) arcs.push([i, j, D[i][j]]);
+    arcs.forEach(([i, j, c]) => M.addVar('x_' + i + '_' + j, c, 1, INF, true));
+    if (o.dirigido) {
+      for (let u = 0; u < n; u++) { const sal = arcs.filter((a) => a[0] === u).map((a) => 'x_' + a[0] + '_' + a[1]), ent = arcs.filter((a) => a[1] === u).map((a) => 'x_' + a[0] + '_' + a[1]); M.addCon(sal.concat(ent), sal.map(() => 1).concat(ent.map(() => -1)), 0, 0); }
+    } else for (let u = 0; u < n; u++) {
+      M.addVar('z_' + u, 0, 0, INF, true);
+      const inc = arcs.filter((a) => a[0] === u || a[1] === u).map((a) => 'x_' + a[0] + '_' + a[1]);
+      M.addCon(inc.concat(['z_' + u]), inc.map(() => 1).concat([-2]), 0, 0);
+    }
+    const sol = await ctx.solve(M.toLP(), { timeLimit: o.tiempo || 60, gap: 1e-9 });
+    if (!sol.ok) return { estado: sol.status, aristas: [] };
+    const aristas = arcs.map(([i, j, c]) => [i, j, c, Math.round(sol.val('x_' + i + '_' + j))]);
+    const base = arcs.reduce((a, e) => a + e[2], 0);
+    return { estado: sol.status, objetivo: sol.obj, base, extra: sol.obj - base, aristas, rutas: [], seg: (now() - t0) / 1000 };
+  }
+
+  /* ---------- localización de instalaciones ---------- */
+  /* dist[k][i]: distancia del candidato k al cliente i. tipo: mediana | centro | fijo | cobertura */
+  async function ubicar(dist, ctx, o) {
+    const t0 = now(), K = dist.length, n = dist[0].length, w = o.pesos || new Array(n).fill(1), M = new Model(), p = o.p | 0;
+    for (let j = 0; j < K; j++) M.addVar('y_' + j, o.tipo === 'fijo' ? (o.fijos ? o.fijos[j] : 0) : (o.tipo === 'cobertura' ? 1 : 0), 0, 1, true);
+    if (o.tipo === 'cobertura') {
+      for (let i = 0; i < n; i++) {
+        const ok = []; for (let j = 0; j < K; j++) if (dist[j][i] <= o.radio + 1e-9) ok.push('y_' + j);
+        if (!ok.length) return { estado: 'infactible: el cliente ' + (i + 1) + ' no queda a menos del radio de ningún candidato', abiertas: [] };
+        M.addCon(ok, 1, 1, INF);
+      }
+    } else {
+      if (o.tipo === 'centro') M.addVar('z', 1, 0, INF, false);
+      for (let i = 0; i < n; i++) {
+        const xs = [];
+        for (let j = 0; j < K; j++) { const nm = 'x_' + i + '_' + j; M.addVar(nm, o.tipo === 'centro' ? 0 : w[i] * dist[j][i], 0, 1, false); xs.push(nm); M.addCon([nm, 'y_' + j], [1, -1], -INF, 0); }
+        M.addCon(xs, 1, 1, 1);
+        if (o.tipo === 'centro') M.addCon(xs.concat(['z']), xs.map((_, j) => dist[j][i]).concat([-1]), -INF, 0);
+      }
+      const ys = Array.from({ length: K }, (_, j) => 'y_' + j);
+      if (p > 0) M.addCon(ys, 1, o.tipo === 'fijo' ? 0 : p, p);
+      else if (o.tipo !== 'fijo') M.addCon(ys, 1, 1, 1);
+    }
+    const sol = await ctx.solve(M.toLP(), { timeLimit: o.tiempo || 120, gap: 1e-7 });
+    if (!sol.ok) return { estado: sol.status, abiertas: [] };
+    const abiertas = []; for (let j = 0; j < K; j++) if (sol.val('y_' + j) > 0.5) abiertas.push(j);
+    const asign = []; let transporte = 0, maxd = 0;
+    for (let i = 0; i < n; i++) { let b = -1; abiertas.forEach((j) => { if (b < 0 || dist[j][i] < dist[b][i]) b = j; }); asign.push([i, b, dist[b][i]]); transporte += w[i] * dist[b][i]; maxd = Math.max(maxd, dist[b][i]); }
+    const fijo = o.tipo === 'fijo' && o.fijos ? abiertas.reduce((a, j) => a + o.fijos[j], 0) : 0;
+    return { estado: sol.status, objetivo: sol.obj, abiertas, asign, transporte, fijo, maxd, gap: sol.gap, rutas: [], seg: (now() - t0) / 1000 };
+  }
+  /* CD óptimo para el recorrido: para cada candidato se resuelve el TSP / m-TSP exacto con el CD ahí. */
+  async function ubicarRuta(o, ctx) {
+    const t0 = now(), n = o.Dcl.length, K = o.ida.length;
+    const orden = Array.from({ length: K }, (_, k) => k).sort((a, b) => o.ida[a].reduce((x, y) => x + y, 0) - o.ida[b].reduce((x, y) => x + y, 0));
+    const evaluar = orden.slice(0, Math.min(K, o.top || K)), ranking = [];
+    if (o.actual >= 0 && !evaluar.includes(o.actual)) evaluar.push(o.actual);   // siempre se evalúa el CD actual para comparar
+    let mejor = null;
+    for (let q = 0; q < evaluar.length; q++) {
+      const k = evaluar[q], E = Array.from({ length: n + 1 }, () => new Array(n + 1).fill(INF));
+      for (let i = 0; i < n; i++) { E[0][i + 1] = o.ida[k][i]; E[i + 1][0] = o.vuelta ? o.vuelta[k][i] : o.ida[k][i]; for (let j = 0; j < n; j++) E[i + 1][j + 1] = o.Dcl[i][j]; }
+      const r = o.modo === 'tsp' ? await tsp(E, ctx, { modo: 'ciclo', origen: 0, tiempo: o.tiempoCand || 60, brecha: 1e-6 })
+        : await mtsp(E, ctx, { m: o.m, deposito: 0, lmin: o.lmin || 1, lmax: o.lmax || 0, objetivo: o.objetivo || 'suma', abierto: false, tiempo: o.tiempoCand || 120, brecha: 1e-6 });
+      const ok = r.rutas && r.rutas.length;
+      const fila = { k, objetivo: ok ? r.objetivo : null, estado: r.estado, rutas: r.rutas, dists: r.dists, total: r.total };
+      ranking.push(fila);
+      if (ok && (!mejor || fila.objetivo < mejor.objetivo - 1e-9)) mejor = fila;
+      log(ctx, 'Candidato ' + (q + 1) + ' de ' + evaluar.length + ': ' + (ok ? r.objetivo.toFixed(3) : r.estado));
+    }
+    ranking.sort((a, b) => (a.objetivo === null) - (b.objetivo === null) || a.objetivo - b.objetivo);
+    return { estado: mejor ? 'óptimo (exacto en cada candidato evaluado)' : 'sin solución', ranking, mejor, evaluados: evaluar.length, total: K, seg: (now() - t0) / 1000, rutas: [] };
+  }
+
+  /* ---------- CVRP: hasta m vehículos con capacidad (índice de vehículo + carga acumulada) ---------- */
+  async function cvrp(D, ctx, o) {
+    const t0 = now(), n = D.length, h = o.deposito || 0, m = o.m, Q = o.capacidad, q = o.demanda;
+    const cl = []; for (let i = 0; i < n; i++) if (i !== h) cl.push(i);
+    if (cl.some((i) => q[i] > Q + 1e-9)) return { estado: 'infactible: un cliente pide más que la capacidad del vehículo', rutas: [] };
+    const M = new Model(), nodes = [...cl, h], X = (k, i, j) => 'x_' + k + '_' + i + '_' + j, Y = (k, i) => 'y_' + k + '_' + i, V = (k) => 'v_' + k;
+    const arcs = []; for (const i of nodes) for (const j of nodes) if (i !== j && isFinite(D[i][j])) arcs.push([i, j]);
+    const has = new Set(arcs.map(([i, j]) => i + ',' + j));
+    for (let k = 0; k < m; k++) {
+      for (const [i, j] of arcs) M.addVar(X(k, i, j), D[i][j], 0, 1, true);
+      for (const i of cl) M.addVar(Y(k, i), 0, 0, 1, true);
+      M.addVar(V(k), 0, 0, 1, true);
+      M.addCon(cl.filter((j) => has.has(h + ',' + j)).map((j) => X(k, h, j)).concat([V(k)]), cl.filter((j) => has.has(h + ',' + j)).map(() => 1).concat([-1]), 0, 0);
+      M.addCon(cl.filter((i) => has.has(i + ',' + h)).map((i) => X(k, i, h)).concat([V(k)]), cl.filter((i) => has.has(i + ',' + h)).map(() => 1).concat([-1]), 0, 0);
+      for (const i of cl) {
+        const a = nodes.filter((j) => j !== i && has.has(j + ',' + i)).map((j) => X(k, j, i)).concat([Y(k, i)]);
+        const b = nodes.filter((j) => j !== i && has.has(i + ',' + j)).map((j) => X(k, i, j)).concat([Y(k, i)]);
+        M.addCon(a, a.map((_, z) => (z === a.length - 1 ? -1 : 1)), 0, 0); M.addCon(b, b.map((_, z) => (z === b.length - 1 ? -1 : 1)), 0, 0);
+        M.addCon([Y(k, i), V(k)], [1, -1], -INF, 0);
+      }
+      for (let a = 0; a < cl.length; a++) for (let b = a + 1; b < cl.length; b++) { const i = cl[a], j = cl[b]; if (has.has(i + ',' + j) && has.has(j + ',' + i)) M.addCon([X(k, i, j), X(k, j, i), Y(k, i)], [1, 1, -1], -INF, 0); }
+      M.addCon(cl.map((i) => Y(k, i)), cl.map((i) => q[i]), -INF, Q);
+    }
+    for (const i of cl) M.addCon(Array.from({ length: m }, (_, k) => Y(k, i)), 1, 1, 1);
+    for (const i of cl) M.addVar('u_' + i, 0, q[i], Q, false);
+    for (const i of cl) for (const j of cl) if (i !== j && has.has(i + ',' + j)) {
+      const xs = Array.from({ length: m }, (_, k) => X(k, i, j));
+      M.addCon(['u_' + i, 'u_' + j].concat(xs), [1, -1].concat(xs.map(() => Q)), -INF, Q - q[j]);
+    }
+    for (let k = 1; k < m; k++) cl.forEach((j, pos) => { const prev = cl.slice(0, pos).map((l) => Y(k - 1, l)); M.addCon([Y(k, j), ...prev], [1, ...prev.map(() => -1)], -INF, 0); });
+    let cortes = 0, gapIt = Math.max(o.brecha || 1e-6, 0.05), valida = null, sol;
+    for (;;) {
+      const left = (o.tiempo || 120) - (now() - t0) / 1000;
+      if (left <= 0.5) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
+      if (!sol.ok) { if (!valida) return { estado: sol.status === 'infactible' ? 'infactible: con ' + m + ' vehículos y capacidad ' + Q + ' no se puede atender toda la demanda' : sol.status, rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      const cs = [];
+      for (let k = 0; k < m; k++) {
+        const succ = {}, vis = new Set();
+        for (const [i, j] of arcs) if (i !== h && sol.val(X(k, i, j)) > 0.5) succ[i] = j;
+        for (const j of cl) if (has.has(h + ',' + j) && sol.val(X(k, h, j)) > 0.5) { let u = j; while (u !== h && !vis.has(u)) { vis.add(u); u = succ[u] === undefined ? h : succ[u]; } }
+        for (const i of cl) if (sol.val(Y(k, i)) > 0.5 && !vis.has(i) && succ[i] !== undefined) { const c = []; let u = i; while (!vis.has(u) && succ[u] !== undefined) { vis.add(u); c.push(u); u = succ[u]; } if (c.length) cs.push(c); }
+      }
+      log(ctx, 'CVRP: ' + cs.length + ' subcircuito(s), ' + cortes + ' cortes');
+      if (!cs.length) { valida = sol; if (gapIt > (o.brecha || 1e-6) * 1.0001 && sol.status === 'óptimo' && (o.tiempo || 120) - (now() - t0) / 1000 > 2) { gapIt = o.brecha || 1e-6; continue; } break; }
+      for (const S of cs) for (let k = 0; k < m; k++) {
+        const inter = []; for (const i of S) for (const j of S) if (has.has(i + ',' + j)) inter.push(X(k, i, j));
+        for (const hh of new Set([S[0], S[S.length >> 1]])) { const ys = S.filter((i) => i !== hh).map((i) => Y(k, i)); M.addCon(inter.concat(ys), inter.map(() => 1).concat(ys.map(() => -1)), -INF, 0); }
+        cortes++;
+      }
+    }
+    const rutas = [];
+    for (let k = 0; k < m; k++) {
+      if (sol.val(V(k)) < 0.5) continue;
+      const succ = {}; let st = null;
+      for (const [i, j] of arcs) if (sol.val(X(k, i, j)) > 0.5) { if (i === h) st = j; else succ[i] = j; }
+      const r = [h, st]; let u = st; while (succ[u] !== undefined && succ[u] !== h) { u = succ[u]; r.push(u); } r.push(h); rutas.push(r);
+    }
+    const out = finRutas(D, rutas, sol, cortes, t0);
+    out.cargas = out.rutas.map((r) => r.reduce((a, v) => a + (v === h ? 0 : q[v]), 0)); out.objetivo = out.total; out.capacidad = Q;
+    return out;
+  }
+
+  /* ---------- modelo libre (texto en formato LP de CPLEX) ---------- */
+  async function modeloLibre(lp, ctx, o) {
+    const t0 = now(), sol = await ctx.solve(lp, { timeLimit: o.tiempo || 60, gap: 1e-6 });
+    if (!sol.ok) return { estado: sol.status, valores: [] };
+    return { estado: sol.status, objetivo: sol.obj, valores: Object.entries(sol.todos || {}).map(([k, v]) => [k, v]), gap: sol.gap, seg: (now() - t0) / 1000, rutas: [] };
+  }
+
+  root.Solver = { Model, tsp, mtsp, camino, caminosDesde, traza, arbol, flujoMax, flujoCosto, cartero, ubicar, ubicarRuta, cvrp, modeloLibre, cargar, haversine };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.Solver;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

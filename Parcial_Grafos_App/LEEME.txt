@@ -1,4 +1,4 @@
-PARCIAL DE TEORIA DE GRAFOS - TSP, m-TSP, CAMINOS Y ARBOLES POR OPTIMIZACION
+PARCIAL DE TEORIA DE GRAFOS - OPTIMIZACION DE RUTAS Y REDES
 ==============================================================================
 Autor: Juan Sebastian Salas Lugo - Distribucion y Transporte (UTB)
 
@@ -6,36 +6,55 @@ COMO EJECUTARLO (solo se necesita Python 3.9 o superior; no hay que instalar nad
   - Windows:  doble clic en  Ejecutar_App.bat   (o:  python ejecutar_app.py)
   - Mac/Linux:  python3 ejecutar_app.py
   Se abre el navegador en http://127.0.0.1:8765 . Dejar abierta la ventana negra mientras se usa; Ctrl+C la cierra.
-  Si el puerto esta ocupado usa el siguiente libre (8766, ...), lo indica en la ventana.
 
-QUE HACE
-  Dos pestanas: "ARA Cali" (Punto 2: centro de distribucion + 25 tiendas) y "China Top 25" (Punto 1).
-  Cada pestana muestra el mapa (OpenStreetMap/Esri), los nodos y las rutas trazadas sobre las calles reales.
-  Todo se resuelve con OPTIMIZACION EXACTA (programacion lineal / entera mixta con el solver HiGHS),
-  sin algoritmos de grafos ni heuristicas:
-   - TSP: circuito, camino abierto, camino origen->destino, camino libre.
-   - m-TSP: m viajantes, minimo y maximo de clientes por ruta, minimizar distancia total o la ruta mas larga, rutas abiertas.
-   - Camino minimo (LP de flujo): origen->destino, desde un origen, matriz de caminos (p. ej. origen Top 1-10 -> destino Top 15-25).
-   - Arbol de valor minimo (MILP de flujo desde la raiz, p. ej. raiz Top 11-20).
-  El estado "Optimo probado" indica optimo global (brecha 0). Si se agota el tiempo se muestra la brecha.
+QUE ES
+  Una aplicacion para construir grafos sobre un mapa y resolverlos con OPTIMIZACION EXACTA (programacion lineal / entera
+  mixta, solver HiGHS), sin algoritmos de grafos ni heuristicas. Trae dos proyectos del parcial (ARA Cali y China Top 25)
+  y permite crear los suyos con el boton "+".
 
-TODO ES EDITABLE
-  - Pestana "Nodos": editar nombre, coordenadas y demanda/poblacion; agregar y eliminar nodos; mover nodos arrastrandolos en el mapa.
-  - Pestana "Matriz": editar cualquier distancia ("#" = no hay arco). Recalcular distancias en linea recta x factor o por carretera (OSRM).
-  - Los cambios se guardan en el navegador; "Restaurar datos originales" los descarta.
+PROBLEMAS QUE RESUELVE
+  Rutas:      TSP (circuito, abierto, origen-destino, libre), m-TSP (balanceado, ruta mas larga, abierto), CVRP con capacidad.
+  Caminos:    camino minimo, caminos desde un origen (matriz), arbol de valor minimo.
+  Flujos:     flujo maximo, flujo de costo minimo, cartero chino.
+  Localizacion: p-mediana, p-centro, cobertura (en los nodos) y ubicacion del centro de distribucion (pestana CD).
+  Modelo propio: escriba cualquier modelo lineal/entero en formato LP y resuelvalo.
+  "Optimo probado" = optimo global. Si se agota el tiempo se muestra la mejor solucion y su brecha.
+
+CONSTRUIR SU PROPIO GRAFO  (boton "+" -> Proyecto nuevo)
+  Herramientas: Agregar nodos (clic en el mapa) · Conectar nodos (clic en dos nodos) · Mover nodos · Colocar/Mover el CD.
+  Pestanas: Nodos (nombre, coordenadas, tipo cliente/CD, demanda, balance) · Aristas (costo y capacidad) · Matriz.
+  Las distancias nuevas pueden ser linea recta x factor o por carretera (OSRM, requiere internet).
+
+CENTRO DE DISTRIBUCION (no es un dato: lo decide usted)
+  - Arrastre el marcador naranja "CD" a donde quiera; o "Mover el CD" + clic en el mapa; o busque una direccion y pulse "CD aqui";
+    o escriba coordenadas en la pestana CD. Las distancias del CD se recalculan solas (por carretera) y se vuelve a resolver.
+  - Optimo si lo pide: pestana CD -> genere candidatos (cuadricula dentro del area, clic, o los propios clientes) -> elija objetivo:
+      * minimo recorrido de 1 supervisor (TSP exacto con el CD en cada candidato), o de m supervisores (m-TSP exacto)
+      * minima distancia total o al cliente mas lejano (1 CD); varios CD: p-mediana, p-centro, costo fijo + transporte, cobertura
+    Muestra el ranking, el ahorro frente al CD actual y "Mover el CD al mejor candidato".
+
+MAPA
+  Buscar lugares y direcciones (internet) · Mapa base: calles, satelite, topografico o sin mapa ·
+  Imagen de fondo (plano, foto aerea, croquis): se ubica y escala arrastrando esquinas, con opacidad ajustable ·
+  Area de estudio: poligono o rectangulo, o desde un resultado de busqueda; limita la busqueda, los candidatos y avisa que nodos quedan fuera.
+  Las rutas se dibujan sobre las calles reales.
+
 IMPORTAR / EXPORTAR
-  - Importar: CSV, TSV, TXT, Excel (.xlsx) o JSON con nodos (lat, lon), matriz de distancias o aristas (origen, destino, costo).
-  - Exportar: libro de Excel (nodos, matriz, resultado), CSV de nodos / matriz / resultado, JSON, GeoJSON del resultado y PDF (imprimir).
+  Importar: CSV, TSV, TXT, Excel (.xlsx) o JSON (nodos lat/lon, matriz de distancias, aristas con capacidad, proyectos completos;
+            tambien archivos de anyLogistix con columnas latitude/longitude).
+  Exportar: libro de Excel, proyecto (.json con imagen y area), CSV de nodos / aristas / matriz / candidatos / resultado,
+            anyLogistix (instalaciones y clientes), GeoJSON del resultado y PDF (imprimir).
+  Todo se guarda en el navegador; "Proyecto" -> guardar (.json) para llevarse un proyecto.
 
 SOLVER
   HiGHS corre dentro del navegador (WebAssembly incluido en web/vendor): no requiere instalar nada.
   Si el navegador no pudiera ejecutarlo, la aplicacion ofrece instalar "highspy" (pip) y resolver desde Python.
 
 CONEXION A INTERNET
-  - Mapa base y trazado de calles de tramos NUEVOS usan internet. Los tramos entre los nodos de Cali y China ya vienen guardados
-    en datos/cache_rutas.json, de modo que sin conexion las rutas se siguen viendo sobre las calles (sin mapa de fondo).
+  Necesaria para: mapa base, buscar lugares y trazar calles / distancias por carretera de puntos NUEVOS.
+  Los tramos entre los nodos de Cali y China ya vienen guardados (datos/cache_rutas.json): sin conexion las rutas
+  siguen sobre las calles, sin mapa de fondo; en proyectos propios se usa linea recta x factor.
 
 VERIFICACION (valores esperados)
   Cali: TSP 72,048 km | m-TSP 2 supervisores 12-13 tiendas 75,675 km | 2 supervisores sin limites 72,436 km
   China: camino Top 2 -> Top 25 = 1.972,2 km (2>15>25) | arbol de valor minimo = 8.130,1 km | TSP circuito = 10.423,3 km
-  Nota: el centro de distribucion de Cali es provisional (centroide de las tiendas) hasta definirlo con anyLogistix.

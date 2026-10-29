@@ -13,4 +13,4 @@ sol = h.getSolution()
 names = [h.getColName(i)[1] for i in range(h.getNumCol())]
 ok = info.primal_solution_status == 2
 print(json.dumps({"status": st, "ok": ok, "obj": info.objective_function_value if ok else None,
-                  "gap": info.mip_gap if ok else None, "values": dict(zip(names, list(sol.col_value))) if ok else {}}))
+                  "gap": (info.mip_gap if ok and info.mip_gap == info.mip_gap and abs(info.mip_gap) != float("inf") else None), "values": dict(zip(names, list(sol.col_value))) if ok else {}}))

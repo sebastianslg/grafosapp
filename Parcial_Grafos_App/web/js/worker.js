@@ -9,7 +9,8 @@ function adaptar(r) {
   const status = st === 'Optimal' ? 'óptimo' : st === 'Infeasible' ? 'infactible'
     : st === 'Time limit reached' ? 'límite de tiempo (mejor solución encontrada, no probada óptima)' : st;
   const ok = (st === 'Optimal' || st === 'Time limit reached') && tiene && isFinite(r.ObjectiveValue);
-  return { ok, status, obj: r.ObjectiveValue, gap: st === 'Optimal' ? 0 : null, val: (n) => (cols[n] ? cols[n].Primal : 0) };
+  const todos = {}; if (ok) for (const k of Object.keys(cols)) todos[k] = cols[k].Primal;
+  return { ok, status: /unbounded/i.test(st) ? 'no acotado' : status, obj: r.ObjectiveValue, gap: st === 'Optimal' ? 0 : null, todos, val: (n) => (cols[n] ? cols[n].Primal : 0) };
 }
 
 async function iniciarWasm() {
@@ -60,6 +61,13 @@ onmessage = async (e) => {
         case 'camino': res = await Solver.camino(d.D, ctx, d.opt); break;
         case 'desde': res = await Solver.caminosDesde(d.D, ctx, d.opt); break;
         case 'arbol': res = await Solver.arbol(d.D, ctx, d.opt); break;
+        case 'flujomax': res = await Solver.flujoMax(d.D, d.cap, ctx, d.opt); break;
+        case 'flujocosto': res = await Solver.flujoCosto(d.D, d.cap, ctx, d.opt); break;
+        case 'cartero': res = await Solver.cartero(d.D, ctx, d.opt); break;
+        case 'ubicar': res = await Solver.ubicar(d.dist, ctx, d.opt); break;
+        case 'ubicarruta': res = await Solver.ubicarRuta(d.opt, ctx); break;
+        case 'cvrp': res = await Solver.cvrp(d.D, ctx, d.opt); break;
+        case 'libre': res = await Solver.modeloLibre(d.lp, ctx, d.opt); break;
         default: throw new Error('Problema desconocido: ' + d.kind);
       }
       postMessage({ tipo: 'fin', id: d.id, res });

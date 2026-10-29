@@ -19,6 +19,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 import urllib.request
 import webbrowser
 import zipfile
@@ -124,6 +125,52 @@ def osrm_tramo(la1, lo1, la2, lo2):
         except Exception:
             time.sleep(1.5 * (intento + 1))
     return None
+
+
+def osrm_tabla(fuentes, destinos):
+    """Distancias por carretera (km) de cada fuente a cada destino (por lotes para respetar el límite del servicio)."""
+    if len(destinos) > 90:
+        raise RuntimeError("Demasiados destinos para una consulta (máx. 90).")
+    paso = max(1, 95 - len(destinos))
+    salida = []
+    for i in range(0, len(fuentes), paso):
+        lote = fuentes[i:i + paso]
+        coords = ";".join(f"{p[1]:.6f},{p[0]:.6f}" for p in lote + destinos)
+        src = ";".join(str(k) for k in range(len(lote)))
+        dst = ";".join(str(len(lote) + k) for k in range(len(destinos)))
+        url = f"{OSRM}/table/v1/driving/{coords}?annotations=distance&sources={src}&destinations={dst}"
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "parcial-grafos/1.0"}), timeout=90) as r:
+            d = json.loads(r.read())
+        if d.get("code") != "Ok":
+            raise RuntimeError(d.get("message", "OSRM no respondió"))
+        salida += [[None if v is None else round(v / 1000.0, 3) for v in fila] for fila in d["distances"]]
+    return salida
+
+
+_busq_cache, _busq_lock, _busq_ultimo = {}, threading.Lock(), [0.0]
+
+
+def buscar_lugar(q, viewbox=None, acotar=False, limite=6):
+    """Búsqueda de lugares y direcciones con Nominatim (OpenStreetMap). Máx. 1 consulta por segundo."""
+    clave_b = json.dumps([q, viewbox, acotar, limite])
+    if clave_b in _busq_cache:
+        return _busq_cache[clave_b]
+    url = f"https://nominatim.openstreetmap.org/search?format=jsonv2&limit={int(limite)}&q={urllib.parse.quote(q)}"
+    if viewbox:
+        w, s_, e, n = viewbox
+        url += f"&viewbox={w},{n},{e},{s_}" + ("&bounded=1" if acotar else "")
+    with _busq_lock:
+        espera = 1.1 - (time.time() - _busq_ultimo[0])
+        if espera > 0:
+            time.sleep(espera)
+        _busq_ultimo[0] = time.time()
+        req = urllib.request.Request(url, headers={"User-Agent": "parcial-grafos/1.0 (uso academico)", "Accept-Language": "es"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            datos = json.loads(r.read())
+    res = [{"nombre": d.get("display_name", ""), "lat": float(d["lat"]), "lon": float(d["lon"]), "tipo": d.get("type", ""),
+            "bbox": [float(x) for x in d.get("boundingbox", [d["lat"], d["lat"], d["lon"], d["lon"]])]} for d in datos]
+    _busq_cache[clave_b] = res
+    return res
 
 
 def osrm_matriz(puntos):
@@ -292,7 +339,11 @@ class Manejador(BaseHTTPRequestHandler):
                 res = list(self.pool.map(lambda t: osrm_tramo(*t), tramos))
                 return self._enviar(200, {"geometrias": res})
             if ruta == "/api/matriz":
+                if "fuentes" in d:
+                    return self._enviar(200, {"D": osrm_tabla(d["fuentes"], d["destinos"])})
                 return self._enviar(200, {"D": osrm_matriz(d["puntos"])})
+            if ruta == "/api/buscar":
+                return self._enviar(200, {"resultados": buscar_lugar(d["q"], d.get("viewbox"), d.get("acotar", False), d.get("limite", 6))})
             if ruta == "/api/leer":
                 return self._enviar(200, {"hojas": leer_xlsx(base64.b64decode(d["contenido"]))})
             if ruta == "/api/xlsx":

@@ -1,0 +1,30 @@
+const { spawnSync } = require('child_process'); const path = require('path'); const fs = require('fs');
+const S = require('../web/js/solver.js'); const py = path.join(__dirname, 'lp_python.py');
+const ctx = { log: () => {}, solve: async (lp, o) => { const r = spawnSync('python3', [py, String(o.timeLimit), String(o.gap)], { input: lp, encoding: 'utf8', maxBuffer: 1 << 28 }); if (r.status) throw new Error(r.stderr); const j = JSON.parse(r.stdout);
+  return { ok: j.ok && !/Unbounded/.test(j.status), status: j.status === 'Optimal' ? 'óptimo' : (/Unbounded/.test(j.status) ? 'no acotado' : j.ok ? 'límite de tiempo (mejor solución encontrada, no probada óptima)' : (j.status === 'Infeasible' ? 'infactible' : (j.status === 'Unbounded' ? 'no acotado' : j.status))), obj: j.obj, gap: j.gap, todos: j.values, val: (n) => j.values[n] ?? 0 }; } };
+const chk = (nombre, val, esp, tol = 0.02) => { const ok = Math.abs(val - esp) < tol; console.log(ok ? 'OK   ' : 'FALLA', nombre, Number(val).toFixed(3), '(esperado', esp + ')'); if (!ok) process.exitCode = 1; };
+const red = (aristas, n, dir) => { const D = Array.from({ length: n }, () => Array(n).fill(Infinity)), cap = Array.from({ length: n }, () => Array(n).fill(Infinity)); aristas.forEach(([a, b, c, u]) => { D[a - 1][b - 1] = c; if (u !== undefined) cap[a - 1][b - 1] = u; if (!dir) { D[b - 1][a - 1] = c; if (u !== undefined) cap[b - 1][a - 1] = u; } }); return { D, cap }; };
+(async () => {
+  let g = red([[1, 2, 0, 10], [1, 3, 0, 8], [2, 3, 0, 5], [2, 4, 0, 5], [3, 5, 0, 10], [4, 5, 0, 7], [4, 6, 0, 8], [5, 6, 0, 10]], 6, true);
+  let r = await S.flujoMax(g.D, g.cap, ctx, { origen: 0, destino: 5 }); chk('flujo máximo', r.objetivo, 15);
+  r = await S.flujoMax(g.D, null, ctx, { origen: 0, destino: 5 }); console.log(/acotado/.test(r.estado) ? 'OK    sin capacidades → no acotado' : 'FALLA no acotado: ' + r.estado);
+  g = red([[1, 2, 4, 6], [1, 3, 2, 5], [2, 3, 1, 3], [2, 4, 5, 4], [3, 4, 3, 8], [3, 5, 6, 5], [4, 5, 1, 7]], 5, true);
+  r = await S.flujoCosto(g.D, g.cap, ctx, { balance: [8, 0, 0, 0, -8] }); chk('flujo de costo mínimo', r.objetivo, 59);
+  r = await S.flujoCosto(g.D, g.cap, ctx, { balance: [8, 0, 0, 0, -7] }); console.log(/oferta/.test(r.estado) ? 'OK    balance inválido detectado' : 'FALLA balance');
+  g = red([[1, 2, 3], [2, 3, 4], [3, 1, 5], [3, 4, 2]], 4, false);
+  r = await S.cartero(g.D, ctx, { dirigido: false }); chk('cartero chino', r.objetivo, 16);
+  const ch = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'web', 'datos', 'china.json'))); const n = ch.D.length;
+  const dist = ch.D.map((f) => f.map((v) => v ?? 0));   // candidatos = clientes, diagonal 0
+  r = await S.ubicar(dist, ctx, { tipo: 'mediana', p: 3 }); chk('p-mediana (3)', r.objetivo, 12855.0, 0.2);
+  r = await S.ubicar(dist, ctx, { tipo: 'centro', p: 3 }); chk('p-centro (3)', r.objetivo, 1054.9, 0.2);
+  r = await S.ubicar(dist, ctx, { tipo: 'cobertura', radio: 1500 }); chk('cobertura 1500 km', r.objetivo, 2);
+  r = await S.ubicar(dist, ctx, { tipo: 'fijo', fijos: new Array(n).fill(5000) }); console.log('UFLP fijo 5000:', r.abiertas.length, 'instalaciones, objetivo', r.objetivo.toFixed(1), '=', (r.transporte + r.fijo).toFixed(1));
+  const demo = S.cargar(fs.readFileSync(path.join(__dirname, '..', '..', 'App_TSP_mTSP', 'datos', 'ejemplo_puntos.csv'), 'utf8'), { factor: 1.3, metrica: 'haversine' });
+  const dem = fs.readFileSync(path.join(__dirname, '..', '..', 'App_TSP_mTSP', 'datos', 'ejemplo_puntos.csv'), 'utf8').trim().split('\n').slice(1).map((l) => Number(l.split(',').at(-1)));
+  r = await S.cvrp(demo.D, ctx, { m: 3, deposito: 0, capacidad: 35, demanda: dem, tiempo: 120 }); chk('CVRP 3×35', r.objetivo, 85.245, 0.01); console.log('  cargas', r.cargas.join(','));
+  const cands = [[4.64, -74.06], [4.62, -74.04], [4.70, -74.10], [4.67, -74.05]], co = demo.coords.slice(1);
+  const hv = (a, b) => S.haversine(a[0], a[1], b[0], b[1]) * 1.3, Dcl = co.map((a) => co.map((b) => (a === b ? Infinity : hv(a, b))));
+  r = await S.ubicarRuta({ Dcl, ida: cands.map((c) => co.map((q) => hv(c, q))), modo: 'tsp', tiempoCand: 30 }, ctx);
+  const esp = [66.126, 66.797, 66.116, 67.664]; r.ranking.forEach((f) => chk('CD candidato ' + f.k + ' (TSP)', f.objetivo, esp[f.k], 0.01)); console.log('  mejor candidato:', r.mejor.k, '(esperado 2)');
+  r = await S.modeloLibre('Maximize\n obj: 3 x + 2 y\nSubject To\n c1: x + y <= 4\n c2: x + 3 y <= 6\nBounds\n x <= 3\nEnd', ctx, {}); chk('modelo libre', r.objetivo, 11); console.log('  valores', JSON.stringify(r.valores));
+})();
