@@ -187,3 +187,10 @@ td input { width: 100%; background: transparent; padding: 4px 6px; min-height: 2
   .btn:hover:not(:disabled), .lift:hover, .btn:active:not(:disabled) { transform: none; }
 }
 @media print { .barra, .col.izq, .mapa-ctl, .velo, .menu, .segmentado { display: none !important; } body { overflow: visible; background: #fff; } .app { position: static; display: block; } .mapa-wrap { height: 380px; } .col.der { overflow: visible; } .contenido { overflow: visible; max-height: none; } }
+
+/* ---- resumen del grafo y tablas de flota ---- */
+.stats { display: grid; grid-template-columns: 1fr 1.25fr; gap: 8px; margin-bottom: 10px; }
+.stats .caja { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--fill); border-radius: var(--r16); padding: 8px 10px; }
+.stats .caja div { min-width: 0; } .stats b { display: block; font-size: 18px; letter-spacing: -0.02em; line-height: 1.15; font-variant-numeric: tabular-nums; } .stats span { display: block; font-size: 11px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.flota td, table.flota th { padding: 3px 4px; } table.flota td input { width: 100%; min-width: 0; padding: 3px 5px; min-height: 28px; background: var(--fill); }
+input.bloq { opacity: 0.55; cursor: not-allowed; }

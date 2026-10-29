@@ -1,5 +1,5 @@
 const { spawnSync } = require('child_process'); const path = require('path'); const fs = require('fs');
-const S = require('../web/js/solver.js'); const py = path.join(__dirname, 'lp_python.py');
+const S = require('../web/js/solver.js'); const A = require('./ayuda.js'); const py = path.join(__dirname, 'lp_python.py');
 const ctx = { solve: async (lp, o) => { const r = spawnSync('python3', [py, String(o.timeLimit), String(o.gap)], { input: lp, encoding: 'utf8', maxBuffer: 1 << 28 }); if (r.status) throw new Error(r.stderr); const j = JSON.parse(r.stdout);
   return { ok: j.ok, status: j.status === 'Optimal' ? 'óptimo' : (j.ok ? 'límite de tiempo (mejor solución encontrada, no probada óptima)' : (j.status === 'Infeasible' ? 'infactible' : (j.status === 'Unbounded' ? 'no acotado' : j.status))), obj: j.obj, gap: j.gap, todos: j.values, val: (n) => j.values[n] ?? 0 }; } };
 const cargar = (k) => { const d = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'web', 'datos', k + '.json'))); const n = d.D.length; return { d, D: d.D.map((r, i) => r.map((v, j) => (i === j || v === null ? Infinity : v))) }; };

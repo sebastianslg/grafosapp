@@ -44,9 +44,8 @@ const { chromium } = require('playwright');
   // capacidades en Aristas → flujo máximo
   await p.click('#tabsDer [data-p="aristas"]'); const ks = await p.$$('input[data-f="k"]'); for (let i = 0; i < ks.length; i++) { await ks[i].fill(String(3 + i)); await ks[i].press('Enter'); }
   await p.selectOption('#problema', 'flujomax'); await p.selectOption('#origen', '0'); await p.selectOption('#destino', '2'); await p.click('#bResolver'); await p.waitForFunction(() => /Flujo máximo/.test(document.getElementById('contenido').innerText), null, { timeout: 60000 }); console.log('   flujo máximo:', await kpis());
-  // demanda y CVRP
-  await p.click('#tabsDer [data-p="nodos"]'); for (let i = 1; i < 4; i++) { await p.fill(`input[data-i="${i}"][data-f="extra"]`, '4'); await p.press(`input[data-i="${i}"][data-f="extra"]`, 'Enter'); }
-  await p.selectOption('#problema', 'cvrp'); await p.fill('#capacidad', '8'); await p.fill('#m', '3'); await p.click('#bResolver'); await p.waitForFunction(() => /Carga/.test(document.getElementById('contenido').innerText), null, { timeout: 90000 }); console.log('   CVRP:', await kpis());
+  // m-TSP con flota
+  await p.selectOption('#problema', 'mtsp'); await p.click('#bResolver'); await p.waitForFunction(() => /Distancia total|Suma de las rutas/.test(document.getElementById('contenido').innerText), null, { timeout: 90000 }); console.log('   m-TSP flota:', await kpis());
   await p.selectOption('#problema', 'pmediana'); await p.click('#bResolver'); await p.waitForFunction(() => /Nodos elegidos/.test(document.getElementById('contenido').innerText), null, { timeout: 60000 }); console.log('   p-mediana:', await kpis());
   await p.selectOption('#problema', 'libre'); await p.click('#bResolver'); await p.waitForFunction(() => /Valor óptimo/.test(document.getElementById('contenido').innerText), null, { timeout: 60000 }); console.log('   modelo libre:', await kpis());
   await p.click('#tabsDer [data-p="resultado"]'); await p.waitForTimeout(800); await p.screenshot({ path: dir + '/proyecto_propio.png' });

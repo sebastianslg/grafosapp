@@ -53,7 +53,7 @@
         <label class="campo" data-v="m">Supervisores (m)<input id="uM" type="number" min="2" value="2"></label><label class="campo" data-v="m">Mín. por ruta<input id="uLmin" type="number" min="1" value="1"></label><label class="campo" data-v="m">Máx. por ruta (0 = sin límite)<input id="uLmax" type="number" min="0" value="0"></label>
         <label class="campo" data-v="p">Cantidad de CD (p)<input id="uP" type="number" min="1" value="2"></label><label class="campo" data-v="p0">Máx. de CD (0 = libre)<input id="uP0" type="number" min="0" value="0"></label><label class="campo" data-v="radio">Radio de cobertura (km)<input id="uRadio" type="number" min="0" step="0.5" value="5"></label>
         <label class="campo" data-v="tc">Costo por unidad·km<input id="uTc" type="number" min="0" step="0.1" value="1"></label><label class="campo" data-v="top">Candidatos a evaluar (los mejores por cercanía)<input id="uTop" type="number" min="1" value="12"></label>
-        <label class="campo" data-v="dist">Distancias candidato → cliente<select id="uDist"><option value="carretera" ${ds.modoDist === 'carretera' ? 'selected' : ''}>Por carretera (OSRM)</option><option value="recta" ${ds.modoDist !== 'carretera' ? 'selected' : ''}>Línea recta × ${ds.factor}</option></select></label>
+        <label class="campo" data-v="dist">Distancias candidato → cliente<select id="uDist"><option value="carretera" ${ds.modoDist === 'carretera' ? 'selected' : ''}>Por carretera (OSRM)</option><option value="euclidiana" ${ds.modoDist !== 'carretera' ? 'selected' : ''}>Euclidiana</option></select></label>
         <label class="check" data-v="pond"><input type="checkbox" id="uPond" checked> Ponderar por la demanda de cada cliente</label></div>
       <p class="nota">Candidatos: <b>${nc}</b> ${nc ? '(rombos violeta en el mapa)' : '— genere o marque algunos'}${ds.area ? ' · se generan dentro del área definida' : ' · sin área: se usa el rectángulo de los clientes (+15 %)'}</p>
       <div class="fila"><label class="campo">Filas<input id="gF" type="number" min="1" max="15" value="6"></label><label class="campo">Columnas<input id="gC" type="number" min="1" max="15" value="6"></label></div>
@@ -85,12 +85,12 @@
     if (cl.length < 2) return msg('Se necesitan al menos 2 clientes.'); if (!cand.length) return msg('Genere o marque candidatos a centro de distribución primero.');
     if (!S.motor) return App.aviso('El solver no está listo.');
     const modo = $('uDist').value, ptsC = cand.map((c) => [c.lat, c.lon]), ptsK = cl.map((i) => [nodo(i).lat, nodo(i).lon]);
-    if (cl.length > 90) return msg('Con más de 90 clientes use distancias en línea recta (límite del servicio de rutas).');
+    if (cl.length > 90) return msg('Con más de 90 clientes use la matriz euclidiana (límite del servicio de rutas).');
     $('uRes').innerHTML = '<p class="nota" style="margin-top:10px">Calculando distancias de los candidatos…</p>'; chip('Calculando distancias de los candidatos…');
     const a = await App.distancias(ptsC, ptsK, modo), b = a.via === 'carretera' ? await App.distancias(ptsK, ptsC, modo) : a;
     const dist = ptsC.map((_, q) => ptsK.map((__, i) => (b === a ? a.D[q][i] : (a.D[q][i] + b.D[i][q]) / 2)));
-    const via = a.via === 'carretera' ? 'por carretera' : a.via === 'recta*' ? 'en línea recta (sin conexión a OSRM)' : 'en línea recta';
-    const pesos = $('uPond').checked ? cl.map((i) => (nodo(i).extra > 0 ? nodo(i).extra : 1)) : null, dc = Datos.dcIdx(ds);
+    const via = a.via === 'carretera' ? 'por carretera' : a.via === 'recta*' ? 'euclidianas (sin conexión a OSRM)' : 'euclidianas';
+    const pesos = $('uPond').checked ? cl.map((i) => (nodo(i).peso > 0 ? nodo(i).peso : 1)) : null, dc = Datos.dcIdx(ds);
     const base = { cd: true, tipo: obj, clientes: cl, cand: cand.map((c) => Object.assign({}, c)), dist, via, ds: S.clave };
     if (obj === 'ruta1' || obj === 'rutam') {
       const Dcl = cl.map((i) => cl.map((j) => (i === j ? INF : ds.D[i][j]))), ida = dist.map((f) => f.slice());

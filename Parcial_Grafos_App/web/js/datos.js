@@ -4,23 +4,28 @@
   const INF = Infinity, R = 6371.0088;
   const KEY = (k) => 'parcial-grafos:v2:' + k, IDX = 'parcial-grafos:v2:proyectos';
 
-  const haversine = (a, b, c, d) => { const p = Math.PI / 180, h = Math.sin((c - a) * p / 2) ** 2 + Math.cos(a * p) * Math.cos(c * p) * Math.sin((d - b) * p / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+  /* distancia EUCLIDIANA entre dos puntos: coordenadas proyectadas a un plano en km (x = lon·111,32·cos φ0, y = lat·110,574) */
+  const euclid = (a, b, c, d, lat0) => { const kx = 111.32 * Math.cos((lat0 ?? (a + c) / 2) * Math.PI / 180), ky = 110.574; return Math.hypot((d - b) * kx, (c - a) * ky); };
   const aInf = (D) => D.map((f, i) => f.map((v, j) => (i === j || v === null || v === undefined || !isFinite(v) ? INF : v)));
   const aNull = (D) => (D ? D.map((f) => f.map((v) => (isFinite(v) ? v : null))) : null);
   const capInf = (C) => (C ? C.map((f) => f.map((v) => (v === null || v === undefined ? INF : v))) : null);
 
   /* ---------- modelo ---------- */
   function normalizar(ds) {
-    ds.nodos.forEach((n) => { n.extra = n.extra || 0; n.balance = n.balance || 0; n.fijo = n.fijo || 0; n.tipo = n.tipo === 'dc' ? 'dc' : 'cliente'; });
+    ds.nodos.forEach((n) => { n.extra = n.extra || 0; n.balance = n.balance || 0; n.fijo = n.fijo || 0; n.tipo = n.tipo === 'dc' ? 'dc' : 'cliente'; n.peso = n.peso > 0 ? n.peso : 1; n.vtOn = !!n.vtOn; n.vtA = n.vtA ?? 8; n.vtB = n.vtB ?? 18; });
+    ds.pesoArista = ds.pesoArista ? capInf(ds.pesoArista) : null;
+    ds.vt = Object.assign({ usar: false, inicio: 8, servicio: 10 }, ds.vt || {});
+    ds.flota = ds.flota && ds.flota.length ? ds.flota : [{ tipo: 'camión de reparto', n: 2, cap: 15, costoKm: 1, vel: 30 }, { tipo: 'tractocamión', n: 0, cap: 34, costoKm: 2.4, vel: 50 }];
+    ds.balanceado = !!ds.balanceado;
     ds.candidatos = ds.candidatos || []; ds.area = ds.area || null; ds.fondo = ds.fondo || null; ds.base = ds.base || 'calles';
-    ds.dirigido = !!ds.dirigido; ds.factor = ds.factor || 1.3; ds.modoDist = ds.modoDist || 'recta'; ds.cap = ds.cap ? capInf(ds.cap) : null;
+    ds.dirigido = !!ds.dirigido; ds.factor = ds.factor || 1; ds.modoDist = (!ds.modoDist || ds.modoDist === 'recta') ? 'euclidiana' : ds.modoDist; ds.cap = ds.cap ? capInf(ds.cap) : null;
     ds.unidad = ds.unidad || 'km'; ds.centro = ds.centro || [ds.nodos[0].lat, ds.nodos[0].lon]; ds.zoom = ds.zoom || 12;
     return ds;
   }
   const dcIdx = (ds) => ds.nodos.findIndex((n) => n.tipo === 'dc');
   const clientes = (ds) => ds.nodos.map((n, i) => i).filter((i) => ds.nodos[i].tipo !== 'dc');
   const serializar = (ds) => ({ clave: ds.clave, titulo: ds.titulo, subtitulo: ds.subtitulo, unidad: ds.unidad, centro: ds.centro, zoom: ds.zoom, origen_defecto: ds.origen_defecto,
-    nodos: ds.nodos, D: aNull(ds.D), cap: aNull(ds.cap), dirigido: ds.dirigido, factor: ds.factor, modoDist: ds.modoDist, candidatos: ds.candidatos, area: ds.area, fondo: ds.fondo, base: ds.base, usuario: !!ds.usuario, grafoRalo: !!ds.grafoRalo });
+    nodos: ds.nodos, D: aNull(ds.D), cap: aNull(ds.cap), dirigido: ds.dirigido, factor: ds.factor, modoDist: ds.modoDist, pesoArista: aNull(ds.pesoArista), vt: ds.vt, flota: ds.flota, balanceado: ds.balanceado, candidatos: ds.candidatos, area: ds.area, fondo: ds.fondo, base: ds.base, usuario: !!ds.usuario, grafoRalo: !!ds.grafoRalo });
 
   async function cargar(clave) {
     let ds = null;
@@ -57,10 +62,10 @@
       if (plantilla === 'cd') {
         const c = centro, off = 0.012, pts = [[0, 0], [off, off], [off, -off], [-off, off], [-off, -off], [off * 1.6, 0], [-off * 1.6, 0]];
         ds.nodos = pts.map(([a, b], i) => ({ id: i, nombre: i ? 'Cliente ' + i : 'Centro de distribución', lat: +(c[0] + a).toFixed(5), lon: +(c[1] + b).toFixed(5), extra: i ? 10 : 0, tipo: i ? 'cliente' : 'dc' }));
-        ds.D = ds.nodos.map((a, i) => ds.nodos.map((b, j) => (i === j ? INF : haversine(a.lat, a.lon, b.lat, b.lon) * 1.3)));
+        ds.D = ds.nodos.map((a, i) => ds.nodos.map((b, j) => (i === j ? INF : euclid(a.lat, a.lon, b.lat, b.lon, c[0]))));
       }
     }
-    Object.assign(ds, { clave, titulo: titulo || 'Proyecto nuevo', subtitulo: 'Proyecto propio', centro, zoom: zoom || 13, base: base || 'calles', modoDist: modoDist || 'recta', usuario: true, grafoRalo: !plantilla && !copiaDe, origen_defecto: ds.nodos.length ? ds.nodos[0].id : 0 });
+    Object.assign(ds, { clave, titulo: titulo || 'Proyecto nuevo', subtitulo: 'Proyecto propio', centro, zoom: zoom || 13, base: base || 'calles', modoDist: modoDist || 'euclidiana', usuario: true, grafoRalo: !plantilla && !copiaDe, origen_defecto: ds.nodos.length ? ds.nodos[0].id : 0 });
     normalizar(ds); ds.completo = completo(ds); guardar(ds); registrar(ds); return ds;
   }
 
@@ -71,16 +76,19 @@
     ds.nodos.push(nodo); const k = ds.nodos.length - 1;
     ds.D.forEach((f) => f.push(INF)); ds.D.push(Array(k + 1).fill(INF));
     if (ds.cap) { ds.cap.forEach((f) => f.push(INF)); ds.cap.push(Array(k + 1).fill(INF)); }
+    if (ds.pesoArista) { ds.pesoArista.forEach((f) => f.push(1)); ds.pesoArista.push(Array(k + 1).fill(1)); }
     return k;
   }
   function quitarNodo(ds, i) {
     ds.nodos.splice(i, 1); ds.D.splice(i, 1); ds.D.forEach((f) => f.splice(i, 1));
     if (ds.cap) { ds.cap.splice(i, 1); ds.cap.forEach((f) => f.splice(i, 1)); }
+    if (ds.pesoArista) { ds.pesoArista.splice(i, 1); ds.pesoArista.forEach((f) => f.splice(i, 1)); }
   }
   function ponerArista(ds, i, j, costo, cap) {
     ds.D[i][j] = costo; if (!ds.dirigido) ds.D[j][i] = costo;
     if (cap !== undefined) { if (!ds.cap) ds.cap = ds.D.map((f) => f.map(() => INF)); ds.cap[i][j] = cap; if (!ds.dirigido) ds.cap[j][i] = cap; }
   }
+  function ponerPesoArista(ds, i, j, w) { if (!ds.pesoArista) ds.pesoArista = ds.D.map((f) => f.map(() => 1)); ds.pesoArista[i][j] = w; if (!ds.dirigido) ds.pesoArista[j][i] = w; }
   function quitarArista(ds, i, j) { ds.D[i][j] = INF; if (!ds.dirigido) ds.D[j][i] = INF; if (ds.cap) { ds.cap[i][j] = INF; if (!ds.dirigido) ds.cap[j][i] = INF; } }
   function aristas(ds) {
     const out = [], n = ds.nodos.length;
@@ -91,8 +99,14 @@
     }
     return out;
   }
-  function matrizHaversine(nodos, factor) {
-    return nodos.map((a, i) => nodos.map((b, j) => (i === j ? INF : haversine(a.lat, a.lon, b.lat, b.lon) * factor)));
+  function estadisticas(ds) {
+    const a = aristas(ds); if (!a.length) return { nodos: ds.nodos.length, aristas: 0, min: null, max: null };
+    let mn = a[0], mx = a[0]; a.forEach((x) => { if (x.costo < mn.costo) mn = x; if (x.costo > mx.costo) mx = x; });
+    return { nodos: ds.nodos.length, aristas: a.length, min: mn, max: mx };
+  }
+  function matrizEuclidiana(nodos, escala, lat0) {
+    const l0 = lat0 ?? (nodos.length ? nodos.reduce((t, n) => t + n.lat, 0) / nodos.length : 0);
+    return nodos.map((a, i) => nodos.map((b, j) => (i === j ? INF : euclid(a.lat, a.lon, b.lat, b.lon, l0) * (escala || 1))));
   }
   /* área (polígono lat/lon): contiene punto, bbox y superficie aproximada en km² */
   function dentro(area, lat, lon) {
@@ -232,7 +246,7 @@
     });
   }
 
-  root.Datos = { INF, cargar, guardar, restaurar, nuevo, listar, registrar, eliminar, serializar, normalizar, completo, dcIdx, clientes, aInf, aNull, haversine, matrizHaversine,
-    agregarNodo, quitarNodo, ponerArista, quitarArista, aristas, dentro, bboxArea, superficieKm2, parseTexto, detectar, filasANodos, filasAMatriz, filasAAristas,
+  root.Datos = { INF, cargar, guardar, restaurar, nuevo, listar, registrar, eliminar, serializar, normalizar, completo, dcIdx, clientes, aInf, aNull, euclid, matrizEuclidiana,
+    estadisticas, agregarNodo, quitarNodo, ponerPesoArista, ponerArista, quitarArista, aristas, dentro, bboxArea, superficieKm2, parseTexto, detectar, filasANodos, filasAMatriz, filasAAristas,
     csv, filasNodos, filasMatriz, filasAristas, filasCandidatos, anylogistix, filasResultado, geojson, descargar, leerArchivo, leerImagen, num, esNum };
 })(window);

@@ -4,7 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const INF = Infinity, COL = Mapa.COL;
   const S = { clave: 'cali', sets: {}, ds: null, res: null, panel: 'resultado', worker: null, motor: null, puedeInstalar: false, corriendo: false, corrId: 0, sel: { origen: 0, destino: 0 },
-    rutaSel: 0, sucio: null, factor: 1.3, modo: null, colores: null, tenue: null, pendiente: null, simetrica: true };
+    rutaSel: 0, sucio: null, factor: 1, modo: null, colores: null, tenue: null, pendiente: null, simetrica: true };
   const fmt = (v, d = 3) => (isFinite(v) ? Number(v).toLocaleString('es-CO', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—');
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nodo = (i) => S.ds.nodos[i];
@@ -101,23 +101,24 @@
 
   /* ================= tarjeta Problema ================= */
   const PROBLEMAS = [
-    ['Rutas', [['tsp', 'TSP · un viajante'], ['mtsp', 'm-TSP · varios viajantes'], ['cvrp', 'CVRP · vehículos con capacidad']]],
+    ['Rutas', [['tsp', 'TSP · un viajante (pesos = 1)'], ['mtsp', 'm-TSP · flota, pesos, balance y ventanas']]],
     ['Caminos y árboles', [['camino', 'Camino mínimo (origen → destino)'], ['desde', 'Caminos mínimos desde un origen'], ['arbol', 'Árbol de valor mínimo']]],
     ['Flujos y recorridos', [['flujomax', 'Flujo máximo'], ['flujocosto', 'Flujo de costo mínimo'], ['cartero', 'Cartero chino (recorrer todas las aristas)']]],
     ['Localización en los nodos', [['pmediana', 'p-mediana'], ['pcentro', 'p-centro'], ['cobertura', 'Cobertura de conjuntos']]],
     ['Otros', [['libre', 'Modelo propio (formato LP)']]],
   ];
   const CAMPOS = {
-    tsp: ['modo', 'origen', 'destino', 'tiempo'], mtsp: ['origen', 'm', 'lmin', 'lmax', 'objetivo', 'abierto', 'tiempo'], cvrp: ['origen', 'm', 'capacidad', 'tiempo'],
+    tsp: ['modo', 'origen', 'destino', 'tiempo'], mtsp: ['origen', 'flota', 'balanceado', 'abierto', 'lminmax', 'objetivo', 'vt', 'tiempo'],
     camino: ['origen', 'destino'], desde: ['origen'], arbol: ['origen', 'tiempo'], flujomax: ['origen', 'destino'], flujocosto: [], cartero: [],
     pmediana: ['p', 'ponderar', 'tiempo'], pcentro: ['p', 'tiempo'], cobertura: ['radio', 'tiempo'], libre: ['lp', 'tiempo'],
   };
-  const ETQ_ORIGEN = { tsp: 'Origen', mtsp: 'Depósito', cvrp: 'Depósito', camino: 'Origen', desde: 'Origen', arbol: 'Raíz', flujomax: 'Fuente' };
+  const ETQ_ORIGEN = { tsp: 'Origen', mtsp: 'Depósito', camino: 'Origen', desde: 'Origen', arbol: 'Raíz', flujomax: 'Fuente' };
   const AYUDA = {
     flujomax: 'Las capacidades se editan en la pestaña <b>Aristas</b>. Sin capacidad, una arista no tiene límite.',
     flujocosto: 'Defina el <b>balance</b> de cada nodo en <b>Nodos</b>: positivo = oferta, negativo = demanda (la suma debe ser 0). Costos y capacidades, en <b>Aristas</b>.',
     cartero: 'Recorrido cerrado de costo mínimo que cubre todas las aristas (el grafo debe ser conexo).',
-    cvrp: 'La <b>demanda</b> de cada cliente se edita en <b>Nodos</b>. Se usan hasta m vehículos.',
+    mtsp: 'Los <b>pesos</b> de nodos y aristas, y las <b>franjas horarias</b>, se editan en <b>Nodos</b> y <b>Aristas</b> (solo con m-TSP). Con capacidad 0 el vehículo no tiene límite.',
+    tsp: 'En el TSP el peso de todos los nodos y aristas es <b>1</b> (no llevan carga).',
     pmediana: 'Elige p nodos que minimizan la distancia (ponderada por demanda) de todos los nodos al más cercano.',
     pcentro: 'Elige p nodos que minimizan la mayor distancia de un nodo al más cercano.',
     cobertura: 'Mínimo de nodos para que todos queden a una distancia no mayor que el radio.',
@@ -129,9 +130,11 @@
       <div class="fila"><label class="campo">Tipo de problema<select id="problema">${PROBLEMAS.map(([g, l]) => `<optgroup label="${g}">${l.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</optgroup>`).join('')}</select></label></div>
       <div class="fila" data-c="modo"><label class="campo">Recorrido del TSP<select id="modo"><option value="ciclo">Circuito (regresa al origen)</option><option value="abierto">Camino abierto desde el origen</option><option value="fijo">Camino de origen a destino</option><option value="libre">Camino libre</option></select></label></div>
       <div class="fila"><label class="campo" data-c="origen" id="fOrigen"><span id="tOrigen">Origen</span><select id="origen"></select></label><label class="campo" data-c="destino" id="fDestino">Destino<select id="destino"></select></label></div>
-      <div class="fila" data-c="m"><label class="campo" data-c="m">Vehículos / viajantes (m)<input id="m" type="number" min="1" max="12" value="2"></label><label class="campo" data-c="lmin">Mín. por ruta<input id="lmin" type="number" min="1" value="1"></label><label class="campo" data-c="lmax">Máx. por ruta (0 = sin límite)<input id="lmax" type="number" min="0" value="0"></label></div>
-      <div class="fila" data-c="objetivo"><label class="campo">Objetivo<select id="objetivo"><option value="suma">Mínima distancia total</option><option value="maximo">Minimizar la ruta más larga</option></select></label><label class="check" data-c="abierto"><input type="checkbox" id="abierto"> Rutas abiertas (no regresan al depósito)</label></div>
-      <div class="fila" data-c="capacidad"><label class="campo">Capacidad del vehículo (Q)<input id="capacidad" type="number" min="1" value="35"></label></div>
+      <div class="fila" data-c="flota"><div style="flex-basis:100%"><div class="nota" style="margin-bottom:4px"><b>Flota</b> · vehículos por tipo</div><div id="flotaTabla"></div></div></div>
+      <div class="fila" data-c="balanceado"><label class="check"><input type="checkbox" id="balanceado"> Balanceado (reparte los clientes por igual entre las rutas)</label><label class="check" data-c="abierto"><input type="checkbox" id="abierto"> Abierto (las rutas no regresan al depósito)</label></div>
+      <div class="fila" data-c="lminmax"><label class="campo">Mín. clientes por ruta<input id="lmin" type="number" min="0" value="1"></label><label class="campo">Máx. clientes por ruta (0 = sin límite)<input id="lmax" type="number" min="0" value="0"></label></div>
+      <div class="fila" data-c="objetivo"><label class="campo">Objetivo<select id="objetivo"><option value="suma">Mínimo costo total</option><option value="maximo">Minimizar la ruta más costosa</option></select></label></div>
+      <div class="fila" data-c="vt"><label class="check"><input type="checkbox" id="vtUsar"> Usar ventanas de tiempo (franja horaria de cada cliente)</label><label class="campo">Salida del depósito<input id="vtIni" type="time" value="08:00"></label><label class="campo">Servicio por cliente (min)<input id="vtServ" type="number" min="0" value="10"></label></div>
       <div class="fila" data-c="p"><label class="campo" data-c="p">Cantidad de nodos (p)<input id="p" type="number" min="1" value="2"></label></div>
       <div class="fila" data-c="radio"><label class="campo">Radio de cobertura<input id="radio" type="number" min="0" value="1500"></label></div>
       <div class="fila" data-c="ponderar"><label class="check"><input type="checkbox" id="ponderar"> Ponderar por la demanda de cada nodo</label></div>
@@ -140,7 +143,7 @@
       <p class="nota" id="ayudaProb" style="margin:0 0 10px"></p>
       <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn gris" id="bDetener" disabled>Detener</button></div>
       <div class="barra-prog oculto" id="prog"><i></i></div><div class="log oculto" id="log"></div>`;
-    $('problema').onchange = App.camposProblema; $('modo').onchange = App.camposProblema; $('origen').onchange = App.pintarSeleccion; $('destino').onchange = App.pintarSeleccion;
+    $('problema').onchange = App.camposProblema; $('modo').onchange = App.camposProblema; $('balanceado').onchange = (e) => { S.ds.balanceado = e.target.checked; Datos.guardar(S.ds); App.camposProblema(); }; $('vtUsar').onchange = (e) => { S.ds.vt.usar = e.target.checked; Datos.guardar(S.ds); if (S.panel === 'nodos') App.renderPanel(); }; $('vtIni').onchange = (e) => { S.ds.vt.inicio = App.horas(e.target.value); Datos.guardar(S.ds); }; $('vtServ').onchange = (e) => { S.ds.vt.servicio = Math.max(0, +e.target.value || 0); Datos.guardar(S.ds); }; $('origen').onchange = App.pintarSeleccion; $('destino').onchange = App.pintarSeleccion;
     $('bResolver').onclick = () => { const p = parametros(); if (p) App.lanzar(p.kind, p.opt, p.titulo, p.extra, p.datos); };
     $('bDetener').onclick = () => { if (!S.corriendo) return; App.ocupado(false); logLinea('Detenido por el usuario.'); App.crearWorker(); };
   }
@@ -148,16 +151,26 @@
     const opts = S.ds.nodos.map((n, i) => `<option value="${i}">${esc(etq(i))}</option>`).join('');
     ['origen', 'destino'].forEach((id) => { const prev = $(id).value; $(id).innerHTML = opts; if (prev !== '' && +prev < S.ds.nodos.length) $(id).value = prev; });
   };
+  App.horas = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) + (m || 0) / 60; };
+  App.hhmm = (x) => { x = Math.max(0, x); let h = Math.floor(x + 1e-9), m = Math.round((x - h) * 60); if (m === 60) { m = 0; h++; } return String(h % 24).padStart(2, '0') + ':' + String(m).padStart(2, '0'); };
+  App.modoPesos = () => !!$('problema') && $('problema').value === 'mtsp';   // los pesos solo se editan en m-TSP; en TSP valen 1
   App.camposProblema = () => {
     const p = $('problema').value, modo = $('modo').value, vis = new Set(CAMPOS[p]);
     if (p === 'tsp' && modo !== 'fijo') vis.delete('destino'); if (p === 'tsp' && modo === 'libre') vis.delete('origen');
+    if (p === 'mtsp' && $('balanceado').checked) vis.delete('lminmax');
     document.querySelectorAll('#cProblema [data-c]').forEach((el) => el.classList.toggle('oculto', !vis.has(el.dataset.c)));
-    ['m', 'lmin', 'lmax'].forEach((c) => { const el = document.querySelector(`#cProblema [data-c="${c}"]`); if (el.tagName === 'LABEL') el.classList.toggle('oculto', !vis.has(c)); });
-    document.querySelector('#cProblema .fila[data-c="m"]').classList.toggle('oculto', !vis.has('m'));
-    document.querySelectorAll('#cProblema label[data-c="lmin"], #cProblema label[data-c="lmax"]').forEach((el) => el.classList.toggle('oculto', p !== 'mtsp'));
     $('tOrigen').textContent = ETQ_ORIGEN[p] || 'Origen'; $('ayudaProb').innerHTML = AYUDA[p] || '';
-    if (['tsp', 'mtsp', 'cvrp'].includes(p)) { const d = Datos.dcIdx(S.ds); if (d >= 0 && S.ultimoProblema !== p) $('origen').value = d; }
+    $('balanceado').checked = !!S.ds.balanceado; $('vtUsar').checked = !!S.ds.vt.usar; $('vtIni').value = App.hhmm(S.ds.vt.inicio); $('vtServ').value = S.ds.vt.servicio;
+    if (p === 'mtsp') App.renderFlota();
+    if (['tsp', 'mtsp'].includes(p)) { const d = Datos.dcIdx(S.ds); if (d >= 0 && S.ultimoProblema !== p) $('origen').value = d; }
+    if (S.ultimoProblema !== p && ['nodos', 'aristas'].includes(S.panel)) setTimeout(() => App.renderPanel(), 0);
     S.ultimoProblema = p; App.pintarSeleccion();
+  };
+  App.renderFlota = () => {
+    const f = S.ds.flota, c = $('flotaTabla');
+    c.innerHTML = `<table class="flota"><tr><th>Tipo</th><th>Cant.</th><th>Capac.</th><th>Costo/km</th><th>km/h</th></tr>` + f.map((t, i) => `<tr><td><input data-i="${i}" data-f="tipo" value="${esc(t.tipo)}"></td><td><input data-i="${i}" data-f="n" type="number" min="0" max="20" value="${t.n}"></td><td><input data-i="${i}" data-f="cap" type="number" min="0" value="${t.cap}"></td><td><input data-i="${i}" data-f="costoKm" type="number" min="0" step="0.1" value="${t.costoKm}"></td><td><input data-i="${i}" data-f="vel" type="number" min="1" value="${t.vel}"></td></tr>`).join('') + `</table><div class="nota" id="flotaTot"></div>`;
+    const tot = () => { const n = f.reduce((a, t) => a + (+t.n || 0), 0); $('flotaTot').textContent = `${n} vehículo(s) en total · capacidad 0 = sin límite`; }; tot();
+    c.querySelectorAll('input').forEach((i) => (i.onchange = () => { const t = f[+i.dataset.i], k = i.dataset.f; t[k] = k === 'tipo' ? i.value : Math.max(0, +i.value || 0); Datos.guardar(S.ds); tot(); }));
   };
   App.pintarSeleccion = () => {
     const o = +$('origen').value, d = +$('destino').value, usa = !$('fDestino').classList.contains('oculto');
@@ -168,7 +181,7 @@
   const distCompletas = () => { const D = S.ds.D, n = D.length, big = 1e6; return D.map((f, i) => f.map((v, j) => (i === j ? 0 : (isFinite(v) ? v : big)))); };
   function parametros() {
     const p = $('problema').value, o = +$('origen').value, d = +$('destino').value, n = S.ds.nodos.length, tiempo = Math.max(5, +$('tiempo').value || 120);
-    const lmin = Math.max(1, +$('lmin').value || 1), lmax = Math.max(0, +$('lmax').value || 0), m = +$('m').value, ds = S.ds;
+    const ds = S.ds;
     if (n < 2) return aviso('Agregue nodos primero (herramienta «Agregar nodos» o pestaña Nodos).');
     if (p === 'tsp') {
       if (n < 3) return aviso('El TSP necesita al menos 3 nodos.'); const modo = $('modo').value;
@@ -176,14 +189,18 @@
       return { kind: 'tsp', opt: { modo, origen: modo === 'libre' ? 0 : o, fin: d, tiempo, brecha: 1e-6 }, titulo: 'TSP · ' + { ciclo: 'circuito', abierto: 'camino abierto', fijo: `camino de ${corto(o)} a ${corto(d)}`, libre: 'camino libre' }[modo] };
     }
     if (p === 'mtsp') {
-      if (!(m >= 2 && m < n)) return aviso(`El número de viajantes debe estar entre 2 y ${n - 1}.`);
-      if (lmin * m > n - 1 || (lmax && lmax * m < n - 1)) return aviso(`Los límites por ruta son imposibles para ${n - 1} clientes y ${m} viajantes.`);
-      return { kind: 'mtsp', opt: { m, deposito: o, lmin, lmax, objetivo: $('objetivo').value, abierto: $('abierto').checked, tiempo, brecha: 1e-6 }, titulo: `m-TSP · ${m} viajantes` + (lmax || lmin > 1 ? ` · ${lmin}–${lmax || '∞'} por ruta` : '') + ($('objetivo').value === 'maximo' ? ' · ruta más larga mínima' : '') };
-    }
-    if (p === 'cvrp') {
-      const Q = +$('capacidad').value; if (!(Q > 0)) return aviso('Indique la capacidad Q del vehículo.'); if (!(m >= 1)) return aviso('Indique al menos 1 vehículo.');
-      if (!ds.nodos.some((x, i) => i !== o && x.extra > 0)) return aviso('Los clientes no tienen demanda: edítela en la pestaña Nodos.');
-      return { kind: 'cvrp', opt: { m, deposito: o, capacidad: Q, demanda: ds.nodos.map((x) => +x.extra || 0), tiempo, brecha: 1e-6 }, titulo: `CVRP · hasta ${m} vehículos de capacidad ${Q}` };
+      const veh = ds.flota.flatMap((t) => Array.from({ length: Math.round(+t.n || 0) }, () => ({ tipo: t.tipo, cap: t.cap > 0 ? +t.cap : Infinity, costoKm: +t.costoKm || 1, vel: +t.vel || 30, fijo: 0 })));
+      const m = veh.length, nc = n - 1, bal = $('balanceado').checked, abierto = $('abierto').checked, obj = $('objetivo').value;
+      if (m < 1) return aviso('Defina al menos 1 vehículo en la flota (cantidad).'); if (m >= n) return aviso(`Hay más vehículos (${m}) que clientes (${nc}).`);
+      const lmin = Math.max(0, +$('lmin').value || 0), lmax = Math.max(0, +$('lmax').value || 0);
+      if (!bal && (lmin * m > nc || (lmax && lmax * m < nc))) return aviso(`Los límites por ruta son imposibles para ${nc} clientes y ${m} vehículos.`);
+      const peso = ds.nodos.map((x) => +x.peso || 1), pesoArco = ds.pesoArista, usaVt = $('vtUsar').checked;
+      const sumW = peso.reduce((a, v, i) => a + (i === o ? 0 : v), 0), tipos = new Set(veh.map((v) => v.tipo)), pesosUno = peso.every((v, i) => i === o || Math.abs(v - 1) < 1e-9) && (!pesoArco || pesoArco.every((f, i) => f.every((v, j) => i === j || !isFinite(v) || Math.abs(v - 1) < 1e-9)));
+      const simple = tipos.size === 1 && veh.every((v) => v.cap >= sumW - 1e-9) && pesosUno && !usaVt;
+      const tit = `m-TSP · ${m} vehículo(s)` + (bal ? ' · balanceado' : '') + (abierto ? ' · abierto' : '') + (usaVt ? ' · con ventanas' : '') + (obj === 'maximo' ? ' · ruta más costosa mínima' : '');
+      if (simple && m >= 2) return { kind: 'mtsp', opt: { m, deposito: o, lmin: bal ? Math.max(1, Math.floor(nc / m)) : Math.max(1, lmin), lmax: bal ? Math.ceil(nc / m) : lmax, objetivo: obj, abierto, tiempo, brecha: 1e-6 }, titulo: tit };
+      const vt = usaVt ? { usar: true, inicio: ds.vt.inicio, servicio: (+ds.vt.servicio || 0) / 60, a: ds.nodos.map((x) => (x.vtOn ? x.vtA : 0)), b: ds.nodos.map((x) => (x.vtOn ? x.vtB : 48)) } : null;
+      return { kind: 'flota', opt: { deposito: o, vehiculos: veh, peso, pesoArco, balanceado: bal, lmin, lmax, abierto, objetivo: obj, vt, tiempo, brecha: 1e-6 }, titulo: tit };
     }
     if (p === 'camino') { if (o === d) return aviso('El destino debe ser distinto del origen.'); return { kind: 'camino', opt: { origen: o, destino: d }, titulo: `Camino mínimo ${corto(o)} → ${corto(d)}` }; }
     if (p === 'desde') return { kind: 'desde', opt: { origenes: [o] }, titulo: `Caminos mínimos desde ${corto(o)}`, extra: { cols: null } };
@@ -219,7 +236,7 @@
     chip(sinGeom ? `${total - sinGeom} de ${total} tramos por calles · ${sinGeom} en línea recta (sin conexión a OSRM)` : `${total} tramos trazados por las calles`);
     const colores = {}, usados = new Set();
     g.forEach((x) => x.pares.forEach(([i, j]) => { usados.add(i); usados.add(j); colores[i] = colores[i] || x.color; colores[j] = colores[j] || x.color; }));
-    const dep = r0.kind === 'mtsp' || r0.kind === 'cvrp' ? r0.opt.deposito : (r0.res.rutas && r0.res.rutas[0] ? r0.res.rutas[0][0] : r0.opt.raiz);
+    const dep = ['mtsp', 'cvrp', 'flota'].includes(r0.kind) ? r0.opt.deposito : (r0.res.rutas && r0.res.rutas[0] ? r0.res.rutas[0][0] : r0.opt.raiz);
     S.colores = colores; if (dep !== undefined) delete colores[dep];
     S.tenue = new Set(S.ds.nodos.map((_, i) => i).filter((i) => !usados.has(i)));
     Mapa.estiloNodos({ deposito: dep, seleccion: null, colores, tenue: S.tenue });
@@ -227,7 +244,7 @@
   }
   App.dibujarResultado = dibujarResultado;
   App.renderLeyenda = (g) => {
-    const l = $('leyenda'); if (!g || !g.length || !['tsp', 'mtsp', 'cvrp'].includes(S.res.kind)) { l.classList.add('oculto'); return; }
+    const l = $('leyenda'); if (!g || !g.length || !['tsp', 'mtsp', 'cvrp', 'flota'].includes(S.res.kind)) { l.classList.add('oculto'); return; }
     l.classList.remove('oculto'); l.innerHTML = g.map((x, k) => `<div><span class="punto" style="background:${x.color}"></span>Ruta ${k + 1} · ${fmt(S.res.res.dists[k], 1)} ${S.ds.unidad}</div>`).join('');
   };
   App.limpiarResultado = () => { S.res = null; S.colores = null; S.tenue = null; Mapa.limpiarRutas(); $('leyenda').classList.add('oculto'); if (S.panel === 'resultado') App.renderPanel(); App.pintarSeleccion(); };
@@ -246,8 +263,8 @@
   const kpis = (items) => '<div class="kpis">' + items.map(([v, l, cls]) => `<div class="kpi ${cls || ''}"><b class="tabular">${v}</b><span>${l}</span></div>`).join('') + '</div>';
   const estadoKpi = (res) => { const opt = String(res.estado).startsWith('óptimo'); return [opt ? 'Óptimo probado' : esc(String(res.estado).startsWith('límite') ? 'Límite de tiempo' : res.estado), 'Estado', opt ? 'estado ok' : 'estado aviso']; };
   App.kpis = kpis; App.estadoKpi = estadoKpi;
-  function pasos(ru) {
-    let ac = 0; return `<table><tr><th>#</th><th>Nodo</th><th>Nombre</th><th>Tramo</th><th>Acum.</th></tr>` + ru.map((v, j) => { const t = j ? S.ds.D[ru[j - 1]][v] : 0; ac += t; return `<tr><td>${j}</td><td>${esc(corto(v))}</td><td>${esc(nodo(v).nombre)}</td><td class="tabular">${j ? fmt(t) : ''}</td><td class="tabular">${fmt(ac)}</td></tr>`; }).join('') + '</table>';
+  function pasos(ru, lleg) {
+    let ac = 0; return `<table><tr><th>#</th><th>Nodo</th><th>Nombre</th><th>Tramo</th><th>Acum.</th>${lleg ? '<th>Llegada</th>' : ''}</tr>` + ru.map((v, j) => { const t = j ? S.ds.D[ru[j - 1]][v] : 0; ac += t; return `<tr><td>${j}</td><td>${esc(corto(v))}</td><td>${esc(nodo(v).nombre)}</td><td class="tabular">${j ? fmt(t) : ''}</td><td class="tabular">${fmt(ac)}</td>${lleg ? `<td class="tabular">${lleg[j] == null ? '' : App.hhmm(lleg[j])}</td>` : ''}</tr>`; }).join('') + '</table>';
   }
   function pResultado(el) {
     const r = S.res;
@@ -264,6 +281,10 @@
       h += `<table><tr><th>Ruta</th><th>Recorrido</th><th>Paradas</th>${r.kind === 'cvrp' ? '<th>Carga</th>' : ''}<th>${u}</th></tr>` + x.rutas.map((ru, k) => { const dep = ru[0]; const n = ru.filter((v, q) => !(q === 0 || (q === ru.length - 1 && v === dep))).length;
         return `<tr class="clic ${k === S.rutaSel ? 'activa' : ''}" data-k="${k}"><td><span class="punto" style="background:${COL[k % COL.length]}"></span>${x.rutas.length > 1 ? k + 1 : ''}</td><td class="recorrido">${ru.map((v) => `<span title="${esc(nodo(v).nombre)}">${esc(corto(v))}</span>`).join(' → ')}</td><td>${n}</td>${r.kind === 'cvrp' ? `<td class="tabular">${fmt(x.cargas[k], 0)}/${x.capacidad}</td>` : ''}<td class="tabular">${fmt(x.dists[k])}</td></tr>`; }).join('') + '</table>';
       h += `<div class="sep"></div><h3 style="font-size:15px;margin-bottom:6px">Detalle · ruta ${x.rutas.length > 1 ? S.rutaSel + 1 : ''}</h3>` + pasos(x.rutas[S.rutaSel]);
+    } else if (r.kind === 'flota') {
+      h += kpis([estadoKpi(x), [fmt(x.totalCosto, 2), 'Costo total' + (r.opt.objetivo === 'maximo' ? ' · ruta más costosa ' + fmt(x.objetivo, 2) : '')], [fmt(x.total) + ' ' + u, 'Distancia total'], [x.rutas.length + ' de ' + r.opt.vehiculos.length, 'Vehículos usados'], [fmt(x.seg || 0, 2) + ' s', 'Tiempo de cálculo']]);
+      h += `<table><tr><th>Ruta</th><th>Vehículo</th><th>Recorrido</th><th>Carga</th><th>${u}</th><th>Costo</th></tr>` + x.rutas.map((ru, k) => `<tr class="clic ${k === S.rutaSel ? 'activa' : ''}" data-k="${k}"><td><span class="punto" style="background:${COL[k % COL.length]}"></span>${k + 1}</td><td>${esc(x.info[k].tipo)}</td><td class="recorrido">${ru.map((v) => `<span title="${esc(nodo(v).nombre)}">${esc(corto(v))}</span>`).join(' → ')}</td><td class="tabular">${fmt(x.info[k].carga, 1)}${isFinite(x.info[k].cap) ? '/' + x.info[k].cap : ''}</td><td class="tabular">${fmt(x.dists[k])}</td><td class="tabular">${fmt(x.info[k].costo, 2)}</td></tr>`).join('') + '</table>';
+      h += `<div class="sep"></div><h3 style="font-size:15px;margin-bottom:6px">Detalle · ruta ${S.rutaSel + 1} (${esc(x.info[S.rutaSel].tipo)})</h3>` + pasos(x.rutas[S.rutaSel], x.info[S.rutaSel].llegadas);
     } else if (r.kind === 'camino') {
       h += kpis([estadoKpi(x), [fmt(x.objetivo) + ' ' + u, 'Distancia mínima'], [x.rutas[0].length - 1, 'Tramos'], [t, 'Tiempo de cálculo']]) + pasos(x.rutas[0]);
       const dir = S.ds.D[x.rutas[0][0]][x.rutas[0].at(-1)];
@@ -357,11 +378,11 @@
     if (p.proyecto) partes.push(`un <b>proyecto completo</b> (${p.proyecto.nodos.length} nodos)`); if (p.nodos) partes.push(`<b>${p.nodos.length} nodos</b> con coordenadas`); if (p.matriz) partes.push(`una <b>matriz ${p.matriz.D.length} × ${p.matriz.D.length}</b>`); if (p.aristas) partes.push(`<b>${p.aristas.length} aristas</b>`);
     if (!partes.length) return App.hoja(`<h3>No reconozco el contenido</h3><p class="nota">${esc(p.error || 'Use encabezados como id, nombre, lat, lon; origen, destino, costo; o una matriz con etiquetas.')}</p><div class="acc"><button class="btn" data-x="c">Cerrar</button></div>`, () => App.cerrarHoja());
     const n = S.ds.nodos.length, solo = !p.nodos && !p.proyecto && p.matriz && p.matriz.D.length === n;
-    const accion = p.proyecto ? 'Se cargará el proyecto con su grafo, candidatos, área e imagen.' : solo ? `Se reemplazará solo la <b>matriz de distancias</b> (los ${n} nodos se conservan).` : p.nodos ? `Se importarán los <b>nodos</b>${p.matriz && p.matriz.D.length === p.nodos.length ? ' y la <b>matriz</b>' : '; las distancias se calcularán en <b>línea recta × factor</b>'}${p.aristas ? ' y las <b>aristas</b>' : ''}.` : 'Los nodos sin coordenadas se ubicarán en círculo alrededor del centro del mapa.';
+    const accion = p.proyecto ? 'Se cargará el proyecto con su grafo, candidatos, área e imagen.' : solo ? `Se reemplazará solo la <b>matriz de distancias</b> (los ${n} nodos se conservan).` : p.nodos ? `Se importarán los <b>nodos</b>${p.matriz && p.matriz.D.length === p.nodos.length ? ' y la <b>matriz</b>' : '; las distancias se calcularán con la <b>matriz euclidiana</b>'}${p.aristas ? ' y las <b>aristas</b>' : ''}.` : 'Los nodos sin coordenadas se ubicarán en círculo alrededor del centro del mapa.';
     App.hoja(`<h3>${esc(p.nombre)}</h3><p>Se detectó ${partes.join(', ')}.</p><p class="nota">${accion}</p>
-      <div class="fila"><label class="campo">Destino<select id="impDestino"><option value="nuevo">Crear un proyecto nuevo</option><option value="este">Reemplazar «${esc(S.ds.titulo)}»</option></select></label><label class="campo">Factor de rodeo (si hay que calcular distancias)<input id="impFactor" type="number" step="0.05" value="${S.factor}"></label></div>
+      <div class="fila"><label class="campo">Destino<select id="impDestino"><option value="nuevo">Crear un proyecto nuevo</option><option value="este">Reemplazar «${esc(S.ds.titulo)}»</option></select></label><label class="campo">Escala (si hay que calcular la matriz euclidiana)<input id="impFactor" type="number" step="0.05" value="${S.factor}"></label></div>
       <div class="acc"><button class="btn gris" data-x="c">Cancelar</button><button class="btn" data-x="ok">Aplicar</button></div>`, (x, h) => {
-      if (x !== 'ok') return App.cerrarHoja(); S.factor = +h.querySelector('#impFactor').value || 1.3; const dest = h.querySelector('#impDestino').value; App.cerrarHoja(); aplicarPlan(p, dest); });
+      if (x !== 'ok') return App.cerrarHoja(); S.factor = +h.querySelector('#impFactor').value || 1; const dest = h.querySelector('#impDestino').value; App.cerrarHoja(); aplicarPlan(p, dest); });
   }
   function aplicarPlan(p, dest) {
     const ds = S.ds, c = ds.centro, circulo = (k, i) => { const a = 2 * Math.PI * i / k; return [c[0] + 0.02 * Math.cos(a), c[1] + 0.02 * Math.sin(a)]; };
@@ -372,14 +393,14 @@
       else if (p.aristas && !nodos) {
         const ids = [...new Set(p.aristas.flatMap((e) => [e[0], e[1]]))]; nodos = ids.every((id) => idx(id) >= 0) ? ds.nodos : ids.map((id, i) => ({ id, nombre: 'Nodo ' + id, lat: circulo(ids.length, i)[0], lon: circulo(ids.length, i)[1], extra: 0 }));
       }
-      if (nodos && !D) D = p.aristas ? nodos.map(() => nodos.map(() => INF)) : Datos.matrizHaversine(nodos, S.factor);
+      if (nodos && !D) D = p.aristas ? nodos.map(() => nodos.map(() => INF)) : Datos.matrizEuclidiana(nodos, S.factor, ds.centro[0]);
       if (p.aristas && nodos) { const pos = (id) => nodos.findIndex((n) => String(n.id) === String(id)); p.aristas.forEach(([a, b, w, k]) => { const i = pos(a), j = pos(b); if (i >= 0 && j >= 0) { D[i][j] = w; D[j][i] = w; if (isFinite(k)) { cap = cap || nodos.map(() => nodos.map(() => INF)); cap[i][j] = k; cap[j][i] = k; } } }); }
     }
     if (!nodos || !D || D.length !== nodos.length) return App.hoja('<h3>Datos inconsistentes</h3><p class="nota">El número de nodos no coincide con el tamaño de la matriz.</p><div class="acc"><button class="btn" data-x="c">Cerrar</button></div>', () => App.cerrarHoja());
-    nodos = nodos.map((n) => Object.assign({ extra: 0, balance: 0, fijo: 0, tipo: 'cliente' }, n)); D = D.map((f, i) => f.map((v, j) => (i === j ? INF : v)));
+    nodos = nodos.map((n) => Object.assign({ extra: 0, balance: 0, fijo: 0, peso: 1, tipo: 'cliente' }, n)); D = D.map((f, i) => f.map((v, j) => (i === j ? INF : v)));
     const centro = nodos.length ? [nodos.reduce((a, n) => a + n.lat, 0) / nodos.length, nodos.reduce((a, n) => a + n.lon, 0) / nodos.length] : ds.centro;
     if (dest === 'nuevo') {
-      const nuevo = Datos.nuevo({ titulo: p.proyecto ? p.proyecto.titulo || p.nombre : p.nombre.replace(/\.[a-z]+$/i, ''), centro, zoom: 12, modoDist: 'recta' });
+      const nuevo = Datos.nuevo({ titulo: p.proyecto ? p.proyecto.titulo || p.nombre : p.nombre.replace(/\.[a-z]+$/i, ''), centro, zoom: 12, modoDist: 'euclidiana' });
       Object.assign(nuevo, { nodos, D, cap: cap ? Datos.aInf(cap) : null, grafoRalo: !!p.aristas }); if (p.proyecto) Object.assign(nuevo, { candidatos: p.proyecto.candidatos || [], area: p.proyecto.area || null, fondo: p.proyecto.fondo || null, base: p.proyecto.base || 'calles', dirigido: !!p.proyecto.dirigido, factor: p.proyecto.factor || 1.3 });
       Datos.normalizar(nuevo); Datos.guardar(nuevo); Datos.registrar(nuevo); S.sets[nuevo.clave] = nuevo; App.proyectosRender(); App.cambiarTab(nuevo.clave); return;
     }

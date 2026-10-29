@@ -66,6 +66,7 @@ onmessage = async (e) => {
         case 'cartero': res = await Solver.cartero(d.D, ctx, d.opt); break;
         case 'ubicar': res = await Solver.ubicar(d.dist, ctx, d.opt); break;
         case 'ubicarruta': res = await Solver.ubicarRuta(d.opt, ctx); break;
+        case 'flota': res = await Solver.flota(d.D, ctx, d.opt); break;
         case 'cvrp': res = await Solver.cvrp(d.D, ctx, d.opt); break;
         case 'libre': res = await Solver.modeloLibre(d.lp, ctx, d.opt); break;
         default: throw new Error('Problema desconocido: ' + d.kind);

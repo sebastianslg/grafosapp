@@ -268,53 +268,6 @@
     return r;
   }
 
-  /* ---------- lectura de datos ---------- */
-  function haversine(la1, lo1, la2, lo2) {
-    const R = 6371.0088, p = Math.PI / 180, dl = (lo2 - lo1) * p, a = Math.sin((la2 - la1) * p / 2) ** 2 + Math.cos(la1 * p) * Math.cos(la2 * p) * Math.sin(dl / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(a));
-  }
-  const num = (s) => { const t = String(s).trim().replace(',', '.'); if (t === '' || t === '#' || /^(inf|nan|-|∞)$/i.test(t)) return INF; const v = Number(t); return isNaN(v) ? INF : v; };
-  function parseTable(text) {
-    const lines = text.replace(/\r/g, '').split('\n').filter((l) => l.trim() !== '');
-    if (!lines.length) throw new Error('No hay datos.');
-    const f = lines[0], sep = f.includes('\t') ? '\t' : (f.split(';').length > f.split(',').length ? ';' : ',');
-    return lines.map((l) => l.split(sep).map((c) => c.trim().replace(/^"|"$/g, '')));
-  }
-  /* devuelve {D, ids, nombres, coords|null, tipo} */
-  function cargar(text, opt) {
-    const rows = parseTable(text), head = rows[0].map((h) => h.toLowerCase());
-    const find = (...al) => head.findIndex((h) => al.includes(h));
-    const cLat = find('lat', 'latitud', 'latitude'), cLon = find('lon', 'lng', 'long', 'longitud', 'longitude');
-    const cO = find('origen', 'desde', 'from', 'source'), cD = find('destino', 'hasta', 'to', 'target'), cC = find('costo', 'coste', 'cost', 'peso', 'distancia', 'weight', 'km');
-    if (cO >= 0 && cD >= 0 && cC >= 0) {
-      const ids = [], pos = new Map();
-      const g = (x) => { if (!pos.has(x)) { pos.set(x, ids.length); ids.push(x); } return pos.get(x); };
-      rows.slice(1).forEach((r) => { g(r[cO]); g(r[cD]); });
-      const n = ids.length, D = Array.from({ length: n }, () => new Array(n).fill(INF));
-      rows.slice(1).forEach((r) => { const i = pos.get(r[cO]), j = pos.get(r[cD]), c = num(r[cC]); D[i][j] = c; if (!opt.dirigido) D[j][i] = c; });
-      for (let i = 0; i < n; i++) D[i][i] = INF;
-      return { D, ids, nombres: null, coords: null, tipo: 'aristas' };
-    }
-    if (cLat >= 0 && cLon >= 0) {
-      const cId = find('id', 'nodo', 'node', 'n', '#'), cN = find('nombre', 'name', 'ciudad', 'tienda', 'city');
-      const body = rows.slice(1), n = body.length;
-      const lat = body.map((r) => Number(r[cLat].replace(',', '.'))), lon = body.map((r) => Number(r[cLon].replace(',', '.')));
-      const D = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => i === j ? INF :
-        (opt.metrica === 'euclidiana' ? Math.hypot(lat[i] - lat[j], lon[i] - lon[j]) : haversine(lat[i], lon[i], lat[j], lon[j])) * opt.factor));
-      return { D, ids: body.map((r, i) => (cId >= 0 ? r[cId] : String(i + 1))), nombres: cN >= 0 ? body.map((r) => r[cN]) : null, coords: lat.map((a, i) => [a, lon[i]]), tipo: 'coordenadas' };
-    }
-    // matriz cuadrada
-    const n = rows.length - 1, conEtq = rows[0].length === n + 1 || (rows[0].length === n && isNaN(Number(rows[1][0])));
-    let ids, body;
-    if (conEtq) { ids = rows[0].slice(rows[0].length - n); body = rows.slice(1).map((r) => r.slice(r.length - n)); }
-    else { ids = Array.from({ length: rows.length }, (_, i) => String(i + 1)); body = rows; }
-    const m = body.length;
-    if (body.some((r) => r.length !== m)) throw new Error('La matriz no es cuadrada (' + m + ' filas, ' + body[0].length + ' columnas).');
-    const D = body.map((r, i) => r.map((c, j) => (i === j ? INF : num(c))));
-    return { D, ids, nombres: null, coords: null, tipo: 'matriz' };
-  }
-
-
   /* ---------- caminos mínimos (LP de flujo) ---------- */
   async function flujoCaminos(D, s, destinos, ctx, excluir) {
     const n = D.length, ex = new Set(excluir || []);
@@ -567,6 +520,102 @@
     return out;
   }
 
+  /* ---------- m-TSP con flota heterogénea, pesos, balance, rutas abiertas y ventanas de tiempo ---------- */
+  async function flota(D, ctx, o) {
+    const t0 = now(), n = D.length, h = o.deposito || 0, veh = o.vehiculos, m = veh.length;
+    const w = o.peso || new Array(n).fill(1), pa = o.pesoArco || null;
+    const cl = []; for (let i = 0; i < n; i++) if (i !== h) cl.push(i);
+    const nc = cl.length, vt = o.vt && o.vt.usar ? o.vt : null;
+    const C = D.map((f, i) => f.map((v, j) => (i === j || !isFinite(v) ? INF : v * (pa && pa[i] && isFinite(pa[i][j]) ? pa[i][j] : 1))));
+    const capMax = Math.max(...veh.map((v) => (isFinite(v.cap) ? v.cap : INF)));
+    if (cl.some((i) => w[i] > capMax + 1e-9)) return { estado: 'infactible: un cliente pesa más que la capacidad del mayor vehículo', rutas: [] };
+    let lmin = 0, lmax = nc;
+    if (o.balanceado) { lmin = Math.max(1, Math.floor(nc / m)); lmax = Math.ceil(nc / m); } else { lmin = o.lmin || 0; lmax = o.lmax || nc; }
+    const todas = !!o.balanceado || lmin >= 1;
+    const M = new Model(), nodes = [...cl, h], X = (k, i, j) => 'x_' + k + '_' + i + '_' + j, Y = (k, i) => 'y_' + k + '_' + i, V = (k) => 'v_' + k;
+    const arcs = []; for (const i of nodes) for (const j of nodes) if (i !== j && isFinite(C[i][j])) arcs.push([i, j]);
+    const has = new Set(arcs.map(([i, j]) => i + ',' + j));
+    const costo = (k, i, j) => (o.abierto && j === h ? 0 : veh[k].costoKm * C[i][j]);
+    const maxo = o.objetivo === 'maximo';
+    if (maxo) M.addVar('z', 1, 0, INF, false);
+    for (let k = 0; k < m; k++) {
+      for (const [i, j] of arcs) M.addVar(X(k, i, j), (maxo ? 1e-3 : 1) * costo(k, i, j), 0, 1, true);
+      for (const i of cl) M.addVar(Y(k, i), 0, 0, 1, true);
+      M.addVar(V(k), (veh[k].fijo || 0), todas ? 1 : 0, 1, true);
+      const so = cl.filter((j) => has.has(h + ',' + j)), en = cl.filter((i) => has.has(i + ',' + h));
+      M.addCon(so.map((j) => X(k, h, j)).concat([V(k)]), so.map(() => 1).concat([-1]), 0, 0);
+      M.addCon(en.map((i) => X(k, i, h)).concat([V(k)]), en.map(() => 1).concat([-1]), 0, 0);
+      for (const i of cl) {
+        const a = nodes.filter((j) => j !== i && has.has(j + ',' + i)).map((j) => X(k, j, i)).concat([Y(k, i)]);
+        const b = nodes.filter((j) => j !== i && has.has(i + ',' + j)).map((j) => X(k, i, j)).concat([Y(k, i)]);
+        M.addCon(a, a.map((_, z) => (z === a.length - 1 ? -1 : 1)), 0, 0); M.addCon(b, b.map((_, z) => (z === b.length - 1 ? -1 : 1)), 0, 0);
+        M.addCon([Y(k, i), V(k)], [1, -1], -INF, 0);
+      }
+      for (let a = 0; a < cl.length; a++) for (let b = a + 1; b < cl.length; b++) { const i = cl[a], j = cl[b]; if (has.has(i + ',' + j) && has.has(j + ',' + i)) M.addCon([X(k, i, j), X(k, j, i), Y(k, i)], [1, 1, -1], -INF, 0); }
+      M.addCon(cl.map((i) => Y(k, i)).concat([V(k)]), cl.map(() => 1).concat([-lmin]), 0, INF);
+      M.addCon(cl.map((i) => Y(k, i)).concat([V(k)]), cl.map(() => 1).concat([-lmax]), -INF, 0);
+      if (isFinite(veh[k].cap)) M.addCon(cl.map((i) => Y(k, i)), cl.map((i) => w[i]), -INF, veh[k].cap);
+      if (maxo) { const xs = arcs.map(([i, j]) => X(k, i, j)); M.addCon(xs.concat(['z']), arcs.map(([i, j]) => costo(k, i, j)).concat([-1]), -INF, 0); }
+    }
+    for (const i of cl) M.addCon(Array.from({ length: m }, (_, k) => Y(k, i)), 1, 1, 1);
+    const Qm = isFinite(capMax) ? capMax : cl.reduce((a, i) => a + w[i], 0);
+    for (const i of cl) M.addVar('u_' + i, 0, w[i], Qm, false);
+    for (const i of cl) for (const j of cl) if (i !== j && has.has(i + ',' + j)) {
+      const xs = Array.from({ length: m }, (_, k) => X(k, i, j));
+      M.addCon(['u_' + i, 'u_' + j].concat(xs), [1, -1].concat(xs.map(() => Qm)), -INF, Qm - w[j]);
+    }
+    for (let k = 1; k < m; k++) if (veh[k].tipo === veh[k - 1].tipo && veh[k].cap === veh[k - 1].cap) cl.forEach((j, pos) => { const prev = cl.slice(0, pos).map((l) => Y(k - 1, l)); M.addCon([Y(k, j), ...prev], [1, ...prev.map(() => -1)], -INF, 0); });
+    if (vt) {   // ventanas de tiempo (horas): t_i = llegada al cliente i
+      const H = 48, s = vt.servicio || 0, maxd = Math.max(...D.flat().filter(isFinite)), minv = Math.min(...veh.map((v) => v.vel)), Mt = H + s + maxd / minv;
+      for (const i of cl) M.addVar('t_' + i, 0, vt.a[i] ?? 0, vt.b[i] ?? H, false);
+      for (const j of cl) if (has.has(h + ',' + j)) {
+        const names = [], coefs = [];
+        for (let k = 0; k < m; k++) { names.push(X(k, h, j)); coefs.push(-D[h][j] / veh[k].vel - Mt); }
+        M.addCon(['t_' + j].concat(names), [1].concat(coefs), (vt.inicio || 0) - Mt, INF);
+      }
+      for (const i of cl) for (const j of cl) if (i !== j && has.has(i + ',' + j)) {
+        const names = ['t_' + j, 't_' + i], coefs = [1, -1];
+        for (let k = 0; k < m; k++) { names.push(X(k, i, j)); coefs.push(-D[i][j] / veh[k].vel - Mt); }
+        M.addCon(names, coefs, s - Mt, INF);
+      }
+    }
+    let cortes = 0, gapIt = Math.max(o.brecha || 1e-6, 0.05), valida = null, sol;
+    for (;;) {
+      const left = (o.tiempo || 120) - (now() - t0) / 1000;
+      if (left <= 0.5) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
+      if (!sol.ok) { if (!valida) return { estado: sol.status === 'infactible' ? 'infactible: con esta flota, capacidades, balance' + (vt ? ' y ventanas de tiempo' : '') + ' no hay solución' : sol.status, rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      const cs = [];
+      for (let k = 0; k < m; k++) {
+        const succ = {}, vis = new Set();
+        for (const [i, j] of arcs) if (i !== h && sol.val(X(k, i, j)) > 0.5) succ[i] = j;
+        for (const j of cl) if (has.has(h + ',' + j) && sol.val(X(k, h, j)) > 0.5) { let u = j; while (u !== h && !vis.has(u)) { vis.add(u); u = succ[u] === undefined ? h : succ[u]; } }
+        for (const i of cl) if (sol.val(Y(k, i)) > 0.5 && !vis.has(i) && succ[i] !== undefined) { const c = []; let u = i; while (!vis.has(u) && succ[u] !== undefined) { vis.add(u); c.push(u); u = succ[u]; } if (c.length) cs.push(c); }
+      }
+      log(ctx, 'Flota: ' + cs.length + ' subcircuito(s), ' + cortes + ' cortes');
+      if (!cs.length) { valida = sol; if (gapIt > (o.brecha || 1e-6) * 1.0001 && sol.status === 'óptimo' && (o.tiempo || 120) - (now() - t0) / 1000 > 2) { gapIt = o.brecha || 1e-6; continue; } break; }
+      for (const S of cs) for (let k = 0; k < m; k++) {
+        const inter = []; for (const i of S) for (const j of S) if (has.has(i + ',' + j)) inter.push(X(k, i, j));
+        for (const hh of new Set([S[0], S[S.length >> 1]])) { const ys = S.filter((i) => i !== hh).map((i) => Y(k, i)); M.addCon(inter.concat(ys), inter.map(() => 1).concat(ys.map(() => -1)), -INF, 0); }
+        cortes++;
+      }
+    }
+    const rutas = [], info = [];
+    for (let k = 0; k < m; k++) {
+      if (sol.val(V(k)) < 0.5) continue;
+      const succ = {}; let st = null;
+      for (const [i, j] of arcs) if (sol.val(X(k, i, j)) > 0.5) { if (i === h) st = j; else succ[i] = j; }
+      if (st === null) continue;
+      const r = [h, st]; let u = st; while (succ[u] !== undefined && succ[u] !== h) { u = succ[u]; r.push(u); } if (!o.abierto) r.push(h);
+      const dist = r.slice(1).reduce((a, v, q) => a + (o.abierto && v === h ? 0 : D[r[q]][v]), 0), cost = r.slice(1).reduce((a, v, q) => a + costo(k, r[q], v), 0);
+      rutas.push(r); info.push({ tipo: veh[k].tipo, dist, costo: cost + (veh[k].fijo || 0), carga: r.reduce((a, v) => a + (v === h ? 0 : w[v]), 0), cap: veh[k].cap, llegadas: vt ? r.map((v) => (v === h ? null : sol.val('t_' + v))) : null });
+    }
+    const ord = rutas.map((_, q) => q).sort((a, b) => rutas[b].length - rutas[a].length);
+    const R = ord.map((q) => rutas[q]), I = ord.map((q) => info[q]);
+    const total = I.reduce((a, x) => a + x.dist, 0), totalCosto = I.reduce((a, x) => a + x.costo, 0);
+    return { estado: sol.status, objetivo: maxo ? Math.max(...I.map((x) => x.costo)) : totalCosto, total, totalCosto, rutas: R, dists: I.map((x) => x.dist), info: I, gap: sol.gap, cortes, seg: (now() - t0) / 1000 };
+  }
+
   /* ---------- modelo libre (texto en formato LP de CPLEX) ---------- */
   async function modeloLibre(lp, ctx, o) {
     const t0 = now(), sol = await ctx.solve(lp, { timeLimit: o.tiempo || 60, gap: 1e-6 });
@@ -574,6 +623,6 @@
     return { estado: sol.status, objetivo: sol.obj, valores: Object.entries(sol.todos || {}).map(([k, v]) => [k, v]), gap: sol.gap, seg: (now() - t0) / 1000, rutas: [] };
   }
 
-  root.Solver = { Model, tsp, mtsp, camino, caminosDesde, traza, arbol, flujoMax, flujoCosto, cartero, ubicar, ubicarRuta, cvrp, modeloLibre, cargar, haversine };
+  root.Solver = { Model, tsp, mtsp, camino, caminosDesde, traza, arbol, flujoMax, flujoCosto, cartero, ubicar, ubicarRuta, cvrp, flota, modeloLibre };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.Solver;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

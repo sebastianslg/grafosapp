@@ -1,0 +1,12 @@
+const { spawnSync } = require('child_process'); const path = require('path');
+const S = require('../web/js/solver.js'); const py = path.join(__dirname, 'lp_python.py');
+let llamadas = 0;
+const ctx = { log: (s) => console.log('  log', s), solve: async (lp, o) => { llamadas++; const t = Date.now(); const r = spawnSync('python3', [py, String(o.timeLimit), String(o.gap)], { input: lp, encoding: 'utf8', maxBuffer: 1 << 28 }); const j = JSON.parse(r.stdout); console.log('  solve', llamadas, j.status, (Date.now() - t) / 1000 + 's', 'vars', Object.keys(j.values).length);
+  return { ok: j.ok, status: j.status === 'Optimal' ? 'óptimo' : (j.ok ? 'límite de tiempo (mejor solución encontrada, no probada óptima)' : (j.status === 'Infeasible' ? 'infactible' : j.status)), obj: j.obj, gap: j.gap, todos: j.values, val: (n) => j.values[n] ?? 0 }; } };
+const c = [3.43, -76.52], off = 0.012, pts = [[0, 0], [off, off], [off, -off], [-off, off], [-off, -off], [off * 1.6, 0], [-off * 1.6, 0]];
+const kx = 111.32 * Math.cos(c[0] * Math.PI / 180), ky = 110.574;
+const D = pts.map((a) => pts.map((b) => (a === b ? Infinity : Math.hypot((b[1] - a[1]) * kx, (b[0] - a[0]) * ky))));
+console.log('D max', Math.max(...D.flat().filter(isFinite)).toFixed(2));
+const V = [{ tipo: 'camión', cap: 6, costoKm: 1, vel: 30, fijo: 0 }, { tipo: 'camión', cap: 6, costoKm: 1, vel: 30, fijo: 0 }, { tipo: 'tracto', cap: Infinity, costoKm: 2.4, vel: 50, fijo: 0 }];
+const peso = [1, 2, 2, 2, 2, 2, 2], a = [0, 8, 8, 8, 8, 8, 8], b = [48, 8.67, 8.67, 8.67, 8.67, 8.67, 8.67];
+(async () => { const t = Date.now(); const r = await S.flota(D, ctx, { deposito: 0, vehiculos: V, peso, balanceado: true, abierto: true, tiempo: 60, vt: { usar: true, inicio: 8, servicio: 10 / 60, a, b } }); console.log(r.estado, r.objetivo, (Date.now() - t) / 1000 + 's', r.rutas && r.rutas.map((x) => x.join('>'))); })();

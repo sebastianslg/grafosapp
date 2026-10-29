@@ -42,7 +42,7 @@
     App.hoja(`<h3>Proyecto nuevo</h3><p class="nota">Construya su propio grafo sobre el mapa y resuélvalo con optimización.</p>
       <div class="fila"><label class="campo" style="flex-basis:100%">Nombre<input id="npNombre" value="Mi proyecto"></label></div>
       <div class="fila"><label class="campo">Empezar con<select id="npPlantilla"><option value="blanco">Grafo en blanco</option><option value="cd">Centro de distribución y 6 clientes</option><option value="copia">Copia de «${esc(S.ds.titulo)}»</option></select></label>
-        <label class="campo">Distancias de aristas nuevas<select id="npDist"><option value="recta">Línea recta × factor</option><option value="carretera">Por carretera (OSRM, requiere internet)</option></select></label></div>
+        <label class="campo">Matriz de distancias<select id="npDist"><option value="euclidiana">Euclidiana (km)</option><option value="carretera">Por carretera (OSRM, requiere internet)</option></select></label></div>
       <div class="fila"><label class="campo" style="flex-basis:100%">Lugar de inicio (opcional: ciudad, dirección…)<input id="npLugar" placeholder="p. ej. Medellín, Colombia · vacío = vista actual del mapa"></label></div>
       <div class="acc"><button class="btn gris" data-x="c">Cancelar</button><button class="btn" data-x="ok">Crear</button></div><div class="nota" id="npMsg"></div>`, async (x, h) => {
       if (x !== 'ok') return App.cerrarHoja();

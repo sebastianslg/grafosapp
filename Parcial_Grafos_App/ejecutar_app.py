@@ -65,12 +65,6 @@ def clave(a, b, c, d):
     return f"{a:.5f},{b:.5f}>{c:.5f},{d:.5f}"
 
 
-def haversine(a, b, c, d):
-    p = math.pi / 180
-    h = math.sin((c - a) * p / 2) ** 2 + math.cos(a * p) * math.cos(c * p) * math.sin((d - b) * p / 2) ** 2
-    return 2 * 6371.0088 * math.asin(math.sqrt(h))
-
-
 def rdp(pts, tol):
     """Simplificación Ramer-Douglas-Peucker (solo para reducir el tamaño del trazado dibujado)."""
     if len(pts) < 3:
@@ -105,7 +99,7 @@ def osrm_tramo(la1, lo1, la2, lo2):
     with _cache_lock:
         if k in _cache:
             return _cache[k]
-    largo = haversine(la1, lo1, la2, lo2) > 80
+    largo = math.hypot((lo2 - lo1) * 111.32 * math.cos(math.radians((la1 + la2) / 2)), (la2 - la1) * 110.574) > 80   # distancia euclidiana en km
     url = (f"{OSRM}/route/v1/driving/{lo1:.6f},{la1:.6f};{lo2:.6f},{la2:.6f}"
            "?overview=full&geometries=geojson&steps=false")
     for intento in range(3):

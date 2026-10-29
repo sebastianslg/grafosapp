@@ -12,8 +12,24 @@ QUE ES
   mixta, solver HiGHS), sin algoritmos de grafos ni heuristicas. Trae dos proyectos del parcial (ARA Cali y China Top 25)
   y permite crear los suyos con el boton "+".
 
+MATRIZ DE DISTANCIAS
+  Se usa la matriz EUCLIDIANA (km sobre el plano de las coordenadas); no se usa haversine. En la pestana Matriz se elige el tipo:
+  Euclidiana, o por carretera (OSRM / datos originales del parcial). Los proyectos nuevos nacen con matriz euclidiana.
+
+RESUMEN DEL GRAFO
+  Encima del panel derecho: recuadro con el numero de NODOS y ARISTAS, y recuadro con la ARISTA MINIMA y MAXIMA (con sus extremos).
+
+PESOS, FLOTA Y RESTRICCIONES (correcciones de clase)
+  - TSP: el peso de todos los nodos y aristas es 1 (no llevan carga) y no se edita.
+  - m-TSP: se editan el peso de cada nodo (carga) en la pestana Nodos y el peso de cada arista (multiplica su costo) en Aristas.
+  - Flota: numero de vehiculos por tipo (camion de reparto, tractocamion u otros), con capacidad, costo/km y velocidad.
+  - Abierto: las rutas terminan en el ultimo cliente, sin volver al deposito.  Balanceado: mismo numero de clientes por ruta.
+  - Ventanas de tiempo: casilla "Usar ventanas de tiempo"; en Nodos se marca/desmarca la franja horaria (desde-hasta) de cada cliente,
+    con hora de salida y tiempo de servicio. El resultado muestra la hora de llegada a cada cliente.
+  Todo con optimizacion exacta (MILP), sin heuristicas.
+
 PROBLEMAS QUE RESUELVE
-  Rutas:      TSP (circuito, abierto, origen-destino, libre), m-TSP (balanceado, ruta mas larga, abierto), CVRP con capacidad.
+  Rutas:      TSP (circuito, abierto, origen-destino, libre), m-TSP (flota, pesos, balanceado, abierto, ventanas de tiempo, capacidad).
   Caminos:    camino minimo, caminos desde un origen (matriz), arbol de valor minimo.
   Flujos:     flujo maximo, flujo de costo minimo, cartero chino.
   Localizacion: p-mediana, p-centro, cobertura (en los nodos) y ubicacion del centro de distribucion (pestana CD).
