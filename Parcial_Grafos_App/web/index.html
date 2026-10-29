@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parcial de Grafos · TSP, m-TSP, caminos y árboles</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="barra glass entra">
+  <div class="marca">
+    <div class="logo"><svg viewBox="0 0 24 24"><circle cx="5" cy="18" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="19" cy="15" r="2"/><path d="M6.5 16.5 10.8 7.7M13.8 7.2l4 6.4M7 18h10"/></svg></div>
+    <div><b>Parcial de Grafos</b><small>Optimización exacta de rutas y redes</small></div>
+  </div>
+  <nav class="segmentado" id="tabs" role="tablist" aria-label="Conjunto de datos">
+    <span class="ind"></span>
+    <button role="tab" data-tab="cali" aria-selected="true">ARA Cali</button>
+    <button role="tab" data-tab="china" aria-selected="false">China Top 25</button>
+  </nav>
+  <div class="acciones">
+    <span class="pill" id="pMotor"><i></i><span>Iniciando solver…</span></span>
+    <button class="btn sec" id="bImportar"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg><span class="lbl">Importar</span></button>
+    <button class="btn sec" id="bExportar"><svg viewBox="0 0 24 24"><path d="M12 15V3m0 0 4 4m-4-4-4 4M5 21h14"/></svg><span class="lbl">Exportar</span></button>
+    <button class="btn gris" id="bTema" title="Cambiar tema" aria-label="Cambiar tema"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg></button>
+  </div>
+</header>
+
+<main class="app">
+  <aside class="col izq">
+    <section class="tarjeta glass entra" style="--i:1" id="cProblema">
+      <h2>Problema <span class="nota" id="tTitulo"></span></h2>
+      <div class="fila"><label class="campo">Tipo de problema
+        <select id="problema">
+          <option value="tsp">TSP · un viajante</option>
+          <option value="mtsp">m-TSP · varios viajantes</option>
+          <option value="camino">Camino mínimo (origen → destino)</option>
+          <option value="desde">Caminos mínimos desde un origen</option>
+          <option value="arbol">Árbol de valor mínimo</option>
+        </select></label></div>
+      <div class="fila" id="fModo"><label class="campo">Recorrido del TSP
+        <select id="modo"><option value="ciclo">Circuito (regresa al origen)</option><option value="abierto">Camino abierto desde el origen</option><option value="fijo">Camino de origen a destino</option><option value="libre">Camino libre</option></select></label></div>
+      <div class="fila"><label class="campo" id="fOrigen">Origen / depósito <select id="origen"></select></label><label class="campo" id="fDestino">Destino <select id="destino"></select></label></div>
+      <div id="fMtsp">
+        <div class="fila"><label class="campo">Viajantes (m)<input id="m" type="number" min="2" max="12" value="2"></label><label class="campo">Mín. por ruta<input id="lmin" type="number" min="1" value="1"></label><label class="campo">Máx. por ruta (0 = sin límite)<input id="lmax" type="number" min="0" value="0"></label></div>
+        <div class="fila"><label class="campo">Objetivo<select id="objetivo"><option value="suma">Mínima distancia total</option><option value="maximo">Minimizar la ruta más larga</option></select></label>
+          <label class="check"><input type="checkbox" id="abierto"> Rutas abiertas (no regresan al depósito)</label></div>
+      </div>
+      <div class="fila"><label class="campo">Tiempo máximo (s)<input id="tiempo" type="number" min="5" value="120"></label></div>
+      <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn gris" id="bDetener" disabled>Detener</button></div>
+      <div class="barra-prog oculto" id="prog"><i></i></div>
+      <div class="log oculto" id="log"></div>
+    </section>
+    <section class="tarjeta glass entra" style="--i:2" id="cParcial"></section>
+  </aside>
+
+  <section class="tarjeta glass mapa-wrap entra" style="--i:2">
+    <div id="mapa" aria-label="Mapa"></div>
+    <div class="mapa-ctl arr-izq"><span class="chip" id="chipMapa">Cargando mapa…</span></div>
+    <div class="mapa-ctl abj-izq"><button class="btn gris mini" id="bAjustar">Ajustar vista</button></div>
+    <div class="leyenda glass oculto" id="leyenda"></div>
+  </section>
+
+  <aside class="col der">
+    <section class="tarjeta glass panel-der entra" style="--i:3">
+      <nav class="segmentado peq" id="tabsDer" role="tablist"><span class="ind"></span>
+        <button role="tab" data-p="resultado" aria-selected="true">Resultado</button><button role="tab" data-p="nodos" aria-selected="false">Nodos</button><button role="tab" data-p="matriz" aria-selected="false">Matriz</button></nav>
+      <div class="contenido" id="contenido"></div>
+    </section>
+  </aside>
+</main>
+
+<div class="menu glass" id="menuExp" role="menu"></div>
+<div class="velo" id="velo"><div class="hoja glass" id="hoja" role="dialog" aria-modal="true"></div></div>
+<input type="file" id="archivo" class="oculto" accept=".csv,.tsv,.txt,.xlsx,.json">
+
+<script src="vendor/leaflet.js"></script>
+<script src="js/solver.js"></script>
+<script src="js/datos.js"></script>
+<script src="js/mapa.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
