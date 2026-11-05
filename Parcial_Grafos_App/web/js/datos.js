@@ -15,7 +15,7 @@
     ds.nodos.forEach((n) => { n.extra = n.extra || 0; n.balance = n.balance || 0; n.fijo = n.fijo || 0; n.tipo = n.tipo === 'dc' ? 'dc' : 'cliente'; n.peso = n.peso > 0 ? n.peso : 1; n.vtOn = !!n.vtOn; n.vtA = n.vtA ?? 8; n.vtB = n.vtB ?? 18; });
     ds.pesoArista = ds.pesoArista ? capInf(ds.pesoArista) : null;
     ds.vt = Object.assign({ usar: false, inicio: 8, servicio: 10 }, ds.vt || {});
-    ds.flota = ds.flota && ds.flota.length ? ds.flota : [{ tipo: 'camión de reparto', n: 2, cap: 15, costoKm: 1, vel: 30 }, { tipo: 'tractocamión', n: 0, cap: 34, costoKm: 2.4, vel: 50 }];
+    ds.flota = ds.flota && ds.flota.length ? ds.flota : [{ tipo: 'camión de reparto', n: 2, cap: 15, costoKm: 1, vel: 30 }, { tipo: 'tractocamión', n: 0, cap: 34, costoKm: 2.4, vel: 50 }, { tipo: 'camioneta', n: 0, cap: 8, costoKm: 0.7, vel: 40 }, { tipo: 'cartero', n: 0, cap: 5, costoKm: 0.3, vel: 15 }];
     ds.balanceado = !!ds.balanceado; ds.metodo = ds.metodo === 'dfj' ? 'dfj' : 'mtz';
     ds.candidatos = ds.candidatos || []; ds.area = ds.area || null; ds.fondo = ds.fondo || null; ds.base = ds.base || 'calles';
     ds.dirigido = !!ds.dirigido; ds.factor = ds.factor || 1; ds.modoDist = (!ds.modoDist || ds.modoDist === 'recta') ? 'euclidiana' : ds.modoDist; ds.cap = ds.cap ? capInf(ds.cap) : null;

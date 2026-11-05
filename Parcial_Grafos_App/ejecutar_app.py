@@ -181,20 +181,29 @@ def osrm_matriz(puntos):
 # ----------------------------------------------------------------------------------------------
 # Solver de respaldo (HiGHS de Python) y lectura/escritura de Excel (.xlsx) sin dependencias
 # ----------------------------------------------------------------------------------------------
-def resolver_highspy(lp, tiempo, brecha):
+_parar = {"on": False}
+
+
+def resolver_highspy(lp, tiempo, brecha, cota=None):
     import highspy  # noqa: PLC0415
     with tempfile.NamedTemporaryFile("w", suffix=".lp", delete=False) as f:
         f.write(lp); ruta = f.name
     try:
         h = highspy.Highs(); h.setOptionValue("output_flag", False)
         h.setOptionValue("time_limit", max(float(tiempo), 1.0)); h.setOptionValue("mip_rel_gap", float(brecha))
+        if cota is not None:
+            h.setOptionValue("objective_bound", float(cota))
         h.readModel(ruta); h.run()
     finally:
         os.unlink(ruta)
     st = h.modelStatusToString(h.getModelStatus()); info = h.getInfo()
     ok = info.primal_solution_status == 2
     nombres = [h.getColName(i)[1] for i in range(h.getNumCol())]; val = list(h.getSolution().col_value)
-    return {"Status": st, "ObjectiveValue": info.objective_function_value,
+    try:
+        dual = info.mip_dual_bound
+    except Exception:  # noqa: BLE001
+        dual = None
+    return {"Status": st, "ObjectiveValue": info.objective_function_value, "DualBound": dual,
             "Columns": {n: {"Primal": v} for n, v in zip(nombres, val)} if ok else {}, "Rows": []}
 
 
@@ -320,9 +329,14 @@ class Manejador(BaseHTTPRequestHandler):
                 except ImportError:
                     hp = False
                 return self._enviar(200, {"highspy": hp, "python": sys.version.split()[0], "cache": len(_cache)})
+            if ruta == "/api/parar":
+                _parar["on"] = bool(d.get("on"))
+                return self._enviar(200, {"on": _parar["on"]})
+            if ruta == "/api/parar_estado":
+                return self._enviar(200, {"on": _parar["on"]})
             if ruta == "/api/solve":
                 try:
-                    return self._enviar(200, resolver_highspy(d["lp"], d["tl"], d["gap"]))
+                    return self._enviar(200, resolver_highspy(d["lp"], d["tl"], d["gap"], d.get("cota")))
                 except ImportError:
                     return self._enviar(503, {"error": "highspy no está instalado"})
             if ruta == "/api/instalar_solver":

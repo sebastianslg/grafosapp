@@ -21,7 +21,7 @@
   };
 
   App.cargarProyectoEnVista = (ajustar) => {
-    const ds = S.ds; S.res = null; S.ubic = null; S.celda = null;   // los índices del resultado anterior ya no valen
+    const ds = S.ds; if (window.Sim) Sim.limpiar(); S.res = null; S.ubic = null; S.celda = null;   // los índices del resultado anterior ya no valen
     App.llenarSelects();
     const d0 = ds.origen_defecto !== undefined ? idx(ds.origen_defecto) : 0, dc = Datos.dcIdx(ds);
     $('origen').value = dc >= 0 ? dc : (d0 >= 0 ? d0 : 0); $('destino').value = Math.max(0, ds.nodos.length - 1);

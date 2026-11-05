@@ -196,3 +196,18 @@ table.flota td, table.flota th { padding: 3px 4px; } table.flota td input { widt
 input.bloq { opacity: 0.55; cursor: not-allowed; }
 
 pre.formula { background: var(--fill); border-radius: var(--r16); padding: 10px 12px; font: 12.5px/1.65 var(--mono); white-space: pre-wrap; overflow-x: auto; margin: 6px 0 10px; }
+
+/* ---- progreso en vivo, brecha, simulación, Gantt, selector de modelos ---- */
+.vivo { margin-top: 10px; background: var(--fill); border-radius: var(--r16); padding: 10px 12px; }
+.vivo-g { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-bottom: 8px; } .vivo-g b { display: block; font-size: 16px; letter-spacing: -0.01em; } .vivo-g span { font-size: 11px; color: var(--muted-foreground); }
+.gapbar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--foreground) 10%, transparent); overflow: hidden; margin-bottom: 6px; } .gapbar i { display: block; height: 100%; background: linear-gradient(90deg, var(--sys-blue), var(--success)); border-radius: 4px; transition: width .6s var(--ease); }
+.simbar { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 900; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 16px; flex-wrap: wrap; }
+.simbar input[type=range] { flex: 1 1 120px; min-width: 90px; } .simtxt { font-size: 12px; color: var(--muted-foreground); } .simbar .check.mini { font-size: 12px; margin: 0; }
+.veh { width: 34px; height: 34px; border-radius: 50%; background: var(--c); border: 2.5px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,.35); display: grid; place-items: center; transition: transform .2s var(--ease); } .veh svg { width: 22px; height: 22px; }
+.modelos { margin-bottom: 10px; } .modelos .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chipm { font: inherit; font-size: 12.5px; padding: 6px 11px; border-radius: 980px; border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent); background: var(--fill); color: var(--foreground); cursor: pointer; transition: transform .25s var(--ease), background .25s var(--ease); } .chipm:hover { transform: translateY(-1px); } .chipm:active { transform: scale(.96); } .chipm[aria-pressed=true] { background: var(--sys-blue); color: #fff; border-color: transparent; }
+.gantt { display: flex; flex-direction: column; gap: 8px; } .g-fila { display: grid; grid-template-columns: 92px 1fr 62px; align-items: center; gap: 8px; } .g-et { font-size: 12.5px; } .g-et small { display: block; color: var(--muted-foreground); font-size: 11px; }
+.g-pista { position: relative; height: 26px; background: var(--fill); border-radius: 8px; overflow: hidden; } .g-pista i { position: absolute; top: 3px; bottom: 3px; border-radius: 5px; border-right: 1px solid rgba(255,255,255,.6); display: grid; place-items: center; overflow: hidden; transition: filter .2s; } .g-pista i:hover { filter: brightness(1.15); } .g-pista i b { font-size: 10px; color: #fff; font-weight: 600; }
+.g-fin { font-size: 12px; text-align: right; } .g-eje { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted-foreground); margin: 6px 62px 0 100px; }
+@media (prefers-reduced-motion: reduce) { .gapbar i, .veh, .chipm { transition: none; } }
+.mapa-wrap:has(.simbar:not(.oculto)) .leyenda { bottom: 104px; }

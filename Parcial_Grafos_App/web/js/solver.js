@@ -93,7 +93,7 @@
     let cortes = 0;
     for (;;) {
       const left = opts.tiempo - (now() - t0) / 1000;
-      if (left <= 0.5) return { estado: 'límite de tiempo (sin tour válido)', cortes };
+      if (left <= 0.5 || (ctx.detenido && ctx.detenido())) return { estado: 'límite de tiempo (sin tour válido)', cortes };
       const sol = await ctx.solve(m.toLP(), { timeLimit: left, gap: opts.brecha });
       if (!sol.ok) return { estado: sol.status, cortes };
       const succ = new Array(N).fill(-1);
@@ -175,7 +175,7 @@
     let cortes = 0, gapIt = Math.max(o.brecha, 0.02), valida = null, sol;
     for (;;) {
       const left = o.tiempo - (now() - t0) / 1000;
-      if (left <= 0.5) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      if (left <= 0.5 || (ctx.detenido && ctx.detenido())) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
       if (!sol.ok) { if (!valida) return { estado: sol.status, rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       const succ = {};
@@ -247,7 +247,7 @@
     let cortes = 0, gapIt = Math.max(o.brecha, 0.05), valida = null, sol;
     for (;;) {
       const left = o.tiempo - (now() - t0) / 1000;
-      if (left <= 0.5) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      if (left <= 0.5 || (ctx.detenido && ctx.detenido())) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
       if (!sol.ok) { if (!valida) return { estado: sol.status, rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       const cs = [];
@@ -517,7 +517,7 @@
     let cortes = 0, gapIt = Math.max(o.brecha || 1e-6, 0.05), valida = null, sol;
     for (;;) {
       const left = (o.tiempo || 120) - (now() - t0) / 1000;
-      if (left <= 0.5) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      if (left <= 0.5 || (ctx.detenido && ctx.detenido())) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
       if (!sol.ok) { if (!valida) return { estado: sol.status === 'infactible' ? 'infactible: con ' + m + ' vehículos y capacidad ' + Q + ' no se puede atender toda la demanda' : sol.status, rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       const cs = [];
@@ -609,7 +609,7 @@
     let cortes = 0, gapIt = Math.max(o.brecha || 1e-6, 0.05), valida = null, sol;
     for (;;) {
       const left = (o.tiempo || 120) - (now() - t0) / 1000;
-      if (left <= 0.5) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      if (left <= 0.5 || (ctx.detenido && ctx.detenido())) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
       if (!sol.ok) { if (!valida) return { estado: sol.status === 'infactible' ? 'infactible: con esta flota, capacidades, balance' + (vt ? ' y ventanas de tiempo' : '') + ' no hay solución' : sol.status, rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       const cs = [];

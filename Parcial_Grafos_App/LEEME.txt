@@ -82,3 +82,10 @@ CONEXION A INTERNET
 VERIFICACION (valores esperados)
   Cali: TSP 72,048 km | m-TSP 2 supervisores 12-13 tiendas 75,675 km | 2 supervisores sin limites 72,436 km
   China: camino Top 2 -> Top 25 = 1.972,2 km (2>15>25) | arbol de valor minimo = 8.130,1 km | TSP circuito = 10.423,3 km
+
+NOVEDADES
+- Modelos rápidos: TSP, m-TSP, m-TSP balanceado, Open m-TSP y Open m-TSP balanceado (botones en la tarjeta «Problema»).
+- «Sin límite»: el solver sigue hasta PROBAR el óptimo. Mientras corre se ve la mejor solución, la mejor cota y la brecha (gap).
+- «Parar y ver lo mejor»: detiene al cerrar la fase de cálculo en curso y muestra la mejor solución con su brecha.
+- Simulación: los vehículos (camión, tractocamión, camioneta, cartero) recorren las calles; reproducir, pausar, velocidad, barra de posición.
+- Pestaña «Gantt»: tiempo de cada tramo de cada vehículo.

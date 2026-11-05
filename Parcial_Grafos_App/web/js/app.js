@@ -59,6 +59,7 @@
         pill(d.motor ? 'ok' : 'mal', d.motor === 'wasm' ? 'HiGHS · en el navegador' : d.motor === 'servidor' ? 'HiGHS · Python local' : 'Solver no disponible');
         if (!d.motor) ofrecerInstalar(d.detalle);
       } else if (d.tipo === 'log') logLinea(d.s);
+      else if (d.tipo === 'progreso') progresoVivo(d);
       else if (d.tipo === 'fin') terminar(d.res);
       else if (d.tipo === 'error') terminarError(d.msg);
     };
@@ -77,15 +78,23 @@
         }
       });
   }
+  function progresoVivo(d) {
+    const v = S.vivo || (S.vivo = {}); if (d.mejor != null) v.mejor = d.mejor; if (d.cota != null && isFinite(d.cota)) v.cota = Math.max(v.cota ?? -Infinity, d.cota);
+    const gap = v.mejor != null && v.cota != null ? Math.max(0, (v.mejor - v.cota) / Math.max(Math.abs(v.mejor), 1e-9)) : null, el = $('vivo'); if (!el) return;
+    const pct = gap == null ? 0 : Math.max(2, Math.min(100, (1 - gap) * 100)), u = S.ds ? S.ds.unidad : '';
+    el.innerHTML = `<div class="vivo-g"><div><b class="tabular">${v.mejor == null ? '—' : fmt(v.mejor, 1) + ' ' + u}</b><span>mejor solución</span></div><div><b class="tabular">${v.cota == null ? '—' : fmt(v.cota, 1) + ' ' + u}</b><span>mejor cota (límite teórico)</span></div><div><b class="tabular">${gap == null ? '—' : (gap * 100).toFixed(2) + ' %'}</b><span>brecha al óptimo</span></div><div><b class="tabular">${fmt(d.t || 0, 0)} s</b><span>transcurrido</span></div></div>
+      <div class="gapbar" title="Qué tan cerca está la mejor solución del óptimo"><i style="width:${pct}%"></i></div><div class="nota">${v.mejor == null ? 'Buscando una primera solución…' : gap != null && gap < 1e-4 ? 'Óptimo alcanzado' : 'Cuando la brecha llega a 0 % la solución es óptima probada. Puede parar cuando quiera.'}</div>`;
+  }
   const logLinea = (s) => { const l = $('log'); l.classList.remove('oculto'); l.textContent += s + '\n'; l.scrollTop = 1e9; };
   App.log = logLinea;
-  App.ocupado = (on) => { S.corriendo = on; $('bResolver').disabled = on; $('bDetener').disabled = !on; $('prog').classList.toggle('oculto', !on); document.querySelectorAll('[data-run]').forEach((b) => (b.disabled = on)); };
+  App.ocupado = (on) => { S.corriendo = on; $('bResolver').disabled = on; $('bDetener').disabled = !on; $('bParar').disabled = !on; if (!on) { $('bParar').textContent = 'Parar y ver lo mejor'; $('vivo').classList.add('oculto'); } else { $('vivo').classList.remove('oculto'); $('vivo').innerHTML = '<span class="nota">Preparando el modelo…</span>'; } $('prog').classList.toggle('oculto', !on); document.querySelectorAll('[data-run]').forEach((b) => (b.disabled = on)); };
 
   /* lanzar(kind, opt, titulo, extra, datos): extra se conserva con el resultado; datos viaja al solver */
-  App.lanzar = (kind, opt, titulo, extra, datos) => {
+  App.lanzar = async (kind, opt, titulo, extra, datos) => {
     if (S.corriendo) return;
     if (!S.motor) { if (S.worker) ofrecerInstalar(''); return; }
-    $('log').textContent = ''; $('log').classList.remove('oculto'); App.ocupado(true);
+    $('log').textContent = ''; $('log').classList.remove('oculto'); App.ocupado(true); S.vivo = { mejor: null, cota: null };
+    try { await fetch('/api/parar', { method: 'POST', body: JSON.stringify({ on: false }) }); } catch (e) { /* sin servidor */ }
     S.corrId++; S.pendiente = { kind, opt, titulo, extra: extra || {}, t0: performance.now() };
     S.worker.postMessage(Object.assign({ tipo: 'resolver', id: S.corrId, kind, D: S.ds.D, cap: S.ds.cap, opt }, datos || {}));
   };
@@ -140,13 +149,14 @@
       <div class="fila" data-c="ponderar"><label class="check"><input type="checkbox" id="ponderar"> Ponderar por la demanda de cada nodo</label></div>
       <div class="fila" data-c="lp"><label class="campo" style="flex-basis:100%">Modelo en formato LP<textarea id="lp" rows="9" spellcheck="false" style="font:12px/1.4 var(--mono)">${LP_EJEMPLO}</textarea></label></div>
       <div class="fila" data-c="metodo"><label class="campo">Eliminación de subtours<select id="metodo"><option value="mtz">MTZ · fórmulas del curso (un solo modelo)</option><option value="dfj">Cortes DFJ (más rápido, por iteraciones)</option></select></label></div>
-      <div class="fila" data-c="tiempo"><label class="campo">Tiempo máximo (s)<input id="tiempo" type="number" min="5" value="120"></label></div>
+      <div class="fila" data-c="tiempo"><label class="campo">Tiempo máximo (s)<input id="tiempo" type="number" min="5" value="120"></label><label class="check"><input type="checkbox" id="sinLimite"> Sin límite: seguir hasta probar el óptimo (se puede parar cuando quiera)</label></div>
       <p class="nota" id="ayudaProb" style="margin:0 0 10px"></p>
-      <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn gris" id="bDetener" disabled>Detener</button></div>
-      <div class="barra-prog oculto" id="prog"><i></i></div><div class="log oculto" id="log"></div>`;
+      <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn sec" id="bParar" disabled title="Detiene la búsqueda y muestra la mejor solución hallada, con su brecha">Parar y ver lo mejor</button><button class="btn gris" id="bDetener" disabled title="Cancela sin resultado">Cancelar</button></div>
+      <div class="vivo oculto" id="vivo"></div><div class="barra-prog oculto" id="prog"><i></i></div><div class="log oculto" id="log"></div>`;
     $('problema').onchange = App.camposProblema; $('modo').onchange = App.camposProblema; $('metodo').onchange = (e) => { S.ds.metodo = e.target.value; Datos.guardar(S.ds); }; $('balanceado').onchange = (e) => { S.ds.balanceado = e.target.checked; Datos.guardar(S.ds); App.camposProblema(); }; $('vtUsar').onchange = (e) => { S.ds.vt.usar = e.target.checked; Datos.guardar(S.ds); if (S.panel === 'nodos') App.renderPanel(); }; $('vtIni').onchange = (e) => { S.ds.vt.inicio = App.horas(e.target.value); Datos.guardar(S.ds); }; $('vtServ').onchange = (e) => { S.ds.vt.servicio = Math.max(0, +e.target.value || 0); Datos.guardar(S.ds); }; $('origen').onchange = App.pintarSeleccion; $('destino').onchange = App.pintarSeleccion;
     $('bResolver').onclick = () => { const p = parametros(); if (p) App.lanzar(p.kind, p.opt, p.titulo, p.extra, p.datos); };
-    $('bDetener').onclick = () => { if (!S.corriendo) return; App.ocupado(false); logLinea('Detenido por el usuario.'); App.crearWorker(); };
+    $('bDetener').onclick = () => { if (!S.corriendo) return; App.ocupado(false); logLinea('Cancelado por el usuario.'); App.crearWorker(); };
+    $('bParar').onclick = async () => { if (!S.corriendo) return; $('bParar').disabled = true; $('bParar').textContent = 'Deteniendo…'; logLinea('Parada solicitada: se cierra la fase de cálculo en curso y se muestra la mejor solución.'); try { await fetch('/api/parar', { method: 'POST', body: JSON.stringify({ on: true }) }); } catch (e) { /* sin servidor */ } };
   }
   App.llenarSelects = () => {
     const opts = S.ds.nodos.map((n, i) => `<option value="${i}">${esc(etq(i))}</option>`).join('');
@@ -181,7 +191,7 @@
   App.aviso = aviso;
   const distCompletas = () => { const D = S.ds.D, n = D.length, big = 1e6; return D.map((f, i) => f.map((v, j) => (i === j ? 0 : (isFinite(v) ? v : big)))); };
   function parametros() {
-    const p = $('problema').value, o = +$('origen').value, d = +$('destino').value, n = S.ds.nodos.length, tiempo = Math.max(5, +$('tiempo').value || 120);
+    const p = $('problema').value, o = +$('origen').value, d = +$('destino').value, n = S.ds.nodos.length, tiempo = $('sinLimite') && $('sinLimite').checked ? 1e9 : Math.max(5, +$('tiempo').value || 120);
     const ds = S.ds;
     if (n < 2) return aviso('Agregue nodos primero (herramienta «Agregar nodos» o pestaña Nodos).');
     if (p === 'tsp') {
@@ -229,7 +239,7 @@
   }
   async function dibujarResultado() {
     const g = grupos(), r0 = S.res;
-    if (!g.length) { Mapa.limpiarRutas(); S.colores = null; S.tenue = null; App.pintarSeleccion(); App.renderLeyenda(null); return; }
+    if (!g.length) { if (window.Sim) Sim.limpiar(); Mapa.limpiarRutas(); S.colores = null; S.tenue = null; App.pintarSeleccion(); App.renderLeyenda(null); return; }
     const todos = g.flatMap((x) => x.pares);
     const usarCalles = todos.length <= 140;
     if (usarCalles) { chip('Trazando calles…'); await Mapa.asegurar(todos, (a, b) => chip(`Trazando calles… ${a}/${b}`)); if (S.res !== r0) return; }
@@ -242,13 +252,14 @@
     S.tenue = new Set(S.ds.nodos.map((_, i) => i).filter((i) => !usados.has(i)));
     Mapa.estiloNodos({ deposito: dep, seleccion: null, colores, tenue: S.tenue });
     App.renderLeyenda(g); Mapa.ajustar([...usados]);
+    if (window.Sim) Sim.preparar();
   }
   App.dibujarResultado = dibujarResultado;
   App.renderLeyenda = (g) => {
     const l = $('leyenda'); if (!g || !g.length || !['tsp', 'mtsp', 'cvrp', 'flota'].includes(S.res.kind)) { l.classList.add('oculto'); return; }
     l.classList.remove('oculto'); l.innerHTML = g.map((x, k) => `<div><span class="punto" style="background:${x.color}"></span>Ruta ${k + 1} · ${fmt(S.res.res.dists[k], 1)} ${S.ds.unidad}</div>`).join('');
   };
-  App.limpiarResultado = () => { S.res = null; S.colores = null; S.tenue = null; Mapa.limpiarRutas(); $('leyenda').classList.add('oculto'); if (S.panel === 'resultado') App.renderPanel(); App.pintarSeleccion(); };
+  App.limpiarResultado = () => { if (window.Sim) Sim.limpiar(); S.res = null; S.colores = null; S.tenue = null; Mapa.limpiarRutas(); $('leyenda').classList.add('oculto'); if (S.panel === 'resultado') App.renderPanel(); App.pintarSeleccion(); };
 
   /* ================= panel derecho ================= */
   App.paneles.push({ id: 'resultado', titulo: 'Resultado', render: pResultado });
@@ -262,7 +273,7 @@
     const div = document.createElement('div'); div.className = 'entra'; c.appendChild(div); pan.render(div); App.alRenderPanel && App.alRenderPanel(S.panel);
   };
   const kpis = (items) => '<div class="kpis">' + items.map(([v, l, cls]) => `<div class="kpi ${cls || ''}"><b class="tabular">${v}</b><span>${l}</span></div>`).join('') + '</div>';
-  const estadoKpi = (res) => { const opt = String(res.estado).startsWith('óptimo'); return [opt ? 'Óptimo probado' : esc(String(res.estado).startsWith('límite') ? 'Límite de tiempo' : res.estado), 'Estado', opt ? 'estado ok' : 'estado aviso']; };
+  const estadoKpi = (res) => { const e = String(res.estado), opt = e.startsWith('óptimo'); return [opt ? 'Óptimo probado' : esc(e.startsWith('detenido') ? 'Detenido por usted' : e.startsWith('límite') ? 'Límite de tiempo' : res.estado), 'Estado', opt ? 'estado ok' : 'estado aviso']; };
   App.kpis = kpis; App.estadoKpi = estadoKpi;
   function pasos(ru, lleg) {
     let ac = 0; return `<table><tr><th>#</th><th>Nodo</th><th>Nombre</th><th>Tramo</th><th>Acum.</th>${lleg ? '<th>Llegada</th>' : ''}</tr>` + ru.map((v, j) => { const t = j ? S.ds.D[ru[j - 1]][v] : 0; ac += t; return `<tr><td>${j}</td><td>${esc(corto(v))}</td><td>${esc(nodo(v).nombre)}</td><td class="tabular">${j ? fmt(t) : ''}</td><td class="tabular">${fmt(ac)}</td>${lleg ? `<td class="tabular">${lleg[j] == null ? '' : App.hhmm(lleg[j])}</td>` : ''}</tr>`; }).join('') + '</table>';
@@ -277,13 +288,14 @@
     const t = fmt(x.seg || 0, 2) + ' s';
     if (r.kind === 'tsp' || r.kind === 'mtsp' || r.kind === 'cvrp') {
       const items = [estadoKpi(x), [fmt(x.objetivo) + ' ' + u, r.kind === 'mtsp' && r.opt.objetivo === 'maximo' ? 'Ruta más larga' : 'Distancia total'], [brecha, 'Brecha de optimalidad'], [t, 'Tiempo de cálculo']];
+      if (x.gap > 0 && isFinite(x.gap)) items.splice(2, 0, [fmt(x.objetivo * (1 - x.gap)) + ' ' + u, 'Mejor cota (óptimo ≥)']);
       if (r.kind === 'mtsp') items.splice(2, 0, [fmt(x.total) + ' ' + u, 'Suma de las rutas']);
       h += kpis(items);
       h += `<table><tr><th>Ruta</th><th>Recorrido</th><th>Paradas</th>${r.kind === 'cvrp' ? '<th>Carga</th>' : ''}<th>${u}</th></tr>` + x.rutas.map((ru, k) => { const dep = ru[0]; const n = ru.filter((v, q) => !(q === 0 || (q === ru.length - 1 && v === dep))).length;
         return `<tr class="clic ${k === S.rutaSel ? 'activa' : ''}" data-k="${k}"><td><span class="punto" style="background:${COL[k % COL.length]}"></span>${x.rutas.length > 1 ? k + 1 : ''}</td><td class="recorrido">${ru.map((v) => `<span title="${esc(nodo(v).nombre)}">${esc(corto(v))}</span>`).join(' → ')}</td><td>${n}</td>${r.kind === 'cvrp' ? `<td class="tabular">${fmt(x.cargas[k], 0)}/${x.capacidad}</td>` : ''}<td class="tabular">${fmt(x.dists[k])}</td></tr>`; }).join('') + '</table>';
       h += `<div class="sep"></div><h3 style="font-size:15px;margin-bottom:6px">Detalle · ruta ${x.rutas.length > 1 ? S.rutaSel + 1 : ''}</h3>` + pasos(x.rutas[S.rutaSel]);
     } else if (r.kind === 'flota') {
-      h += kpis([estadoKpi(x), [fmt(x.totalCosto, 2), 'Costo total' + (r.opt.objetivo === 'maximo' ? ' · ruta más costosa ' + fmt(x.objetivo, 2) : '')], [fmt(x.total) + ' ' + u, 'Distancia total'], [x.rutas.length + ' de ' + r.opt.vehiculos.length, 'Vehículos usados'], [fmt(x.seg || 0, 2) + ' s', 'Tiempo de cálculo']]);
+      h += kpis([estadoKpi(x), [fmt(x.totalCosto, 2), 'Costo total' + (r.opt.objetivo === 'maximo' ? ' · ruta más costosa ' + fmt(x.objetivo, 2) : '')], [fmt(x.total) + ' ' + u, 'Distancia total'], [x.rutas.length + ' de ' + r.opt.vehiculos.length, 'Vehículos usados'], [brecha, 'Brecha de optimalidad'], [fmt(x.seg || 0, 2) + ' s', 'Tiempo de cálculo']]);
       h += `<table><tr><th>Ruta</th><th>Vehículo</th><th>Recorrido</th><th>Carga</th><th>${u}</th><th>Costo</th></tr>` + x.rutas.map((ru, k) => `<tr class="clic ${k === S.rutaSel ? 'activa' : ''}" data-k="${k}"><td><span class="punto" style="background:${COL[k % COL.length]}"></span>${k + 1}</td><td>${esc(x.info[k].tipo)}</td><td class="recorrido">${ru.map((v) => `<span title="${esc(nodo(v).nombre)}">${esc(corto(v))}</span>`).join(' → ')}</td><td class="tabular">${fmt(x.info[k].carga, 1)}${isFinite(x.info[k].cap) ? '/' + x.info[k].cap : ''}</td><td class="tabular">${fmt(x.dists[k])}</td><td class="tabular">${fmt(x.info[k].costo, 2)}</td></tr>`).join('') + '</table>';
       h += `<div class="sep"></div><h3 style="font-size:15px;margin-bottom:6px">Detalle · ruta ${S.rutaSel + 1} (${esc(x.info[S.rutaSel].tipo)})</h3>` + pasos(x.rutas[S.rutaSel], x.info[S.rutaSel].llegadas);
     } else if (r.kind === 'camino') {
@@ -411,7 +423,7 @@
 
   /* ================= arranque ================= */
   App.arrancar = async () => {
-    construirProblema(); App.construirBusqueda();
+    construirProblema(); App.construirModelos && App.construirModelos(); App.construirBusqueda();
     Mapa.iniciar('mapa', (e) => { if (e === 'mapa-offline') chip('Sin conexión: el mapa base no está disponible, pero los nodos y las rutas sí'); });
     try { S.sets.cali = await Datos.cargar('cali'); S.sets.cali.parcial = true; S.sets.china = await Datos.cargar('china'); S.sets.china.parcial = true; for (const p of Datos.listar()) { const d = await Datos.cargar(p.clave); if (d) S.sets[p.clave] = d; } }
     catch (e) { chip('No se pudieron cargar los datos: ' + e.message); return; }
