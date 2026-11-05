@@ -1,6 +1,6 @@
 /* Worker: ejecuta los modelos de optimización sin congelar la interfaz.
    Motor 1: HiGHS (WebAssembly, dentro del navegador). Motor 2: HiGHS de Python vía el servidor local. */
-importScripts('../vendor/highs.js', 'solver.js');
+importScripts('../vendor/highs.js', 'solver.js', 'vrp.js', 'heur.js');
 let motor = null, highsP = null;
 let lineaLog = null;   // función que recibe cada línea del registro de HiGHS durante una resolución
 const enLog = (t) => { if (lineaLog) lineaLog(String(t)); };
@@ -85,6 +85,31 @@ async function resolverLP(lp, o) {
 }
 let detenido = false;
 
+/* VRP: modelo matemático, heurística, metaheurística o comparación de todos */
+async function correrVrp(d, ctx) {
+  const I = d.I, o = d.opt, t0 = performance.now(), prog = (h, f) => postMessage({ tipo: 'progreso', mejor: f, cota: null, t: (performance.now() - corrida.t0) / 1000 });
+  let ultimoParar = 0, parado = false; const parar = () => { const t = performance.now(); if (t - ultimoParar > 300) { ultimoParar = t; parado = hayParar() || parado; } return parado; };
+  const conGap = (r, cota, exactoRef) => { if (cota != null && isFinite(cota) && isFinite(r.objetivo)) { r.cota = cota; r.gap = Math.max(0, (r.objetivo - cota) / Math.max(Math.abs(r.objetivo), 1e-9)); } if (exactoRef) r.exactoRef = exactoRef; return r; };
+  const cotaExacta = async (tiempo) => { const b = await Vrp.vrp(I, ctx, { tiempo, brecha: 1e-6, metodo: o.metodo }); return b; };
+  if (o.metodoSol === 'exacto') { const r = await Vrp.vrp(I, ctx, Object.assign({}, o, { tiempo: o.tiempo })); r.metodoSol = 'Modelo matemático (MILP · HiGHS)'; return r; }
+  if (o.metodoSol === 'comparar') {
+    const filas = []; let cota = null, mejor = null; const tm = Math.max(1, o.tiempoMeta || 3);
+    ctx.log('Calculando el modelo matemático (' + (o.tiempoCota || 10) + ' s)…'); const ex = await cotaExacta(o.tiempoCota || 10);
+    if (ex.rutas && ex.rutas.length) { filas.push({ metodo: 'Modelo matemático (MILP)', tipo: 'exacto', obj: ex.objetivo, seg: ex.seg, factible: true, gapProp: ex.gap }); mejor = ex; cota = ex.cota; }
+    for (const a of Object.keys(Heur.ALGORITMOS)) { if (hayParar()) break; if (I.f && I.f.mode === 'split') break; ctx.log(Heur.ALGORITMOS[a].nombre + '…');
+      const r = Heur.resolver(I, a, { tiempo: Heur.ALGORITMOS[a].tipo === 'meta' ? tm : 1, semilla: o.semilla || 1, parar });
+      filas.push({ metodo: Heur.ALGORITMOS[a].nombre, tipo: Heur.ALGORITMOS[a].tipo, obj: r.objetivo, seg: r.seg, factible: r.factible }); if (r.factible && (!mejor || r.objetivo < mejor.objetivo - 1e-9)) mejor = r; }
+    if (!mejor) return { estado: 'sin solución factible', rutas: [] };
+    filas.forEach((x) => { x.gap = cota != null && x.factible ? Math.max(0, (x.obj - cota) / Math.max(Math.abs(x.obj), 1e-9)) : null; });
+    const res = Object.assign({}, mejor); res.comparacion = filas; res.cota = cota; res.gap = cota != null ? Math.max(0, (res.objetivo - cota) / Math.max(Math.abs(res.objetivo), 1e-9)) : null; res.metodoSol = 'Comparación de métodos'; res.estado = res.gap != null && res.gap < 1e-6 ? 'óptimo' : (mejor.estado || 'mejor solución encontrada'); res.seg = (performance.now() - t0) / 1000; return res;
+  }
+  const r = Heur.resolver(I, o.algo, { tiempo: o.tiempo, semilla: o.semilla, params: o.params, inicial: o.inicial, progreso: prog, parar });
+  if (parado) r.estado = 'detenido por el usuario (' + (r.factible ? 'mejor solución encontrada' : 'sin solución factible') + ')';
+  if (o.cota && r.factible && !(I.f && I.f.mode === 'split')) { ctx.log('Calculando la cota inferior con el modelo matemático (' + (o.tiempoCota || 8) + ' s)…'); const b = await cotaExacta(o.tiempoCota || 8);
+    if (b.cota != null && b.rutas && b.rutas.length || (b.cota != null && isFinite(b.cota))) { conGap(r, Math.min(b.cota, r.objetivo), b.rutas && b.rutas.length ? b.objetivo : null); if (b.rutas && b.rutas.length && b.objetivo < r.objetivo - 1e-9) r.mejorExacto = b; if (r.gap !== null && r.gap < 1e-6 && !parado) r.estado = 'óptimo (coincide con la cota)'; } }
+  return r;
+}
+
 onmessage = async (e) => {
   const d = e.data;
   try {
@@ -117,6 +142,7 @@ onmessage = async (e) => {
         case 'flota': res = await Solver.flota(d.D, ctx, d.opt); break;
         case 'cvrp': res = await Solver.cvrp(d.D, ctx, d.opt); break;
         case 'libre': res = await Solver.modeloLibre(d.lp, ctx, d.opt); break;
+        case 'vrp': res = await correrVrp(d, ctx); break;
         default: throw new Error('Problema desconocido: ' + d.kind);
       }
       postMessage({ tipo: 'fin', id: d.id, res });

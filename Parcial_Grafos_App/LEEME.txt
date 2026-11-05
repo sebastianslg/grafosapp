@@ -89,3 +89,12 @@ NOVEDADES
 - «Parar y ver lo mejor»: detiene al cerrar la fase de cálculo en curso y muestra la mejor solución con su brecha.
 - Simulación: los vehículos (camión, tractocamión, camioneta, cartero) recorren las calles; reproducir, pausar, velocidad, barra de posición.
 - Pestaña «Gantt»: tiempo de cada tramo de cada vehículo.
+
+VRP · 27 VARIANTES (nuevo)
+- En «Tipo de problema» elija «VRP · 27 variantes». Variantes: TSP, TSP abierto, m-TSP (+balanceado, abierto, min-max), CVRP, OVRP, DCVRP,
+  máx. paradas, mínima flota, CVRP balanceado, VRPTW, OVRPTW, HFVRP, FSMVRP, HFVRPTW, MDVRP, MDVRPTW, LRP, VRPB (backhaul),
+  VRPSPD, VRPPD, SDVRP (entrega dividida), VRP con beneficios y Orienteering/TOP.
+- Cómo resolver: modelo matemático (MILP), heurística (vecino más cercano, ahorros, barrido, inserción, VND),
+  metaheurística (recocido simulado, tabú, genético, hormigas, GRASP, VNS) o «Comparar todos».
+- Heurísticas y metaheurísticas muestran la brecha (gap) frente a la cota inferior calculada con el modelo matemático.
+- Datos extra por variante (Recoge, Par, Premio, Abrir) en la pestaña Nodos. El resultado se exporta a código GAMS (.gms).

@@ -16,7 +16,7 @@
   const Sim = {
     rutas: [], w: 0, reproduciendo: false, vel: 1, DUR: 45, ultimo: 0, capa: null, visit: new Set(), seguir: false,
     preparar() {
-      this.limpiar(); const r = S.res; if (!r || !['tsp', 'mtsp', 'cvrp', 'flota'].includes(r.kind) || !r.res.rutas || !r.res.rutas.length) return this.barra(false);
+      this.limpiar(); const r = S.res; if (!r || !['tsp', 'mtsp', 'cvrp', 'flota', 'vrp'].includes(r.kind) || !r.res.rutas || !r.res.rutas.length) return this.barra(false);
       const mapa = Mapa.map; if (!mapa.getPane('p_sim')) mapa.createPane('p_sim').style.zIndex = 640;
       this.capa = L.layerGroup().addTo(mapa); const x = r.res, flota = S.ds.flota || [];
       this.rutas = x.rutas.map((ru, k) => {
@@ -72,7 +72,7 @@
   /* ---------- Diagrama de Gantt ---------- */
   function pGantt(el) {
     const r = S.res, u = S.ds.unidad;
-    if (!r || r.ds !== S.clave || !['tsp', 'mtsp', 'cvrp', 'flota'].includes(r.kind) || !r.res.rutas) { el.innerHTML = '<div class="aviso info">Resuelva un TSP o m-TSP para ver el diagrama de Gantt de cada vehículo.</div>'; return; }
+    if (!r || r.ds !== S.clave || !['tsp', 'mtsp', 'cvrp', 'flota', 'vrp'].includes(r.kind) || !r.res.rutas) { el.innerHTML = '<div class="aviso info">Resuelva un TSP o m-TSP para ver el diagrama de Gantt de cada vehículo.</div>'; return; }
     const x = r.res, flota = S.ds.flota || [], D = S.ds.D, filas = x.rutas.map((ru, k) => {
       const tipo = x.info ? x.info[k].tipo : 'Vehículo', f = flota.find((t) => t.tipo === tipo), vel = x.info ? (f ? +f.vel || 30 : 30) : 1; let ac = 0;
       const seg = ru.slice(1).map((v, q) => { const d = D[ru[q]][v], t = d / vel; const s = { de: ru[q], a: v, t0: ac, t1: ac + t, d }; ac += t; return s; }); return { k, tipo, seg, total: ac, vel };

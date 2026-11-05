@@ -95,7 +95,7 @@
     if (!S.motor) { if (S.worker) ofrecerInstalar(''); return; }
     $('log').textContent = ''; $('log').classList.remove('oculto'); App.ocupado(true); S.vivo = { mejor: null, cota: null };
     try { await fetch('/api/parar', { method: 'POST', body: JSON.stringify({ on: false }) }); } catch (e) { /* sin servidor */ }
-    S.corrId++; S.pendiente = { kind, opt, titulo, extra: extra || {}, t0: performance.now() };
+    S.corrId++; S.pendiente = { kind, opt, titulo, extra: extra || {}, t0: performance.now() }; if (extra && extra.notas) extra.notas.forEach((n) => logLinea('ℹ ' + n));
     S.worker.postMessage(Object.assign({ tipo: 'resolver', id: S.corrId, kind, D: S.ds.D, cap: S.ds.cap, opt }, datos || {}));
   };
   function terminarError(msg) { App.ocupado(false); logLinea('Error: ' + msg); S.res = null; App.renderPanel(); }
@@ -111,18 +111,21 @@
   /* ================= tarjeta Problema ================= */
   const PROBLEMAS = [
     ['Rutas', [['tsp', 'TSP · un viajante (pesos = 1)'], ['mtsp', 'm-TSP · flota, pesos, balance y ventanas']]],
+    ['VRP · 27 variantes', [['vrp', 'VRP · elegir variante y método (exacto / heurística / metaheurística)']]],
     ['Caminos y árboles', [['camino', 'Camino mínimo (origen → destino)'], ['desde', 'Caminos mínimos desde un origen'], ['arbol', 'Árbol de valor mínimo']]],
     ['Flujos y recorridos', [['flujomax', 'Flujo máximo'], ['flujocosto', 'Flujo de costo mínimo'], ['cartero', 'Cartero chino (recorrer todas las aristas)']]],
     ['Localización en los nodos', [['pmediana', 'p-mediana'], ['pcentro', 'p-centro'], ['cobertura', 'Cobertura de conjuntos']]],
     ['Otros', [['libre', 'Modelo propio (formato LP)']]],
   ];
   const CAMPOS = {
+    vrp: ['origen', 'flota', 'vrpvar', 'vrpmetodo', 'vrpparams', 'tiempo'],
     tsp: ['modo', 'origen', 'destino', 'metodo', 'tiempo'], mtsp: ['origen', 'flota', 'balanceado', 'abierto', 'lminmax', 'objetivo', 'vt', 'metodo', 'tiempo'],
     camino: ['origen', 'destino'], desde: ['origen'], arbol: ['origen', 'tiempo'], flujomax: ['origen', 'destino'], flujocosto: [], cartero: [],
     pmediana: ['p', 'ponderar', 'tiempo'], pcentro: ['p', 'tiempo'], cobertura: ['radio', 'tiempo'], libre: ['lp', 'tiempo'],
   };
-  const ETQ_ORIGEN = { tsp: 'Origen', mtsp: 'Depósito', camino: 'Origen', desde: 'Origen', arbol: 'Raíz', flujomax: 'Fuente' };
+  const ETQ_ORIGEN = { vrp: 'Depósito', tsp: 'Origen', mtsp: 'Depósito', camino: 'Origen', desde: 'Origen', arbol: 'Raíz', flujomax: 'Fuente' };
   const AYUDA = {
+    vrp: 'Elija la <b>variante</b> y <b>cómo resolverla</b>: con el modelo matemático (óptimo y gap), con una heurística o con una metaheurística (se muestra la brecha frente a la cota del modelo). Los datos extra de cada variante se editan en <b>Nodos</b>.',
     flujomax: 'Las capacidades se editan en la pestaña <b>Aristas</b>. Sin capacidad, una arista no tiene límite.',
     flujocosto: 'Defina el <b>balance</b> de cada nodo en <b>Nodos</b>: positivo = oferta, negativo = demanda (la suma debe ser 0). Costos y capacidades, en <b>Aristas</b>.',
     cartero: 'Recorrido cerrado de costo mínimo que cubre todas las aristas (el grafo debe ser conexo).',
@@ -164,7 +167,7 @@
   };
   App.horas = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) + (m || 0) / 60; };
   App.hhmm = (x) => { x = Math.max(0, x); let h = Math.floor(x + 1e-9), m = Math.round((x - h) * 60); if (m === 60) { m = 0; h++; } return String(h % 24).padStart(2, '0') + ':' + String(m).padStart(2, '0'); };
-  App.modoPesos = () => !!$('problema') && $('problema').value === 'mtsp';   // los pesos solo se editan en m-TSP; en TSP valen 1
+  App.modoPesos = () => !!$('problema') && ['mtsp', 'vrp'].includes($('problema').value);   // los pesos solo se editan en m-TSP; en TSP valen 1
   App.camposProblema = () => {
     const p = $('problema').value, modo = $('modo').value, vis = new Set(CAMPOS[p]);
     if (p === 'tsp' && modo !== 'fijo') vis.delete('destino'); if (p === 'tsp' && modo === 'libre') vis.delete('origen');
@@ -172,7 +175,7 @@
     document.querySelectorAll('#cProblema [data-c]').forEach((el) => el.classList.toggle('oculto', !vis.has(el.dataset.c)));
     $('tOrigen').textContent = ETQ_ORIGEN[p] || 'Origen'; $('ayudaProb').innerHTML = AYUDA[p] || '';
     $('balanceado').checked = !!S.ds.balanceado; $('metodo').value = S.ds.metodo; $('vtUsar').checked = !!S.ds.vt.usar; $('vtIni').value = App.hhmm(S.ds.vt.inicio); $('vtServ').value = S.ds.vt.servicio;
-    if (p === 'mtsp') App.renderFlota();
+    if (p === 'mtsp' || p === 'vrp') App.renderFlota(); if (window.VrpUi) VrpUi.refrescar();
     if (['tsp', 'mtsp'].includes(p)) { const d = Datos.dcIdx(S.ds); if (d >= 0 && S.ultimoProblema !== p) $('origen').value = d; }
     if (S.ultimoProblema !== p && ['nodos', 'aristas', 'modelo'].includes(S.panel)) setTimeout(() => App.renderPanel(), 0);
     S.ultimoProblema = p; App.pintarSeleccion();
@@ -191,6 +194,7 @@
   App.aviso = aviso;
   const distCompletas = () => { const D = S.ds.D, n = D.length, big = 1e6; return D.map((f, i) => f.map((v, j) => (i === j ? 0 : (isFinite(v) ? v : big)))); };
   function parametros() {
+    if ($('problema').value === 'vrp') return window.VrpUi.parametros();
     const p = $('problema').value, o = +$('origen').value, d = +$('destino').value, n = S.ds.nodos.length, tiempo = $('sinLimite') && $('sinLimite').checked ? 1e9 : Math.max(5, +$('tiempo').value || 120);
     const ds = S.ds;
     if (n < 2) return aviso('Agregue nodos primero (herramienta «Agregar nodos» o pestaña Nodos).');
@@ -256,7 +260,7 @@
   }
   App.dibujarResultado = dibujarResultado;
   App.renderLeyenda = (g) => {
-    const l = $('leyenda'); if (!g || !g.length || !['tsp', 'mtsp', 'cvrp', 'flota'].includes(S.res.kind)) { l.classList.add('oculto'); return; }
+    const l = $('leyenda'); if (!g || !g.length || !['tsp', 'mtsp', 'cvrp', 'flota', 'vrp'].includes(S.res.kind)) { l.classList.add('oculto'); return; }
     l.classList.remove('oculto'); l.innerHTML = g.map((x, k) => `<div><span class="punto" style="background:${x.color}"></span>Ruta ${k + 1} · ${fmt(S.res.res.dists[k], 1)} ${S.ds.unidad}</div>`).join('');
   };
   App.limpiarResultado = () => { if (window.Sim) Sim.limpiar(); S.res = null; S.colores = null; S.tenue = null; Mapa.limpiarRutas(); $('leyenda').classList.add('oculto'); if (S.panel === 'resultado') App.renderPanel(); App.pintarSeleccion(); };
@@ -273,8 +277,9 @@
     const div = document.createElement('div'); div.className = 'entra'; c.appendChild(div); pan.render(div); App.alRenderPanel && App.alRenderPanel(S.panel);
   };
   const kpis = (items) => '<div class="kpis">' + items.map(([v, l, cls]) => `<div class="kpi ${cls || ''}"><b class="tabular">${v}</b><span>${l}</span></div>`).join('') + '</div>';
-  const estadoKpi = (res) => { const e = String(res.estado), opt = e.startsWith('óptimo'); return [opt ? 'Óptimo probado' : esc(e.startsWith('detenido') ? 'Detenido por usted' : e.startsWith('límite') ? 'Límite de tiempo' : res.estado), 'Estado', opt ? 'estado ok' : 'estado aviso']; };
+  const estadoKpi = (res) => { const e = String(res.estado), opt = e.startsWith('óptimo'); return [opt ? 'Óptimo probado' : e.startsWith('heurístico') ? 'Solución factible' : esc(e.startsWith('detenido') ? 'Detenido por usted' : e.startsWith('límite') ? 'Límite de tiempo' : res.estado), 'Estado', opt ? 'estado ok' : 'estado aviso']; };
   App.kpis = kpis; App.estadoKpi = estadoKpi;
+  App.pasos = (ru, lleg) => pasos(ru, lleg);
   function pasos(ru, lleg) {
     let ac = 0; return `<table><tr><th>#</th><th>Nodo</th><th>Nombre</th><th>Tramo</th><th>Acum.</th>${lleg ? '<th>Llegada</th>' : ''}</tr>` + ru.map((v, j) => { const t = j ? S.ds.D[ru[j - 1]][v] : 0; ac += t; return `<tr><td>${j}</td><td>${esc(corto(v))}</td><td>${esc(nodo(v).nombre)}</td><td class="tabular">${j ? fmt(t) : ''}</td><td class="tabular">${fmt(ac)}</td>${lleg ? `<td class="tabular">${lleg[j] == null ? '' : App.hhmm(lleg[j])}</td>` : ''}</tr>`; }).join('') + '</table>';
   }
@@ -294,6 +299,8 @@
       h += `<table><tr><th>Ruta</th><th>Recorrido</th><th>Paradas</th>${r.kind === 'cvrp' ? '<th>Carga</th>' : ''}<th>${u}</th></tr>` + x.rutas.map((ru, k) => { const dep = ru[0]; const n = ru.filter((v, q) => !(q === 0 || (q === ru.length - 1 && v === dep))).length;
         return `<tr class="clic ${k === S.rutaSel ? 'activa' : ''}" data-k="${k}"><td><span class="punto" style="background:${COL[k % COL.length]}"></span>${x.rutas.length > 1 ? k + 1 : ''}</td><td class="recorrido">${ru.map((v) => `<span title="${esc(nodo(v).nombre)}">${esc(corto(v))}</span>`).join(' → ')}</td><td>${n}</td>${r.kind === 'cvrp' ? `<td class="tabular">${fmt(x.cargas[k], 0)}/${x.capacidad}</td>` : ''}<td class="tabular">${fmt(x.dists[k])}</td></tr>`; }).join('') + '</table>';
       h += `<div class="sep"></div><h3 style="font-size:15px;margin-bottom:6px">Detalle · ruta ${x.rutas.length > 1 ? S.rutaSel + 1 : ''}</h3>` + pasos(x.rutas[S.rutaSel]);
+    } else if (r.kind === 'vrp') {
+      h += window.VrpUi.resultado(r, x, u, kpis, estadoKpi);
     } else if (r.kind === 'flota') {
       h += kpis([estadoKpi(x), [fmt(x.totalCosto, 2), 'Costo total' + (r.opt.objetivo === 'maximo' ? ' · ruta más costosa ' + fmt(x.objetivo, 2) : '')], [fmt(x.total) + ' ' + u, 'Distancia total'], [x.rutas.length + ' de ' + r.opt.vehiculos.length, 'Vehículos usados'], [brecha, 'Brecha de optimalidad'], [fmt(x.seg || 0, 2) + ' s', 'Tiempo de cálculo']]);
       h += `<table><tr><th>Ruta</th><th>Vehículo</th><th>Recorrido</th><th>Carga</th><th>${u}</th><th>Costo</th></tr>` + x.rutas.map((ru, k) => `<tr class="clic ${k === S.rutaSel ? 'activa' : ''}" data-k="${k}"><td><span class="punto" style="background:${COL[k % COL.length]}"></span>${k + 1}</td><td>${esc(x.info[k].tipo)}</td><td class="recorrido">${ru.map((v) => `<span title="${esc(nodo(v).nombre)}">${esc(corto(v))}</span>`).join(' → ')}</td><td class="tabular">${fmt(x.info[k].carga, 1)}${isFinite(x.info[k].cap) ? '/' + x.info[k].cap : ''}</td><td class="tabular">${fmt(x.dists[k])}</td><td class="tabular">${fmt(x.info[k].costo, 2)}</td></tr>`).join('') + '</table>';
@@ -334,7 +341,7 @@
     el.querySelectorAll('tr.clic[data-k]').forEach((tr) => (tr.onclick = () => { S.rutaSel = +tr.dataset.k; Mapa.resaltar(S.rutaSel); App.renderPanel(); }));
     el.querySelectorAll('tr.clic[data-i]').forEach((tr) => (tr.onclick = () => Mapa.ajustar([+tr.dataset.i, +tr.dataset.j])));
     el.querySelectorAll('.celda').forEach((td) => (td.onclick = () => caminoDeCelda(+td.dataset.k, +td.dataset.c)));
-    el.querySelectorAll('[data-e]').forEach((b) => (b.onclick = () => exportar(b.dataset.e)));
+    el.querySelectorAll('[data-e]').forEach((b) => (b.onclick = () => { if (App.exportarVrp && App.exportarVrp(b.dataset.e)) return; exportar(b.dataset.e); }));
   }
   async function caminoDeCelda(k, c) {
     const r = S.res; if (!r || !r.res.origenes) return; const s = r.res.origenes[k]; if (s === c) return;
@@ -423,7 +430,7 @@
 
   /* ================= arranque ================= */
   App.arrancar = async () => {
-    construirProblema(); App.construirModelos && App.construirModelos(); App.construirBusqueda();
+    construirProblema(); App.construirModelos && App.construirModelos(); window.VrpUi && VrpUi.montar(); App.construirBusqueda();
     Mapa.iniciar('mapa', (e) => { if (e === 'mapa-offline') chip('Sin conexión: el mapa base no está disponible, pero los nodos y las rutas sí'); });
     try { S.sets.cali = await Datos.cargar('cali'); S.sets.cali.parcial = true; S.sets.china = await Datos.cargar('china'); S.sets.china.parcial = true; for (const p of Datos.listar()) { const d = await Datos.cargar(p.clave); if (d) S.sets[p.clave] = d; } }
     catch (e) { chip('No se pudieron cargar los datos: ' + e.message); return; }
