@@ -32,6 +32,8 @@
     { id: 'pcvrp', nombre: 'VRP con beneficios', fam: 'Selectivos', desc: 'Visita solo los clientes rentables: maximiza premio − costo.', cap: true, f: { obj: 'profit' }, opcional: true },
     { id: 'top', nombre: 'Orienteering / TOP', fam: 'Selectivos', desc: 'Maximiza el premio recogido con distancia máxima por ruta.', cap: false, f: { obj: 'top' }, opcional: true, lmaxDist: true },
   ];
+  const EN = {"tsp": "Traveling Salesman Problem", "otsp": "Open Traveling Salesman Problem (Hamiltonian path)", "mtsp": "Multiple Traveling Salesman Problem", "mtspb": "Balanced Multiple TSP", "omtsp": "Open Multiple TSP", "omtspb": "Open Balanced Multiple TSP", "mtspmm": "Min-Max Multiple TSP", "cvrp": "Capacitated Vehicle Routing Problem", "ovrp": "Open Vehicle Routing Problem", "dcvrp": "Distance-Constrained CVRP", "vrpl": "CVRP with route-length (max. stops) limit", "minveh": "Fleet-size minimization VRP", "cvrpb": "Balanced (workload-balanced) CVRP", "vrptw": "Vehicle Routing Problem with Time Windows", "ovrptw": "Open VRP with Time Windows", "hfvrp": "Heterogeneous Fleet VRP", "fsmvrp": "Fleet Size and Mix VRP", "hfvrptw": "Heterogeneous Fleet VRP with Time Windows", "mdvrp": "Multi-Depot VRP", "mdvrptw": "Multi-Depot VRP with Time Windows", "lrp": "Location-Routing Problem", "vrpb": "VRP with Backhauls", "vrpspd": "VRP with Simultaneous Pickup and Delivery", "vrppd": "VRP with Pickup and Delivery", "sdvrp": "Split Delivery VRP", "pcvrp": "Prize-Collecting / Profitable Tour VRP", "top": "Team Orienteering Problem"};
+  V.forEach((v) => { v.en = EN[v.id]; });
   const porId = Object.fromEntries(V.map((v) => [v.id, v]));
   const ANOTA = {};
 

@@ -26,7 +26,7 @@
   }
   function refrescar() {
     if (!$('vrpVar')) return; const v = Va.porId[$('vrpVar').value], met = $('vrpMetodo').value;
-    $('vrpDesc').innerHTML = `<b>${esc(v.fam)}</b> · ${esc(v.desc)}${v.id === 'sdvrp' ? ' <span style="color:var(--warning)">Solo con modelo matemático.</span>' : ''}`;
+    $('vrpDesc').innerHTML = `<b>${esc(v.fam)}</b> · ${esc(v.desc)} <i>(en inglés: ${esc(v.en)})</i>${v.id === 'sdvrp' ? ' <span style="color:var(--warning)">Solo con modelo matemático.</span>' : ''}`;
     const sel = $('vrpAlgo'), lista = ALGO[met] || [], prev = sel.value; sel.innerHTML = lista.map(([k, a]) => `<option value="${k}">${esc(a.nombre)}</option>`).join(''); if (lista.some(([k]) => k === prev)) sel.value = prev;
     $('vrpAlgoF').classList.toggle('oculto', !lista.length);
     $('vrpAlgoDesc').textContent = met === 'exacto' ? 'Resuelve las fórmulas del curso (MILP) con HiGHS; si llega al límite de tiempo informa la brecha.' : met === 'comparar' ? 'Ejecuta el modelo matemático, 5 heurísticas y 6 metaheurísticas y compara costo, tiempo y brecha.' : (DESC_ALGO[sel.value] || '');
