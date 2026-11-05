@@ -35,7 +35,7 @@ function fuerzaBruta(I) {
     const res = {}; let mejorH = Infinity, mejorN = '';
     if (v.id !== 'sdvrp') for (const a of Object.keys(H.ALGORITMOS)) { const x = H.resolver(I, a, { tiempo: a === 'vecino' || a === 'ahorros' || a === 'barrido' || a === 'insercion' ? 1 : 1.2, semilla: 3 }); res[a] = x.factible ? x.objetivo : null; if (x.factible && x.objetivo < mejorH) { mejorH = x.objetivo; mejorN = a; } }
     const nOK = Object.values(res).filter((x) => x !== null && Math.abs(x - ex.objetivo) < 1e-4 * Math.max(1, Math.abs(ex.objetivo))).length;
-    filas.push({ id: v.id, ex: ex.objetivo, bf, okBf, tEx, mejorH: isFinite(mejorH) ? mejorH : null, mejorN, nOK, estado: ex.estado });
+    filas.push({ id: v.id, nombre: v.nombre, res, ex: ex.objetivo, bf, okBf, tEx, mejorH: isFinite(mejorH) ? mejorH : null, mejorN, nOK, estado: ex.estado });
     const gapH = isFinite(mejorH) ? ((mejorH - ex.objetivo) / Math.abs(ex.objetivo) * 100).toFixed(2) + '%' : 'n/a';
     console.log((okBf === false ? 'FALLA ' : 'OK    ') + v.id.padEnd(8), 'MILP', ex.objetivo === undefined ? ex.estado : ex.objetivo.toFixed(3), '| fuerza bruta', bf === null ? 'n/a' : bf.toFixed(3), '| mejor heur.', isFinite(mejorH) ? mejorH.toFixed(3) + ' (' + mejorN + ', gap ' + gapH + ')' : 'ninguna factible', '| algoritmos en el óptimo:', nOK + '/' + Object.keys(res).length, '|', tEx.toFixed(1) + 's', notas.length ? '' : '');
     if (okBf === false) fallos++;

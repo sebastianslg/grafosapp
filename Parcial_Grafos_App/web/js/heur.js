@@ -162,7 +162,7 @@
         cambio = false;
         for (let k = 0; k < m && !cambio; k++) for (let ia = 0; ia < mejor.R[k].length && !cambio; ia++) {   // relocate
           const x = mejor.R[k][ia], un = UN[unitOf.get(x)]; if (un[0] !== x) continue;
-          const T = clon(mejor), ks = quitarUnidad(T, un), b = mejorInsercion(T, un); T.R[b.k] = b.ns; ks.add(b.k); reeval(T, ks);
+          const T = clon(mejor), ks = quitarUnidad(T, un); reeval(T, ks); const b = mejorInsercion(T, un); T.R[b.k] = b.ns; ks.add(b.k); reeval(T, ks);
           if (T.f < mejor.f - 1e-9) { mejor = T; cambio = true; }
         }
         if (cambio) continue;
@@ -275,7 +275,7 @@
       default: throw new Error('Algoritmo desconocido: ' + algo);
     }
     // hacer factible si es posible: mejor solución con VND final
-    if (mejor && algo !== 'vecino') { const T2 = E.vnd(mejor, 2000); if (T2.f < mejor.f - 1e-9) mejorQue(T2); }
+    if (mejor && ALGORITMOS[algo].tipo === 'meta') { const T2 = E.vnd(mejor, 2000); if (T2.f < mejor.f - 1e-9) mejorQue(T2); }
     void factibleMejor;
     return resultado(I, E, mejor, (now() - t0) / 1000, ALGORITMOS[algo].nombre, hist);
   }
