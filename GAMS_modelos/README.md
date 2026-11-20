@@ -39,13 +39,15 @@ depósitos, tipos de vehículo, recogidas, pares, premios).
 | `23_vrpspd.gms` | VRPSPD | VRP con entrega y recogida simultáneas | 534,37 | 4 | 331 / 110 | 6,22 s |
 | `24_vrppd.gms` | VRPPD | VRP con recogida y entrega por pares | 315,74 | 1 | 351 / 330 | 1,87 s |
 | `25_sdvrp.gms` | SDVRP | VRP con entrega dividida | 472,01 | 4 | 353 / 288 | 51,61 s |
-| `26_pcvrp.gms` | PCVRP | VRP con beneficios (prize-collecting) | 450,55 | 2 | 131 / 120 | 26,96 s |
+| `26_pcvrp.gms` | PCVRP | VRP con beneficios (prize-collecting) | 635,66 | 2 | 131 / 120 | 1,73 s |
 | `27_top.gms` | TOP | Orienteering por equipos | 885,00 | 2 | 131 / 120 | 18,18 s |
 
 PCVRP y TOP maximizan; MinVeh, OBmTSP y SDVRP resuelven además una versión de comparación en el mismo archivo.
 
 ## Cómo se probaron
 
+* **Corrección:** `26_pcvrp.gms` tenía una restricción de carga que se aplicaba también a clientes no visitados y hacía infactible
+  el óptimo; el valor correcto es 635,66 (antes 450,55). Lo detectó la validación contra la app.
 * Cada archivo se ejecutó de principio a fin con `Exposicion_src/ref/gamsx.py`, un intérprete del subconjunto de GAMS que usan
   estos archivos (declaraciones, asignaciones con `$`, loops, ecuaciones, `solve`) que construye el modelo y lo resuelve con
   **HiGHS**. El intérprete también rechaza los errores de compilación más comunes de GAMS (símbolos duplicados — GAMS no

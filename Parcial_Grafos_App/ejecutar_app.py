@@ -184,6 +184,17 @@ def osrm_matriz(puntos):
 _parar = {"on": False}
 
 
+def _sin_infinitos(x):
+    """Reemplaza inf/NaN por null: json.dumps los escribe como Infinity/NaN, que no es JSON válido en el navegador."""
+    if isinstance(x, float) and (math.isinf(x) or math.isnan(x)):
+        return None
+    if isinstance(x, dict):
+        return {k: _sin_infinitos(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_sin_infinitos(v) for v in x]
+    return x
+
+
 def resolver_highspy(lp, tiempo, brecha, cota=None):
     import highspy  # noqa: PLC0415
     with tempfile.NamedTemporaryFile("w", suffix=".lp", delete=False) as f:
@@ -291,7 +302,7 @@ class Manejador(BaseHTTPRequestHandler):
 
     def _enviar(self, codigo, cuerpo, tipo="application/json", extra=None):
         if isinstance(cuerpo, (dict, list)):
-            cuerpo = json.dumps(cuerpo).encode("utf-8")
+            cuerpo = json.dumps(_sin_infinitos(cuerpo)).encode("utf-8")   # JSON estándar: sin Infinity ni NaN
         elif isinstance(cuerpo, str):
             cuerpo = cuerpo.encode("utf-8")
         self.send_response(codigo)

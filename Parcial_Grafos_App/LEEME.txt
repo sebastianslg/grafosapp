@@ -26,7 +26,7 @@ PESOS, FLOTA Y RESTRICCIONES (correcciones de clase)
   - Abierto: las rutas terminan en el ultimo cliente, sin volver al deposito.  Balanceado: mismo numero de clientes por ruta.
   - Ventanas de tiempo: casilla "Usar ventanas de tiempo"; en Nodos se marca/desmarca la franja horaria (desde-hasta) de cada cliente,
     con hora de salida y tiempo de servicio. El resultado muestra la hora de llegada a cada cliente.
-  Todo con optimizacion exacta (MILP), sin heuristicas.
+  Todo con optimizacion exacta (MILP). Las heuristicas solo aparecen como referencia en la comparacion.
 
 FORMULAS DEL CURSO (Capitulo 4 - Ruteo de Vehiculos)
   TSP: Min Z = sum c_ij x_ij; (1) entrar una vez, (2) salir una vez, (3) Miller-Tucker-Zemlin  u_i - u_j + n x_ij <= n-1.
@@ -94,7 +94,15 @@ VRP · 27 VARIANTES (nuevo)
 - En «Tipo de problema» elija «VRP · 27 variantes». Variantes: TSP, TSP abierto, m-TSP (+balanceado, abierto, min-max), CVRP, OVRP, DCVRP,
   máx. paradas, mínima flota, CVRP balanceado, VRPTW, OVRPTW, HFVRP, FSMVRP, HFVRPTW, MDVRP, MDVRPTW, LRP, VRPB (backhaul),
   VRPSPD, VRPPD, SDVRP (entrega dividida), VRP con beneficios y Orienteering/TOP.
-- Cómo resolver: modelo matemático (MILP), heurística (vecino más cercano, ahorros, barrido, inserción, VND),
-  metaheurística (recocido simulado, tabú, genético, hormigas, GRASP, VNS) o «Comparar todos».
-- Heurísticas y metaheurísticas muestran la brecha (gap) frente a la cota inferior calculada con el modelo matemático.
+- Cómo resolver: modelo matemático (MILP con HiGHS). Es la única solución que se entrega como resultado.
+- «Comparar con heurísticas (referencia)»: ejecuta vecino más cercano, ahorros, barrido, inserción, VND, recocido, tabú, genético,
+  hormigas, GRASP y VNS, y muestra la brecha de cada uno frente al óptimo. Son solo referencia: no reemplazan al modelo.
+- MinVeh: primero se minimiza la flota y luego la distancia con esa flota (dos fases). Se informa el número de vehículos.
 - Datos extra por variante (Recoge, Par, Premio, Abrir) en la pestaña Nodos. El resultado se exporta a código GAMS (.gms).
+
+VALIDACION Y PRUEBAS (para el profesor o para revisar la app)
+  - Las 27 variantes se validaron contra los modelos GAMS sobre la misma instancia CVRP-10 (óptimo 425,05):
+    node pruebas/validar_gams.js          (sale con código 1 si alguna no coincide)
+  - Pruebas de interfaz (navegador, con ejecutar_app.py en marcha):  node pruebas/e2e_vrp.js  y  node pruebas/e2e_parar.js
+  - Pruebas de modelos: node pruebas/prueba_solver.js, prueba_flota.js, prueba_mtz.js, prueba_nuevos.js
+  Todas usan HiGHS (highspy). Cada prueba informa OK o FALLA.

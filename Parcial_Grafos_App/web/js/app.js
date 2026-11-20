@@ -111,7 +111,7 @@
   /* ================= tarjeta Problema ================= */
   const PROBLEMAS = [
     ['Rutas', [['tsp', 'TSP · un viajante (pesos = 1)'], ['mtsp', 'm-TSP · flota, pesos, balance y ventanas']]],
-    ['VRP · 27 variantes', [['vrp', 'VRP · elegir variante y método (exacto / heurística / metaheurística)']]],
+    ['VRP · 27 variantes', [['vrp', 'VRP · 27 variantes con modelo matemático (óptimo)']]],
     ['Caminos y árboles', [['camino', 'Camino mínimo (origen → destino)'], ['desde', 'Caminos mínimos desde un origen'], ['arbol', 'Árbol de valor mínimo']]],
     ['Flujos y recorridos', [['flujomax', 'Flujo máximo'], ['flujocosto', 'Flujo de costo mínimo'], ['cartero', 'Cartero chino (recorrer todas las aristas)']]],
     ['Localización en los nodos', [['pmediana', 'p-mediana'], ['pcentro', 'p-centro'], ['cobertura', 'Cobertura de conjuntos']]],
@@ -125,7 +125,7 @@
   };
   const ETQ_ORIGEN = { vrp: 'Depósito', tsp: 'Origen', mtsp: 'Depósito', camino: 'Origen', desde: 'Origen', arbol: 'Raíz', flujomax: 'Fuente' };
   const AYUDA = {
-    vrp: 'Elija la <b>variante</b> y <b>cómo resolverla</b>: con el modelo matemático (óptimo y gap), con una heurística o con una metaheurística (se muestra la brecha frente a la cota del modelo). Los datos extra de cada variante se editan en <b>Nodos</b>.',
+    vrp: 'Elija la <b>variante</b> y <b>cómo resolverla</b>: con el <b>modelo matemático</b> (MILP: da la solución óptima y su brecha). Las heurísticas y metaheurísticas solo sirven de <b>referencia</b> en «Comparar»: muestran qué tan lejos quedan del óptimo. Los datos extra de cada variante se editan en <b>Nodos</b>.',
     flujomax: 'Las capacidades se editan en la pestaña <b>Aristas</b>. Sin capacidad, una arista no tiene límite.',
     flujocosto: 'Defina el <b>balance</b> de cada nodo en <b>Nodos</b>: positivo = oferta, negativo = demanda (la suma debe ser 0). Costos y capacidades, en <b>Aristas</b>.',
     cartero: 'Recorrido cerrado de costo mínimo que cubre todas las aristas (el grafo debe ser conexo).',

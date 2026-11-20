@@ -10,6 +10,15 @@
 
   async function vrp(I, ctx, o) {
     o = o || {}; const t0 = now(), f = I.f || {}, D = I.D, veh = I.veh, m = veh.length, cl = I.cust, nc = cl.length, depots = I.depots;
+    /* mínima flota (MinVeh): fase 1 minimiza el número de vehículos; fase 2 fija ese número y minimiza la distancia */
+    if (f.minVeh && !o.fase && !o.fijarVeh) {
+      const T = o.tiempo || 120, r1 = await vrp(I, ctx, Object.assign({}, o, { fase: 'veh', tiempo: T * 0.4 }));
+      if (!r1.rutas || !r1.rutas.length) return r1;
+      const nV = r1.rutas.length, r2 = await vrp(I, ctx, Object.assign({}, o, { fijarVeh: nV, tiempo: T * 0.6 }));
+      r2.flota = nV; r2.fase1 = { estado: r1.estado, vehiculos: nV, seg: r1.seg };
+      if (r2.informe) r2.informe.vehiculos = nV;
+      return r2;
+    }
     const w = I.w || D.map(() => 0), r = I.r || D.map(() => 0), mode = f.mode || 'entrega';
     const prize = I.prize || D.map(() => 0), optional = (i) => !!(I.optional && I.optional[i]);
     const obj = f.obj || 'costo', abierto = !!f.open, vt = f.vt && f.vt.usar ? f.vt : null;
@@ -42,9 +51,9 @@
     const tinyTop = obj === 'top' ? 1e-4 : 1;
     for (let k = 0; k < m; k++) {
       const h = veh[k].depot, { A, has, nodes } = arcs[k];
-      for (const [i, j] of A) M.addVar(X(k, i, j), (maxo ? 1e-3 : 1) * tinyTop * costo(k, i, j), 0, 1, true);
+      for (const [i, j] of A) M.addVar(X(k, i, j), o.fase === 'veh' ? 0 : (maxo ? 1e-3 : 1) * tinyTop * costo(k, i, j), 0, 1, true);
       for (const i of cl) M.addVar(Y(k, i), obj === 'costo' || obj === 'maximo' ? 0 : -(prize[i] || 0), 0, 1, true);
-      M.addVar(V(k), veh[k].fijo || 0, todas ? 1 : 0, 1, true);
+      M.addVar(V(k), o.fase === 'veh' ? 1 : (veh[k].fijo || 0), todas ? 1 : 0, 1, true);
       const so = cl.filter((j) => has.has(h + ',' + j)), en = cl.filter((i) => has.has(i + ',' + h));
       M.addCon(so.map((j) => X(k, h, j)).concat([V(k)]), so.map(() => 1).concat([-1]), 0, 0);
       M.addCon(en.map((i) => X(k, i, h)).concat([V(k)]), en.map(() => 1).concat([-1]), 0, 0);
@@ -62,10 +71,17 @@
       if (f.locDepot) { /* el vehículo solo sale de un depósito abierto */ M.addCon([V(k), DEP(h)], [1, -1], -INF, 0); }
     }
     if (f.locDepot) for (const d of depots) M.addVar(DEP(d), (f.openCost && f.openCost[d]) || 0, 0, 1, true);
+    if (o.fijarVeh) M.addCon(Array.from({ length: m }, (_, k) => V(k)), 1, o.fijarVeh, o.fijarVeh);
     // cobertura
     for (const i of cl) {
       const ys = Array.from({ length: m }, (_, k) => Y(k, i));
       if (mode === 'split') M.addCon(ys, 1, 1, INF); else if (optional(i)) M.addCon(ys, 1, -INF, 1); else M.addCon(ys, 1, 1, 1);
+    }
+    // corte válido: la capacidad de los vehículos usados cubre la demanda total (entrega y recogida)
+    if ((mode === 'entrega' || mode === 'backhaul' || mode === 'spd') && !cl.some((i) => optional(i))) {
+      const caps = Array.from({ length: m }, (_, k) => cap(k));
+      if (caps.every(isFinite) && sumW > 0) M.addCon(Array.from({ length: m }, (_, k) => V(k)), caps, sumW, INF);
+      if (mode === 'backhaul' && sumR > 0 && caps.every(isFinite)) M.addCon(Array.from({ length: m }, (_, k) => V(k)), caps, sumR, INF);
     }
     // capacidad según modo
     for (let k = 0; k < m; k++) {
@@ -79,6 +95,8 @@
       for (const i of cl) M.addCon(Array.from({ length: m }, (_, k) => Z(k, i)), 1, w[i], w[i]);
       for (let k = 0; k < m; k++) if (isFinite(cap(k))) M.addCon(cl.map((i) => Z(k, i)).concat([V(k)]), cl.map(() => 1).concat([-cap(k)]), -INF, 0);
     }
+    // capacidad de cada centro de distribución abierto (localización-ruteo)
+    if (f.locDepot && f.capD) for (const d of depots) { if (!(f.capD[d] > 0)) continue; const nm = [], co = []; for (let k = 0; k < m; k++) if (veh[k].depot === d) for (const i of cl) { nm.push(Y(k, i)); co.push(w[i]); } nm.push(DEP(d)); co.push(-f.capD[d]); M.addCon(nm, co, -INF, 0); }
     // carga a lo largo de la ruta (recoger-entregar, simultáneo)
     if (mode === 'spd' || mode === 'pd') {
       const Ml = Math.max(1, sumW + sumR, isFinite(Qmax) ? Qmax : 0);
@@ -109,9 +127,11 @@
       cl.forEach((j, pos) => { const prev = cl.slice(0, pos).map((l) => Y(k - 1, l)); M.addCon([Y(k, j), ...prev], [1, ...prev.map(() => -1)], -INF, 0); }); }
     // ventanas de tiempo
     if (vt) {
-      const H = 48, s = vt.servicio || 0, maxd = Math.max(...D.flat().filter(isFinite)), minv = Math.min(...veh.map((v) => v.vel)), Mt = H + s + maxd / minv;
+      const H = Math.max(vt.H || 48, ...vt.b.filter(isFinite)), s = vt.servicio || 0, maxd = Math.max(...D.flat().filter(isFinite)), minv = Math.min(...veh.map((v) => v.vel)), Mt = H + s + maxd / minv;
       for (const i of cl) M.addVar('t_' + i, 0, vt.a[i] ?? 0, vt.b[i] ?? H, false);
       for (let k = 0; k < m; k++) { const h = veh[k].depot; for (const j of cl) if (arcs[k].has.has(h + ',' + j)) M.addCon(['t_' + j, X(k, h, j)], [1, -(D[h][j] / veh[k].vel + Mt)], (vt.inicio || 0) - Mt, INF); }
+      // cierre del depósito: la última parada más el regreso no pasan de la hora de cierre
+      if (!abierto && vt.cierre > 0) for (let k = 0; k < m; k++) { const h = veh[k].depot; for (const i of cl) if (arcs[k].has.has(i + ',' + h)) M.addCon(['t_' + i, X(k, i, h)], [1, Mt], -INF, vt.cierre + Mt - s - D[i][h] / veh[k].vel); }
       for (const i of cl) for (const j of cl) if (i !== j) {
         const names = ['t_' + j, 't_' + i], coefs = [1, -1];
         for (let k = 0; k < m; k++) if (arcs[k].has.has(i + ',' + j)) { names.push(X(k, i, j)); coefs.push(-(D[i][j] / veh[k].vel + Mt)); }
@@ -157,7 +177,11 @@
     const aper = f.locDepot ? depots.filter((d) => sol.val(DEP(d)) > 0.5) : null;
     const total = In.reduce((a, x) => a + x.dist, 0), totalCosto = In.reduce((a, x) => a + x.costo, 0);
     const premio = cl.filter((i) => visit.has(i)).reduce((a, i) => a + (prize[i] || 0), 0);
-    return { estado: sol.status, objetivo: sol.obj, total, totalCosto, rutas: R, dists: In.map((x) => x.dist), info: In, noVisitados: noVis, premio, abiertos: aper, gap: sol.gap, cota: sol.gap > 0 && isFinite(sol.gap) ? sol.obj - Math.abs(sol.obj) * sol.gap : sol.obj, cortes, seg: (now() - t0) / 1000, metodoSol: 'exacto' };
+    const cota = sol.cota != null ? sol.cota : (sol.dual != null && isFinite(sol.dual) ? sol.dual : (sol.gap > 0 && isFinite(sol.gap) ? sol.obj - Math.abs(sol.obj) * sol.gap : sol.obj));
+    const seg = (now() - t0) / 1000;
+    const informe = { modelo: metodo === 'mtz' ? 'MILP con eliminación MTZ' : 'MILP con cortes DFJ', estado: sol.status, objetivo: sol.obj, cota, gap: sol.gap, tiempo: seg,
+      variables: M.vars.length, binarias: M.vars.filter((v) => v.int).length, restricciones: M.cons.length, cortes, rutas: R.length, vehiculos: null, tiempoLimite: o.tiempo || 120, nodos: sol.nodos };
+    return { estado: sol.status, objetivo: sol.obj, total, totalCosto, rutas: R, dists: In.map((x) => x.dist), info: In, noVisitados: noVis, premio, abiertos: aper, gap: sol.gap, cota, cortes, seg, metodoSol: 'exacto', informe };
   }
   root.Vrp = { vrp };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.Vrp;

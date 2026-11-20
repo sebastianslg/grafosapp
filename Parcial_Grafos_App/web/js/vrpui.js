@@ -4,7 +4,8 @@
   'use strict';
   const { S, $, esc, fmt, corto, nodo, COL } = window.App;
   const Va = window.Variantes, H = window.Heur;
-  const METODOS = [['exacto', 'Modelo matemático (exacto)'], ['heur', 'Heurística'], ['meta', 'Metaheurística'], ['comparar', 'Comparar todos los métodos']];
+  /* Solo optimización: el modelo matemático es la solución. Las heurísticas y metaheurísticas se usan como referencia (comparación). */
+  const METODOS = [['exacto', 'Modelo matemático (exacto)'], ['comparar', 'Comparar con heurísticas (referencia)']];
   const ALGO = {
     heur: Object.entries(H.ALGORITMOS).filter(([, a]) => a.tipo === 'heuristica'), meta: Object.entries(H.ALGORITMOS).filter(([, a]) => a.tipo === 'meta'),
   };
@@ -29,7 +30,7 @@
     $('vrpDesc').innerHTML = `<b>${esc(v.fam)}</b> · ${esc(v.desc)} <i>(en inglés: ${esc(v.en)})</i>${v.id === 'sdvrp' ? ' <span style="color:var(--warning)">Solo con modelo matemático.</span>' : ''}`;
     const sel = $('vrpAlgo'), lista = ALGO[met] || [], prev = sel.value; sel.innerHTML = lista.map(([k, a]) => `<option value="${k}">${esc(a.nombre)}</option>`).join(''); if (lista.some(([k]) => k === prev)) sel.value = prev;
     $('vrpAlgoF').classList.toggle('oculto', !lista.length);
-    $('vrpAlgoDesc').textContent = met === 'exacto' ? 'Resuelve las fórmulas del curso (MILP) con HiGHS; si llega al límite de tiempo informa la brecha.' : met === 'comparar' ? 'Ejecuta el modelo matemático, 5 heurísticas y 6 metaheurísticas y compara costo, tiempo y brecha.' : (DESC_ALGO[sel.value] || '');
+    $('vrpAlgoDesc').textContent = met === 'exacto' ? 'Resuelve las fórmulas del curso (MILP) con HiGHS; si llega al límite de tiempo informa la brecha.' : met === 'comparar' ? 'El modelo matemático da la solución óptima. Las heurísticas y metaheurísticas se ejecutan solo para comparar: cada una muestra su brecha frente al óptimo.' : (DESC_ALGO[sel.value] || '');
     document.querySelectorAll('#cProblema [data-v]').forEach((el) => { const k = el.dataset.v; const mostrar = k === 'm' ? !v.mixta && !v.m : k === 'L' ? !!v.lmaxDist : k === 'P' ? !!v.paradas : k === 'sem' ? met === 'meta' || met === 'comparar' : k === 'cota' ? met === 'heur' || met === 'meta' : true; el.classList.toggle('oculto', !mostrar); });
     const tl = $('tiempo'); if (tl) tl.closest('.fila').classList.toggle('oculto', met === 'heur' && false);
   }
@@ -59,8 +60,11 @@
     const I = r.extra.I, f = I.f || {}, pc = (g) => (g == null || !isFinite(g) ? 'n/d' : (x.estado && String(x.estado).startsWith('óptimo') ? '0 %' : (g * 100).toFixed(2) + ' %'));
     const items = [estadoKpi(x), [fmt(x.objetivo, 2) + (f.obj === 'profit' || f.obj === 'top' ? '' : ' ' + u), f.obj === 'profit' ? 'Función objetivo (costo − premio)' : f.obj === 'top' ? 'Función objetivo (−premio)' : f.objetivo === 'maximo' ? 'Ruta más larga (+ε·costo)' : 'Función objetivo (costo)'], [pc(x.gap), 'Brecha (gap)']];
     if (x.cota != null && isFinite(x.cota)) items.push([fmt(x.cota, 2), 'Mejor cota (óptimo ≥)']);
+    if (x.flota) items.push([x.flota + ' vehículos', 'Flota mínima (fase 1)']);
     items.push([x.metodoSol || '', 'Método'], [fmt(x.seg || 0, 2) + ' s', 'Tiempo de cálculo']);
     let h = kpis(items);
+    if (x.avisos && x.avisos.length) h += x.avisos.map((a) => `<p class="nota">ℹ ${esc(a)}</p>`).join('');
+    if (x.informe) { const q = x.informe; h += `<details class="nota" open><summary><b>Informe de la corrida</b></summary><table><tr><th>Concepto</th><th>Valor</th></tr>` + [['Modelo', q.modelo], ['Estado', q.estado], ['Objetivo', q.objetivo != null ? fmt(q.objetivo, 4) : '—'], ['Mejor cota inferior', q.cota != null && isFinite(q.cota) ? fmt(q.cota, 4) : '—'], ['Brecha (gap)', q.gap != null && isFinite(q.gap) ? (q.gap * 100).toFixed(3) + ' %' : '—'], ['Variables (binarias)', q.variables + ' (' + q.binarias + ')'], ['Restricciones', q.restricciones], ['Cortes de subtours', q.cortes], ['Rutas', q.rutas], ...(q.vehiculos != null ? [['Vehículos', q.vehiculos]] : []), ['Tiempo', fmt(q.tiempo, 2) + ' s (límite ' + q.tiempoLimite + ' s)']].map(([a, b]) => `<tr><td>${esc(a)}</td><td class="tabular">${esc(String(b))}</td></tr>`).join('') + `</table></details>`; }
     if (x.exactoRef != null && isFinite(x.exactoRef)) h += `<p class="nota">El modelo matemático (cota, ${r.opt.tiempoCota || 8} s) halló una solución de ${fmt(x.exactoRef, 2)}.</p>`;
     if (x.mejorExacto) h += `<div class="aviso">El modelo matemático encontró una solución mejor (${fmt(x.mejorExacto.objetivo, 2)}). Use «Modelo matemático» para verla.</div>`;
     if (I.optional && x.noVisitados && x.noVisitados.length) h += `<p class="nota"><b>Clientes no visitados</b> (no rentables o fuera del alcance): ${x.noVisitados.map((i) => esc(corto(i))).join(', ')}. Premio recogido: ${fmt(x.premio, 2)}.</p>`;

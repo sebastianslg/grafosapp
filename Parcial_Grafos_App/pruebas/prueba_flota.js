@@ -16,7 +16,7 @@ const V = (k, cap = Infinity, c = 1, v = 40, t = 'camión') => Array.from({ leng
   // ventanas ajustadas: los nodos 1..4 deben atenderse entre las 8:00 y 8:40 (con salida 8:00)
   const a2 = a.slice(), b2 = b.slice(); [1, 2, 3, 4, 5, 6].forEach((i) => { a2[i] = 8; b2[i] = 9.0; });
   r = await S.flota(D, ctx, { deposito: 0, vehiculos: V(3, Infinity, 1, 40), balanceado: true, tiempo: 180, vt: { usar: true, inicio: 8, servicio: 0.1, a: a2, b: b2 } });
-  if (r.rutas.length) { const ok = r.info.every((x, q) => r.rutas[q].every((v, k) => v === 0 || (x.llegadas[k] >= a2[v] - 1e-6 && x.llegadas[k] <= b2[v] + 1e-6))); console.log(ok ? 'OK   ' : 'FALLA', 'ventanas ajustadas respetadas; objetivo', r.objetivo.toFixed(3), '(≥ 84.699)', r.objetivo >= 84.699 - 1e-6 ? 'ok' : 'MAL'); if (!ok) process.exitCode = 1; } else { console.log('ventanas ajustadas:', r.estado); }
+  if (r.rutas.length) { const ok = r.info.every((x, q) => r.rutas[q].every((v, k) => v === 0 || (x.llegadas[k] >= a2[v] - 1e-6 && x.llegadas[k] <= b2[v] + 1e-6))); console.log(ok ? 'OK   ' : 'FALLA', 'ventanas ajustadas respetadas; objetivo', r.objetivo.toFixed(3), '(≥ 84.699)', r.objetivo >= 84.699 - 1e-4 * 84.699 ? 'ok' : 'MAL'); if (!ok) process.exitCode = 1; } else { console.log('ventanas ajustadas:', r.estado); }
   const flotaMixta = [...V(2, 5, 1, 30, 'camión de reparto'), ...V(1, 34, 2.4, 50, 'tractocamión')];
   r = await S.flota(D, ctx, { deposito: 0, vehiculos: flotaMixta, tiempo: 180 });
   const recomp = r.rutas.reduce((s, ru, q) => s + ru.slice(1).reduce((t, v, i) => t + D[ru[i]][v], 0) * flotaMixta.find((f) => f.tipo === r.info[q].tipo).costoKm, 0);

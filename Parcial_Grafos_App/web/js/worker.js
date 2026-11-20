@@ -93,15 +93,17 @@ async function correrVrp(d, ctx) {
   const cotaExacta = async (tiempo) => { const b = await Vrp.vrp(I, ctx, { tiempo, brecha: 1e-6, metodo: o.metodo }); return b; };
   if (o.metodoSol === 'exacto') { const r = await Vrp.vrp(I, ctx, Object.assign({}, o, { tiempo: o.tiempo })); r.metodoSol = 'Modelo matemático (MILP · HiGHS)'; return r; }
   if (o.metodoSol === 'comparar') {
-    const filas = []; let cota = null, mejor = null; const tm = Math.max(1, o.tiempoMeta || 3);
+    const filas = []; let cota = null, mejor = null; const tm = Math.max(1, o.tiempoMeta || 3); const avisos = [];
+    if (I.f && I.f.mode === 'split') avisos.push('Las heurísticas no manejan la entrega dividida: solo se muestra el modelo matemático.');
+    if (I.f && I.f.minVeh) avisos.push('Las heurísticas no minimizan la flota: no se comparan con MinVeh (use el modelo matemático).');
     ctx.log('Calculando el modelo matemático (' + (o.tiempoCota || 10) + ' s)…'); const ex = await cotaExacta(o.tiempoCota || 10);
     if (ex.rutas && ex.rutas.length) { filas.push({ metodo: 'Modelo matemático (MILP)', tipo: 'exacto', obj: ex.objetivo, seg: ex.seg, factible: true, gapProp: ex.gap }); mejor = ex; cota = ex.cota; }
-    for (const a of Object.keys(Heur.ALGORITMOS)) { if (hayParar()) break; if (I.f && I.f.mode === 'split') break; ctx.log(Heur.ALGORITMOS[a].nombre + '…');
+    for (const a of Object.keys(Heur.ALGORITMOS)) { if (hayParar()) break; if (I.f && (I.f.mode === 'split' || I.f.minVeh)) break; ctx.log(Heur.ALGORITMOS[a].nombre + '…');
       const r = Heur.resolver(I, a, { tiempo: Heur.ALGORITMOS[a].tipo === 'meta' ? tm : 1, semilla: o.semilla || 1, parar });
       filas.push({ metodo: Heur.ALGORITMOS[a].nombre, tipo: Heur.ALGORITMOS[a].tipo, obj: r.objetivo, seg: r.seg, factible: r.factible }); if (r.factible && (!mejor || r.objetivo < mejor.objetivo - 1e-9)) mejor = r; }
     if (!mejor) return { estado: 'sin solución factible', rutas: [] };
     filas.forEach((x) => { x.gap = cota != null && x.factible ? Math.max(0, (x.obj - cota) / Math.max(Math.abs(x.obj), 1e-9)) : null; });
-    const res = Object.assign({}, mejor); res.comparacion = filas; res.cota = cota; res.gap = cota != null ? Math.max(0, (res.objetivo - cota) / Math.max(Math.abs(res.objetivo), 1e-9)) : null; res.metodoSol = 'Comparación de métodos'; res.estado = res.gap != null && res.gap < 1e-6 ? 'óptimo' : (mejor.estado || 'mejor solución encontrada'); res.seg = (performance.now() - t0) / 1000; return res;
+    const res = Object.assign({}, mejor); res.comparacion = filas; res.cota = cota; res.gap = cota != null ? Math.max(0, (res.objetivo - cota) / Math.max(Math.abs(res.objetivo), 1e-9)) : null; res.metodoSol = 'Comparación de métodos'; res.avisos = avisos; res.estado = res.gap != null && res.gap < 1e-6 ? 'óptimo' : (mejor.estado || 'mejor solución encontrada'); res.seg = (performance.now() - t0) / 1000; return res;
   }
   const r = Heur.resolver(I, o.algo, { tiempo: o.tiempo, semilla: o.semilla, params: o.params, inicial: o.inicial, progreso: prog, parar });
   if (parado) r.estado = 'detenido por el usuario (' + (r.factible ? 'mejor solución encontrada' : 'sin solución factible') + ')';

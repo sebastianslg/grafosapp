@@ -700,9 +700,10 @@ sale(i)$c(i)..  sum(j$(not sameas(i,j)), x(i,j)) =e= y(i);
 entra(j)$c(j).. sum(i$(not sameas(i,j)), x(i,j)) =e= y(j);
 flota..         sum(c, x('d',c)) =l= K;
 balDep..        sum(c, x('d',c)) =e= sum(c, x(c,'d'));
-carga(i,j)$(c(i) and c(j) and not sameas(i,j)).. ql(j) =g= ql(i) + dem(j) - Q*(1 - x(i,j));
+carga(i,j)$(c(i) and c(j) and not sameas(i,j)).. ql(j) =g= ql(i) + dem(j) - Q*(1 - x(i,j)) - Q*(1 - y(j));
 cargaMin(i)$c(i).. ql(i) =g= dem(i)*y(i);
 cargaMax(i)$c(i).. ql(i) =l= Q*y(i);
+* la carga solo aplica a clientes visitados (la restricción se apaga si y(j) = 0)
 Equations arcoY1(i,j) 'solo arcos entre clientes visitados', arcoY2(i,j), capTot 'la demanda atendida cabe en la flota';
 arcoY1(i,j)$(c(i) and c(j) and not sameas(i,j)).. x(i,j) =l= y(i);
 arcoY2(i,j)$(c(i) and c(j) and not sameas(i,j)).. x(i,j) =l= y(j);

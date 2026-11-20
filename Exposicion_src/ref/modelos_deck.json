@@ -3978,9 +3978,9 @@
     "salen tantos vehículos como regresan"
    ],
    [
-    "carga(i,j), i ≠ j ∈ C",
-    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
-    "carga acumulada (MTZ): elimina subtours y limita a Q"
+    "carga(i,j)",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1−x(i,j)) − Q·(1−y(j))",
+    "carga acumulada solo entre clientes visitados (el término con y(j) apaga la restricción si j no se visita)"
    ],
    [
     "cargaMin/Max(i)",
@@ -3999,43 +3999,45 @@
    ]
   ],
   "lect": [
-   "Beneficio neto 450,55 = premios 750,00 − costo 299,45.",
-   "Se visitan 6 de 10 clientes:",
-   "D → 2 → 4 → 5 → D",
-   "D → 8 → 9 → 10 → D",
-   "Quedan fuera los de menor beneficio relativo a su desvío."
+   "Beneficio neto 635,66 = premios 960,00 − costo 324,34.",
+   "Se visitan 8 de 10 clientes:",
+   "D → 1 → 10 → 9 → 8 → D",
+   "D → 5 → 4 → 3 → 2 → D",
+   "No se visitan c6 (premio 105) ni c7 (premio 60): en el óptimo, atenderlos no compensa la distancia extra ni la capacidad de las dos rutas."
   ],
-  "z": 450.55069723272055,
+  "z": 635.6584988650266,
   "rutas": [
    {
     "ini": "d",
     "cli": [
-     "c2",
-     "c4",
-     "c5"
+     "c1",
+     "c10",
+     "c9",
+     "c8"
     ],
     "fin": "d",
-    "dist": 165.7958038258025,
-    "carga": 10.0
+    "dist": 158.4634819726163,
+    "carga": 14.0
    },
    {
     "ini": "d",
     "cli": [
-     "c8",
-     "c9",
-     "c10"
+     "c5",
+     "c4",
+     "c3",
+     "c2"
     ],
     "fin": "d",
-    "dist": 133.65349894147758,
-    "carga": 10.0
+    "dist": 165.8780191623572,
+    "carga": 15.0
    }
   ],
   "stats": {
    "vars": 131,
    "ecs": 314,
    "bin": 120,
-   "nodos": 27464,
-   "tiempo": 26.96094512939453,
+   "nodos": 382,
+   "tiempo": 1.7333979606628418,
    "solves": 1
   }
  },

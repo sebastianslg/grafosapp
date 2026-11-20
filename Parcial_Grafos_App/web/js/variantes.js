@@ -59,7 +59,7 @@
     const capDe = (t) => (v.cap || v.mixta ? (+t.cap > 0 ? +t.cap : INF) : INF);
     let veh = [];
     for (const d of depots) for (const t of tipos) veh.push({ tipo: t.tipo, depot: d, cap: capDe(t), costoKm: +t.costoKm || 1, vel: +t.vel || 30, fijo: v.fijos ? (+t.fijo || Math.round(5 * (+t.costoKm || 1) * 10) / 10) : 0, Lmax: INF });
-    if (v.minVeh) { const big = 1000 * (Math.max(...D.flat().filter(isFinite)) || 1); veh.forEach((x) => { x.fijo = big; }); }
+    if (v.minVeh) f.minVeh = true;   /* mínima flota: dos fases lexicográficas en vrp.js (no se usa un costo fijo gigante) */
     if (v.lmaxDist) { const mx = Math.max(...cust.map((i) => D[depots[0]][i] || 0)); const L = +p.Lmax > 0 ? +p.Lmax : Math.round(mx * 3 * 100) / 100; veh.forEach((x) => { x.Lmax = L; }); notas.push('Distancia máxima por ruta L = ' + L + (p.Lmax ? '' : ' (calculada: 3 × la distancia al cliente más lejano)')); }
     if (v.paradas) { const ls = +p.lstops > 0 ? +p.lstops : Math.ceil(cust.length / Math.max(1, veh.length) * 1.5); veh.forEach((x) => { x.lstops = ls; }); notas.push('Máximo de ' + ls + ' clientes por ruta.'); }
     // modos de carga
@@ -85,8 +85,8 @@
       cust.forEach((i) => { prize[i] = hay ? +nodos[i].premio || 0 : Math.round((base * (1.4 + ((i * 7) % 5) / 5)) * 100) / 100; });
       if (!hay) notas.push('Sin premios definidos: se asignaron premios automáticos (≈ 1,4–2,2 × distancia media al depósito). Defina «Premio» en Nodos.');
     }
-    if (f.locDepot) { const base = (cust.reduce((a, i) => a + (D[depots[0]][i] || 0), 0) / Math.max(1, cust.length)) * 3; f.openCost = {}; depots.forEach((d) => { f.openCost[d] = +nodos[d].costoApertura > 0 ? +nodos[d].costoApertura : Math.round(base * 100) / 100; }); }
-    if (v.vt) { const a = new Array(n).fill(0), b = new Array(n).fill(48); nodos.forEach((x, i) => { if (x.vtOn) { a[i] = x.vtA; b[i] = x.vtB; } }); f.vt = { usar: true, inicio: S.vt ? S.vt.inicio : 8, servicio: ((S.vt ? +S.vt.servicio : 10) || 0) / 60, a, b }; }
+    if (f.locDepot) { const base = (cust.reduce((a, i) => a + (D[depots[0]][i] || 0), 0) / Math.max(1, cust.length)) * 3; f.openCost = {}; f.capD = {}; depots.forEach((d) => { f.openCost[d] = +nodos[d].costoApertura > 0 ? +nodos[d].costoApertura : Math.round(base * 100) / 100; if (+nodos[d].capDep > 0) f.capD[d] = +nodos[d].capDep; }); }
+    if (v.vt) { const H = S.vt && +S.vt.cierre > 0 ? +S.vt.cierre : 48; const a = new Array(n).fill(0), b = new Array(n).fill(H); nodos.forEach((x, i) => { if (x.vtOn) { a[i] = x.vtA; b[i] = x.vtB; } }); f.vt = { usar: true, inicio: S.vt ? S.vt.inicio : 8, servicio: ((S.vt ? +S.vt.servicio : 10) || 0) / 60, a, b, H, cierre: S.vt && +S.vt.cierre > 0 ? +S.vt.cierre : null }; }
     f.balanced = !!f.balanced; if (p.lmin) f.lmin = p.lmin; if (p.lmax) f.lmax = p.lmax;
     return { I: { D, depots, cust, w, r, prize, optional, pairs, veh, f, xy: p.xy || null }, notas };
   }
