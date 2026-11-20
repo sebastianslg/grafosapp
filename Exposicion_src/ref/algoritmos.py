@@ -216,7 +216,7 @@ def grasp(seed=5, iters=20, alfa=0.3):
     return best[1], hist
 
 def vns(tr0, seed=3, iters=12, kmax=3):
-    rng = RNG(seed); tr = list(tr0); cur = evaluar(tr); hist = [(0, 0, cur, cur)]
+    rng = RNG(seed); tr = list(tr0); cur = evaluar(tr); hist = [(0, 0, cur, cur)]; intentos = []
     for it in range(1, iters + 1):
         k = 1
         while k <= kmax:
@@ -225,7 +225,9 @@ def vns(tr0, seed=3, iters=12, kmax=3):
                 a = rng.ri(N); b = rng.ri(N)
                 if a != b: t = aplicar(t, 1 if rng.u() < 0.5 else 2, a, b)
             t2, hv = vnd(t); c = hv[-1][3]
-            if c < cur - 1e-9: tr = t2; cur = c; k = 1
+            acept = c < cur - 1e-9
+            intentos.append((len(intentos) + 1, it, k, c, 1 if acept else 0))
+            if acept: tr = t2; cur = c; k = 1
             else: k += 1
         hist.append((it, k, cur, cur))
-    return tr, hist
+    return tr, hist, intentos

@@ -61,9 +61,10 @@ Scalar mt 'tipo de movimiento', a, b, ba, bb, bd 'mejor variación de costo', cb
 Scalar seed 'semilla' / 3 /;
 
 * ---- VNS: agitación de intensidad creciente (k) + búsqueda local VND ----
-Set itv 'iteraciones' / t1*t12 /, sk 'movimientos de agitación' / s1*s4 /;
-Parameter trC(p) 'solución incumbente', hist(itv,*) 'historial: k final y costo de la incumbente';
-Scalar kmaxv 'intensidad máxima de agitación' / 3 /, kk 'intensidad actual', uu, curC 'costo de la incumbente', ta;
+Set itv 'iteraciones' / t1*t12 /, sk 'movimientos de agitación' / s1*s4 /, att 'intentos (agitación + VND)' / a1*a80 /;
+Parameter trC(p) 'solución incumbente', hist(itv,*) 'historial: k final y costo de la incumbente',
+          histk(att,*) 'historial de intentos: iteración, k, costo tras VND y si fue aceptado';
+Scalar kmaxv 'intensidad máxima de agitación' / 3 /, kk 'intensidad actual', uu, curC 'costo de la incumbente', ta, nint 'intentos realizados' / 0 /;
 trE(p) = tr(p);
 * ---- EVALUAR trE: divide por capacidad y suma distancias -> cst ----
 cst = 0; ld = 0; pv = 0; rn = 1; nev = nev + 1;
@@ -165,6 +166,9 @@ loop(itv,
             kv = kv + 1;
          );
       );
+      nint = nint + 1;
+      histk(att,'iteración')$(ord(att) = nint) = ord(itv); histk(att,'k')$(ord(att) = nint) = kk;
+      histk(att,'costo tras VND')$(ord(att) = nint) = cur; histk(att,'aceptado')$(ord(att) = nint) = 1$(cur < curC - 1e-9);
       if (cur < curC - 1e-9,
          trC(p) = tr(p); curC = cur; kk = 1;
       else
@@ -174,7 +178,7 @@ loop(itv,
    hist(itv,'k final') = kk; hist(itv,'costo incumbente') = curC;
 );
 tr(p) = trC(p);
-display hist;
+display hist, histk;
 
 * ------------------------------- REPORTE FINAL -------------------------------
 Set rs 'rutas' / r1*r6 /;

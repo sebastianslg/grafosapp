@@ -38,10 +38,10 @@ Scalar cst 'costo del tour evaluado', ld 'carga acumulada', pv 'nodo previo (0 =
 Scalar seed 'semilla' / 7 /;
 
 * ---- ALGORITMO GENÉTICO: permutaciones de clientes, torneo, cruce OX, mutación y elitismo ----
-Set g 'individuos' / g1*g30 /, ge 'generaciones (0..60)' / e0*e60 /, fy 'pasos del barajado' / f1*f9 /;
+Set g 'individuos' / g1*g30 /, gen 'generaciones (0..60)' / e0*e60 /, fy 'pasos del barajado' / f1*f9 /;
 Alias (g,h);
 Parameter pop(g,p) 'población', pop2(g,p) 'nueva población', cs(g) 'costo de cada individuo', rk(g) 'posición según el costo',
-          padA(p) 'padre A', padB(p) 'padre B', chd(p) 'hijo', used(p) 'gen copiado del padre A', hist(ge,*) 'historial: mejor y promedio';
+          padA(p) 'padre A', padB(p) 'padre B', chd(p) 'hijo', used(p) 'gen copiado del padre A', hist(gen,*) 'historial: mejor y promedio';
 Scalar npop / 30 /, ngen / 60 /, nelite / 2 /, pm 'probabilidad de mutación' / 0.5 /,
        ii, jj, ti, tj, ia, ib, ca, cb, wa, wb, c1, c2, ta, w, gene, usedg, ut;
 * población inicial: permutaciones al azar (barajado de Fisher-Yates)
@@ -55,7 +55,7 @@ loop(g,
    );
    pop(g,p) = tr(p);
 );
-loop(ge,
+loop(gen,
    loop(g,
       trE(p) = pop(g,p);
 * ---- EVALUAR trE: divide por capacidad y suma distancias -> cst ----
@@ -74,8 +74,8 @@ loop(ge,
       cs(g) = cst;
    );
    rk(g) = 1 + sum(h$(cs(h) < cs(g) or (cs(h) = cs(g) and ord(h) < ord(g))), 1);
-   hist(ge,'mejor') = smin(g, cs(g)); hist(ge,'promedio') = sum(g, cs(g))/npop;
-   if (ord(ge) <= ngen,
+   hist(gen,'mejor') = smin(g, cs(g)); hist(gen,'promedio') = sum(g, cs(g))/npop;
+   if (ord(gen) <= ngen,
       pop2(g,p)$(ord(g) <= nelite) = sum(h$(rk(h) = ord(g)), pop(h,p));
       loop(g$(ord(g) > nelite),
          seed = mod(16807*seed, 2147483647); ia = 1 + floor(seed/2147483647*npop);

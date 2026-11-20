@@ -179,10 +179,10 @@ guardar('07_recocido_simulado', cabecera('07_recocido_simulado', 'Recocido simul
 # ---------------------------------------------------------------- 08 genético
 ga = '''
 * ---- ALGORITMO GENÉTICO: permutaciones de clientes, torneo, cruce OX, mutación y elitismo ----
-Set g 'individuos' / g1*g30 /, ge 'generaciones (0..60)' / e0*e60 /, fy 'pasos del barajado' / f1*f9 /;
+Set g 'individuos' / g1*g30 /, gen 'generaciones (0..60)' / e0*e60 /, fy 'pasos del barajado' / f1*f9 /;
 Alias (g,h);
 Parameter pop(g,p) 'población', pop2(g,p) 'nueva población', cs(g) 'costo de cada individuo', rk(g) 'posición según el costo',
-          padA(p) 'padre A', padB(p) 'padre B', chd(p) 'hijo', used(p) 'gen copiado del padre A', hist(ge,*) 'historial: mejor y promedio';
+          padA(p) 'padre A', padB(p) 'padre B', chd(p) 'hijo', used(p) 'gen copiado del padre A', hist(gen,*) 'historial: mejor y promedio';
 Scalar npop / 30 /, ngen / 60 /, nelite / 2 /, pm 'probabilidad de mutación' / 0.5 /,
        ii, jj, ti, tj, ia, ib, ca, cb, wa, wb, c1, c2, ta, w, gene, usedg, ut;
 * población inicial: permutaciones al azar (barajado de Fisher-Yates)
@@ -196,14 +196,14 @@ loop(g,
    );
    pop(g,p) = tr(p);
 );
-loop(ge,
+loop(gen,
    loop(g,
       trE(p) = pop(g,p);
 %EVAL%      cs(g) = cst;
    );
    rk(g) = 1 + sum(h$(cs(h) < cs(g) or (cs(h) = cs(g) and ord(h) < ord(g))), 1);
-   hist(ge,'mejor') = smin(g, cs(g)); hist(ge,'promedio') = sum(g, cs(g))/npop;
-   if (ord(ge) <= ngen,
+   hist(gen,'mejor') = smin(g, cs(g)); hist(gen,'promedio') = sum(g, cs(g))/npop;
+   if (ord(gen) <= ngen,
       pop2(g,p)$(ord(g) <= nelite) = sum(h$(rk(h) = ord(g)), pop(h,p));
       loop(g$(ord(g) > nelite),
          %T1A%
@@ -357,9 +357,10 @@ guardar('10_grasp', cabecera('10_grasp', 'GRASP (metaheurística)',
 # ---------------------------------------------------------------- 11 VNS
 vns = '''
 * ---- VNS: agitación de intensidad creciente (k) + búsqueda local VND ----
-Set itv 'iteraciones' / t1*t12 /, sk 'movimientos de agitación' / s1*s4 /;
-Parameter trC(p) 'solución incumbente', hist(itv,*) 'historial: k final y costo de la incumbente';
-Scalar kmaxv 'intensidad máxima de agitación' / 3 /, kk 'intensidad actual', uu, curC 'costo de la incumbente', ta;
+Set itv 'iteraciones' / t1*t12 /, sk 'movimientos de agitación' / s1*s4 /, att 'intentos (agitación + VND)' / a1*a80 /;
+Parameter trC(p) 'solución incumbente', hist(itv,*) 'historial: k final y costo de la incumbente',
+          histk(att,*) 'historial de intentos: iteración, k, costo tras VND y si fue aceptado';
+Scalar kmaxv 'intensidad máxima de agitación' / 3 /, kk 'intensidad actual', uu, curC 'costo de la incumbente', ta, nint 'intentos realizados' / 0 /;
 %VND%trC(p) = tr(p); curC = cur;
 loop(itv,
    kk = 1;
@@ -379,7 +380,10 @@ loop(itv,
             tr(p) = trE(p);
          );
       );
-%VND%      if (cur < curC - 1e-9,
+%VND%      nint = nint + 1;
+      histk(att,'iteración')$(ord(att) = nint) = ord(itv); histk(att,'k')$(ord(att) = nint) = kk;
+      histk(att,'costo tras VND')$(ord(att) = nint) = cur; histk(att,'aceptado')$(ord(att) = nint) = 1$(cur < curC - 1e-9);
+      if (cur < curC - 1e-9,
          trC(p) = tr(p); curC = cur; kk = 1;
       else
          kk = kk + 1;
@@ -388,7 +392,7 @@ loop(itv,
    hist(itv,'k final') = kk; hist(itv,'costo incumbente') = curC;
 );
 tr(p) = trC(p);
-display hist;
+display hist, histk;
 '''.replace('%I1%', rnd_i('a', 10)).replace('%I2%', rnd_i('b', 10)).replace('%U1%', rnd_u('uu')).replace('%RELOC%', ind(MOV_RELOC, 12)).replace('%SWAP%', ind(MOV_SWAP, 12))
 # el VND inicial parte del vecino más cercano: se inserta antes del bucle
 vns = vns.replace('%VND%trC(p) = tr(p); curC = cur;', 'trE(p) = tr(p);\n' + EVALUAR + 'trC(p) = tr(p); curC = cst;').replace('%VND%', ind(vnd_bloque(), 6))
