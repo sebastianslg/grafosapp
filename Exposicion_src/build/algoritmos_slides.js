@@ -17,7 +17,7 @@ function slideEspec(a) {
   const yc = 6.95 - 0.15 - hCb; card(s, 0.7, yc, 4.55, hCb, { fill: C.BLUE_BG, sombra: false });
   etiqueta(s, 'Cuándo usarlo', 0.85, yc + 0.12, 3, { color: C.BLUE_T }); txt(s, a.espec[6][1], { x: 0.85, y: yc + 0.4, w: 4.25, h: hCb - 0.45, fontSize: 12.5 });
   // derecha: pseudocódigo
-  const n = a.pseudo.length, psz = n <= 8 ? 12.5 : (n <= 10 ? 12 : 11.5), hp = 0.28 + n * (psz * 1.2 / 72 + 0.025);
+  const n = a.pseudo.length, maxL = Math.max(...a.pseudo.map((l) => l.length)) + 5, psz = Math.min(n <= 8 ? 12.5 : (n <= 10 ? 12 : 11.5), Math.floor((6.8 * 72 / 0.6) / maxL * 2) / 2), hp = 0.28 + n * (psz * 1.2 / 72 + 0.025);
   etiqueta(s, 'Pseudocódigo', 5.7, 1.2, 3); pseudo(s, a.pseudo, 5.7, 1.45, 7.13, hp, { size: psz });
   const yb = 1.45 + hp + 0.15, hb = n >= 11 ? 1.2 : 1.3, tiles = [['Parámetros', a.espec[3][1]], ['Complejidad', a.espec[4][1]], ['Garantía', a.espec[5][1]]];
   const w3 = (7.13 - 0.3) / 3; tiles.forEach(([k, v], i) => { const x = 5.7 + i * (w3 + 0.15); card(s, x, yb, w3, hb); etiqueta(s, k, x + 0.15, yb + 0.1, w3 - 0.3); txt(s, v, { x: x + 0.15, y: yb + 0.34, w: w3 - 0.3, h: hb - 0.4, fontSize: 10.5 }); });
@@ -63,10 +63,14 @@ function planCodigo(lineas) {
   cortes.sort((x, y) => x - y); const pag = []; let ini = 0; cortes.forEach((i) => { pag.push([ini, i + 1]); ini = i + 1; }); pag.push([ini, lineas.length]); return { modo: 'una', size: sz, paginas: pag };
 }
 function slideCodigo(a) {
-  const lineas = nucleo(a.id), plan = planCodigo(lineas), size = plan.size, lh = size * 1.22 / 72; const claves = claveLineas(lineas, a.claves);
+  slidesCodigo({ eyebrow: `C · Algoritmo ${a.num} · ${a.nombre}`, titulo: 'Código GAMS: núcleo del algoritmo', arch: a.arch, lineas: nucleo(a.id), claves: claveLineas(nucleo(a.id), a.claves), seg: 2,
+    leyenda: 'Ejecutar: GAMS Studio → Run (F9)   ·   Salida: archivo .lst (display)   ·   El archivo completo incluye datos, evaluación y reporte', nota: `Código GAMS del núcleo de ${a.nombre}. Archivo: ${a.arch}.` });
+}
+function slidesCodigo(o) {
+  const lineas = o.lineas, plan = planCodigo(lineas), size = plan.size, lh = size * 1.22 / 72; const claves = o.claves;
   plan.paginas.forEach(([i0, i1], pi) => {
-    const s = nuevaSlide(); cabecera(s, `C · Algoritmo ${a.num} · ${a.nombre}`, `Código GAMS: núcleo del algoritmo${plan.paginas.length > 1 ? ` (${pi + 1}/${plan.paginas.length})` : ''}`, { wTitulo: 7.8 }); segmentado(s, 2);
-    chip(s, a.arch, 0.5, 1.13, 3.6, { size: 9.5 }); txt(s, 'Ejecutar: GAMS Studio → Run (F9)   ·   Salida: archivo .lst (display)   ·   El archivo completo incluye datos, evaluación y reporte', { x: 4.25, y: 1.15, w: 8.5, h: 0.24, fontSize: 9.5, color: C.SUB, valign: 'middle' });
+    const s = nuevaSlide(); cabecera(s, o.eyebrow, `${o.titulo}${plan.paginas.length > 1 ? ` (${pi + 1}/${plan.paginas.length})` : ''}`, { wTitulo: 7.8 }); segmentado(s, o.seg, o.pasos);
+    chip(s, o.arch, 0.5, 1.13, 3.6, { size: 9.5 }); txt(s, o.leyenda, { x: 4.25, y: 1.15, w: 8.5, h: 0.24, fontSize: 9.5, color: C.SUB, valign: 'middle' });
     const dosCol = plan.modo === 'dos', wcol = dosCol ? 6.13 : 12.33, ancho = Math.floor((wcol - 0.65) * 72 / (0.6 * size));
     const trozos = dosCol ? [[0, plan.corte], [plan.corte, lineas.length]] : [[i0, i1]];
     const cols = trozos.map(([x0, x1]) => { const f = []; for (let i = x0; i < x1; i++) envolver(lineas[i], ancho).forEach((t, k) => f.push({ t, num: k === 0 ? i + 1 : null })); return f; });
@@ -77,11 +81,12 @@ function slideCodigo(a) {
       txt(s, runs, { x: x + 0.15, y: 1.62, w: wcol - 0.3, h: hCode - 0.2, paraSpaceAfter: 0 });
     });
     const ks = claves.filter(([ln]) => ln > i0 && ln <= i1); const yk = 1.5 + hCode + 0.15, hk = 6.95 - yk;
+    const maxRows = Math.floor((hk - 0.3) / 0.46); if (maxRows >= 1 && ks.length > maxRows * 3) ks.splice(maxRows * 3);
     if (ks.length && hk >= 0.8) {
       etiqueta(s, 'Claves del código', 0.5, yk, 4); const nc = 3, wk = (12.33 - 0.3) / nc; const ky = yk + 0.27; const rows = Math.ceil(ks.length / nc), hrow = Math.min(0.62, (hk - 0.3) / rows - 0.08);
       ks.forEach(([ln, tx], i) => { const col = i % nc, fila = Math.floor(i / nc); const x = 0.5 + col * (wk + 0.15), y = ky + fila * (hrow + 0.08); card(s, x, y, wk, hrow); chip(s, `L${ln}`, x + 0.12, y + hrow / 2 - 0.13, 0.5, { size: 9 }); txt(s, tx, { x: x + 0.72, y: y + 0.02, w: wk - 0.85, h: hrow - 0.04, fontSize: 11.5, valign: 'middle' }); });
-    } else if (ks.length) { const m = ks.slice(0, 5), w = 12.33 / m.length; m.forEach(([ln, tx], i) => { chip(s, `L${ln}`, 0.5 + i * w, yk + 0.05, 0.45, { size: 8.5 }); txt(s, tx, { x: 1.0 + i * w, y: yk + 0.05, w: w - 0.6, h: 0.26, fontSize: 9, valign: 'middle' }); }); }
-    nota(s, `Código GAMS del núcleo de ${a.nombre}. Archivo: ${a.arch}.`);
+    } else if (ks.length) { const m = ks.slice(0, 4), w = 12.33 / m.length; m.forEach(([ln, tx], i) => { chip(s, `L${ln}`, 0.5 + i * w, yk + 0.05, 0.45, { size: 8.5 }); txt(s, tx.split(/[:(]/)[0].trim(), { x: 1.0 + i * w, y: yk + 0.03, w: w - 0.6, h: 0.3, fontSize: 9, valign: 'middle' }); }); }
+    nota(s, o.nota);
   });
 }
 function slideResultados(a) {
@@ -111,4 +116,4 @@ function slideResultados(a) {
   nota(s, `Resultados de ${a.nombre}: costo ${e(costo)}, brecha ${e(gap)} %. ` + a.analisis().join(' '));
 }
 function algoritmoCompleto(a) { slideEspec(a); slideEjemplo(a); slideCodigo(a); slideResultados(a); }
-module.exports = { algoritmoCompleto, slideEspec, slideEjemplo, slideCodigo, slideResultados };
+module.exports = { slidesCodigo, planCodigo, algoritmoCompleto, slideEspec, slideEjemplo, slideCodigo, slideResultados };

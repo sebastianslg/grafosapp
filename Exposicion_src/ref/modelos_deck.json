@@ -1,0 +1,4180 @@
+[
+ {
+  "id": "tsp",
+  "num": "01",
+  "sigla": "TSP",
+  "nombre": "Problema del agente viajero",
+  "fam": "Un vehículo",
+  "clase": true,
+  "desc": "Un único vehículo sale del depósito, visita una vez a cada uno de los 10 clientes y regresa, minimizando la distancia total. Formulación de Miller-Tucker-Zemlin (MTZ) para eliminar subtours.",
+  "ej": "Depósito d y 10 clientes (instancia CVRP-10); sin capacidad. Distancias euclidianas.",
+  "arch": "01_tsp.gms",
+  "cambia": "Es el caso base: un solo vehículo sin capacidad. Todos los demás modelos parten de él.",
+  "aplic": [
+   "Ruta de un repartidor, técnico o supervisor que visita todos los puntos en un turno.",
+   "Secuencia de perforación de placas o de recogida en un almacén (picking).",
+   "Recorrido de un vehículo de inspección o lectura de medidores."
+  ],
+  "sup": [
+   "Un solo vehículo, sin límite de capacidad ni de tiempo.",
+   "Costos simétricos y conocidos (distancia euclidiana).",
+   "Se sale y se regresa al mismo depósito."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "n = card(c)",
+    "número de clientes (10)"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "u(i) ≥ 0",
+    "posición del nodo en el recorrido (MTZ)"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ N",
+    "Σ j≠i x(i,j) = 1",
+    "cada nodo (incluido d) tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ N",
+    "Σ i≠j x(i,j) = 1",
+    "cada nodo tiene un predecesor"
+   ],
+   [
+    "mtz(i,j), i ≠ j ∈ C",
+    "u(i) − u(j) + n·x(i,j) ≤ n − 1",
+    "elimina subtours: si se usa i → j, u(j) ≥ u(i) + 1"
+   ],
+   [
+    "cotas",
+    "1 ≤ u(i) ≤ n",
+    "posición entre 1 y n"
+   ]
+  ],
+  "lect": [
+   "Un solo recorrido de 312,78 que visita a los 10 clientes: D → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 1 → 2 → D.",
+   "Sin restricciones de MTZ la solución se partiría en subtours (ciclos que no pasan por el depósito).",
+   "Es la cota inferior de cualquier ruteo con regreso: el mTSP y el CVRP cuestan más (415,54 y 425,05)."
+  ],
+  "z": 312.77627348499277,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c3",
+     "c4",
+     "c5",
+     "c6",
+     "c7",
+     "c8",
+     "c9",
+     "c10",
+     "c1",
+     "c2"
+    ],
+    "fin": "d",
+    "dist": 312.77627348499277,
+    "carga": 38.0
+   }
+  ],
+  "stats": {
+   "vars": 121,
+   "ecs": 113,
+   "bin": 110,
+   "nodos": 1,
+   "tiempo": 0.07314729690551758,
+   "solves": 1
+  }
+ },
+ {
+  "id": "otsp",
+  "num": "02",
+  "sigla": "OTSP",
+  "nombre": "TSP abierto (camino hamiltoniano)",
+  "fam": "Un vehículo",
+  "clase": false,
+  "desc": "Como el TSP, pero el vehículo no regresa al depósito: el recorrido termina en el último cliente. Útil cuando el conductor termina el turno en su casa o el vehículo es de un tercero.",
+  "ej": "Depósito d y 10 clientes de la instancia CVRP-10; se prohíben los arcos que regresan a d.",
+  "arch": "02_otsp.gms",
+  "cambia": "Respecto al TSP se eliminan los arcos que vuelven al depósito y los clientes tienen a lo sumo un sucesor: el recorrido es un camino.",
+  "aplic": [
+   "Conductor que termina el turno en su casa o en otra base.",
+   "Vehículo contratado (tercero) que no debe regresar.",
+   "Trayecto de evacuación o de reparto con destino libre."
+  ],
+  "sup": [
+   "Un vehículo; inicia en d y termina en cualquier cliente.",
+   "Sin capacidad.",
+   "Distancias euclidianas."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "n = card(c)",
+    "número de clientes"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "u(i) ≥ 0",
+    "posición (MTZ)"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "saleDep",
+    "Σ c x(d,c) = 1",
+    "sale una vez del depósito"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i x(i,j) = 1",
+    "cada cliente recibe un arco"
+   ],
+   [
+    "sale(i), i ∈ C",
+    "Σ j x(i,j) ≤ 1",
+    "a lo sumo un sucesor (el último no tiene)"
+   ],
+   [
+    "arcos",
+    "Σ(i,j) x(i,j) = n",
+    "el camino tiene exactamente n arcos"
+   ],
+   [
+    "x(i,d) = 0",
+    "x.fx(i,'d') = 0",
+    "no se regresa al depósito"
+   ],
+   [
+    "mtz(i,j), i ≠ j ∈ C",
+    "u(i) − u(j) + n·x(i,j) ≤ n − 1",
+    "elimina subtours: si se usa i → j, u(j) ≥ u(i) + 1"
+   ]
+  ],
+  "lect": [
+   "Camino de 268,21: D → 3 → 2 → 1 → 10 → 9 → 8 → 7 → 6 → 5 → 4 (fin).",
+   "Ahorra 44,57 frente al TSP (312,78): se evita el arco de regreso más largo.",
+   "El último cliente (c4) es el que deja más cerca el cierre del camino, no el más cercano al depósito."
+  ],
+  "z": 268.2077963836105,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c3",
+     "c2",
+     "c1",
+     "c10",
+     "c9",
+     "c8",
+     "c7",
+     "c6",
+     "c5",
+     "c4"
+    ],
+    "fin": null,
+    "dist": 268.2077963836105,
+    "carga": 38.0
+   }
+  ],
+  "stats": {
+   "vars": 132,
+   "ecs": 113,
+   "bin": 121,
+   "nodos": 1,
+   "tiempo": 0.019287109375,
+   "solves": 1
+  }
+ },
+ {
+  "id": "mtsp",
+  "num": "03",
+  "sigla": "mTSP",
+  "nombre": "Problema de múltiples viajantes",
+  "fam": "Varios viajantes",
+  "clase": true,
+  "desc": "m = 3 viajantes salen del mismo depósito; cada cliente es visitado por uno solo y cada viajante visita al menos un cliente. Minimiza la distancia total.",
+  "ej": "Instancia CVRP-10 sin capacidad, m = 3 viajantes.",
+  "arch": "03_mtsp.gms",
+  "cambia": "Respecto al TSP, del depósito salen y regresan m viajantes; cada cliente sigue con un predecesor y un sucesor.",
+  "aplic": [
+   "Asignar visitas de m vendedores o técnicos desde una misma sede.",
+   "Recorridos de m buses escolares sin límite de capacidad relevante.",
+   "Planeación de rutas de patrullaje o vigilancia."
+  ],
+  "sup": [
+   "m viajantes idénticos, sin capacidad.",
+   "Cada viajante visita al menos un cliente (salen exactamente m).",
+   "Se minimiza la distancia total, no la de cada viajante."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "m",
+    "número de viajantes (3)"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "u(i) ≥ 0",
+    "posición (MTZ)"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "saleDep",
+    "Σ c x(d,c) = m",
+    "salen m viajantes"
+   ],
+   [
+    "entraDep",
+    "Σ c x(c,d) = m",
+    "regresan m viajantes"
+   ],
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "mtz(i,j), i ≠ j ∈ C",
+    "u(i) − u(j) + n·x(i,j) ≤ n − 1",
+    "elimina subtours: si se usa i → j, u(j) ≥ u(i) + 1"
+   ]
+  ],
+  "lect": [
+   "Distancia total 415,54 con 3 rutas:",
+   "D → 3 → D",
+   "D → 4 → 5 → 6 → 7 → 8 → 9 → D",
+   "D → 10 → 1 → 2 → D",
+   "Las rutas quedan muy desbalanceadas (una con 1 cliente y otra con 6): por eso existen las versiones balanceada y min-max."
+  ],
+  "z": 415.5419141288032,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 69.85699678629192,
+    "carga": 5.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c4",
+     "c5",
+     "c6",
+     "c7",
+     "c8",
+     "c9"
+    ],
+    "fin": "d",
+    "dist": 227.59857964211113,
+    "carga": 24.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c10",
+     "c1",
+     "c2"
+    ],
+    "fin": "d",
+    "dist": 118.08633770040018,
+    "carga": 9.0
+   }
+  ],
+  "stats": {
+   "vars": 121,
+   "ecs": 113,
+   "bin": 110,
+   "nodos": 1,
+   "tiempo": 0.05219006538391113,
+   "solves": 1
+  }
+ },
+ {
+  "id": "mtspb",
+  "num": "04",
+  "sigla": "BmTSP",
+  "nombre": "mTSP balanceado",
+  "fam": "Varios viajantes",
+  "clase": false,
+  "desc": "mTSP en el que todas las rutas atienden casi el mismo número de clientes: entre Lmin = ⌊n/m⌋ y Umax = ⌈n/m⌉. Reparte la carga de trabajo de forma equitativa.",
+  "ej": "Instancia CVRP-10, m = 3 viajantes, cada ruta con 3 o 4 clientes.",
+  "arch": "04_bmtsp.gms",
+  "cambia": "Al mTSP se le agrega un contador exacto f(i) de clientes por ruta, con mínimo Lmin al cerrar la ruta y máximo Umax.",
+  "aplic": [
+   "Repartir de forma equitativa las visitas entre vendedores o técnicos.",
+   "Cargas de trabajo justas entre turnos o equipos.",
+   "Contratos que exigen un número similar de paradas por conductor."
+  ],
+  "sup": [
+   "m = 3 viajantes; cada uno con 3 o 4 clientes (⌊10/3⌋ y ⌈10/3⌉).",
+   "Sin capacidad.",
+   "Equilibrio medido en número de clientes."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "m, Lmin, Umax",
+    "viajantes, mínimo y máximo de clientes por ruta"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "u(i) ≥ 0",
+    "posición (MTZ)"
+   ],
+   [
+    "f(i) ≥ 0",
+    "contador exacto de clientes en la ruta hasta i"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "saleDep / entraDep",
+    "Σ c x(d,c) = Σ c x(c,d) = m",
+    "m rutas cerradas"
+   ],
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "mtz(i,j), i ≠ j ∈ C",
+    "u(i) − u(j) + n·x(i,j) ≤ n − 1",
+    "elimina subtours: si se usa i → j, u(j) ≥ u(i) + 1"
+   ],
+   [
+    "cIni, cIni2",
+    "f(j) = 1 si x(d,j) = 1",
+    "el primer cliente de la ruta tiene contador 1 (dos desigualdades con big-M)"
+   ],
+   [
+    "cSig, cSig2",
+    "f(j) = f(i) + 1 si x(i,j) = 1",
+    "el contador aumenta exactamente en 1 por arco"
+   ],
+   [
+    "cotas",
+    "1 ≤ f(i) ≤ Umax",
+    "ninguna ruta supera Umax clientes"
+   ],
+   [
+    "fin(i)",
+    "f(i) ≥ Lmin·x(i,d)",
+    "la ruta termina con al menos Lmin clientes"
+   ]
+  ],
+  "lect": [
+   "Distancia 422,97 frente a 415,54 del mTSP: el equilibrio cuesta 7,43 (1,8 %).",
+   "D → 2 → 1 → 10 → D",
+   "D → 5 → 4 → 3 → D",
+   "D → 9 → 8 → 7 → 6 → D",
+   "Cada ruta tiene 3 o 4 clientes, como exige el modelo."
+  ],
+  "z": 422.9730894445846,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c2",
+     "c1",
+     "c10"
+    ],
+    "fin": "d",
+    "dist": 118.08633770040018,
+    "carga": 9.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c5",
+     "c4",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 134.27724001797952,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c9",
+     "c8",
+     "c7",
+     "c6"
+    ],
+    "fin": "d",
+    "dist": 170.609511726205,
+    "carga": 17.0
+   }
+  ],
+  "stats": {
+   "vars": 131,
+   "ecs": 323,
+   "bin": 110,
+   "nodos": 1,
+   "tiempo": 0.048123836517333984,
+   "solves": 1
+  }
+ },
+ {
+  "id": "omtsp",
+  "num": "05",
+  "sigla": "OmTSP",
+  "nombre": "mTSP abierto",
+  "fam": "Varios viajantes",
+  "clase": false,
+  "desc": "m viajantes salen del depósito y no regresan: cada ruta termina en su último cliente. Modela, por ejemplo, técnicos que al final del día se van a casa.",
+  "ej": "Instancia CVRP-10, m = 3 viajantes, rutas abiertas.",
+  "arch": "05_omtsp.gms",
+  "cambia": "Es el mTSP sin arcos de regreso: cada ruta termina en su último cliente.",
+  "aplic": [
+   "Técnicos que al final del día se van a su casa.",
+   "Distribución con vehículos de terceros pagados por trayecto.",
+   "Rutas de recogida que terminan en distintos puntos de transferencia."
+  ],
+  "sup": [
+   "m = 3 viajantes, sin capacidad.",
+   "Rutas abiertas desde el depósito.",
+   "Distancia total mínima."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "m",
+    "número de viajantes (3)"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "u(i) ≥ 0",
+    "posición (MTZ)"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "saleDep",
+    "Σ c x(d,c) = m",
+    "salen m viajantes"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i x(i,j) = 1",
+    "cada cliente recibe un arco"
+   ],
+   [
+    "sale(i), i ∈ C",
+    "Σ j x(i,j) ≤ 1",
+    "el último cliente no tiene sucesor"
+   ],
+   [
+    "arcos",
+    "Σ x(i,j) = n",
+    "m arcos desde d + (n − m) entre clientes"
+   ],
+   [
+    "x(i,d) = 0",
+    "x.fx(i,'d') = 0",
+    "sin regreso"
+   ],
+   [
+    "mtz(i,j), i ≠ j ∈ C",
+    "u(i) − u(j) + n·x(i,j) ≤ n − 1",
+    "elimina subtours: si se usa i → j, u(j) ≥ u(i) + 1"
+   ]
+  ],
+  "lect": [
+   "Distancia 291,99 (el mTSP cerrado cuesta 415,54).",
+   "D → 3 → 4 → 5 (fin)",
+   "D → 9 → 8 → 7 → 6 (fin)",
+   "D → 10 → 1 → 2 (fin)",
+   "Sin el regreso, las rutas se alargan hacia la periferia y terminan en los clientes más lejanos."
+  ],
+  "z": 291.99169037104053,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c3",
+     "c4",
+     "c5"
+    ],
+    "fin": null,
+    "dist": 89.87003339563047,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c9",
+     "c8",
+     "c7",
+     "c6"
+    ],
+    "fin": null,
+    "dist": 125.26637553118647,
+    "carga": 17.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c10",
+     "c1",
+     "c2"
+    ],
+    "fin": null,
+    "dist": 76.85528144422356,
+    "carga": 9.0
+   }
+  ],
+  "stats": {
+   "vars": 132,
+   "ecs": 113,
+   "bin": 121,
+   "nodos": 1,
+   "tiempo": 0.04505133628845215,
+   "solves": 1
+  }
+ },
+ {
+  "id": "omtspb",
+  "num": "06",
+  "sigla": "OBmTSP",
+  "nombre": "mTSP abierto y balanceado",
+  "fam": "Varios viajantes",
+  "clase": false,
+  "desc": "Rutas abiertas (sin regreso) y equilibradas: cada viajante atiende entre ⌊n/m⌋ y ⌈n/m⌉ clientes. El archivo resuelve primero la versión sin balance y luego la balanceada para medir el costo del equilibrio.",
+  "ej": "Instancia CVRP-10 con m = 4 viajantes: rutas abiertas de 2 o 3 clientes cada una.",
+  "arch": "06_obmtsp.gms",
+  "cambia": "mTSP abierto + contador exacto de clientes; el fin de ruta es el cliente sin sucesor.",
+  "aplic": [
+   "Rutas abiertas de mensajeros con igual número de entregas.",
+   "Turnos de técnicos que terminan en casa con carga pareja.",
+   "Asignación equitativa de visitas de campo."
+  ],
+  "sup": [
+   "m = 4 viajantes con 2 o 3 clientes cada uno.",
+   "Rutas abiertas, sin capacidad.",
+   "Se compara con la versión sin balance en el mismo archivo."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "m, Lmin, Umax",
+    "viajantes y límites de clientes (4, 2, 3)"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "u(i), f(i) ≥ 0",
+    "posición y contador de clientes"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "saleDep",
+    "Σ c x(d,c) = m",
+    "salen m viajantes"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i x(i,j) = 1",
+    "cada cliente recibe un arco"
+   ],
+   [
+    "sale(i), i ∈ C",
+    "Σ j x(i,j) ≤ 1",
+    "el último cliente no tiene sucesor"
+   ],
+   [
+    "arcos",
+    "Σ x(i,j) = n",
+    "m arcos desde d + (n − m) entre clientes"
+   ],
+   [
+    "x(i,d) = 0",
+    "x.fx(i,'d') = 0",
+    "sin regreso"
+   ],
+   [
+    "cIni, cIni2",
+    "f(j) = 1 si x(d,j) = 1",
+    "el primer cliente de la ruta tiene contador 1 (dos desigualdades con big-M)"
+   ],
+   [
+    "cSig, cSig2",
+    "f(j) = f(i) + 1 si x(i,j) = 1",
+    "el contador aumenta exactamente en 1 por arco"
+   ],
+   [
+    "cotas",
+    "1 ≤ f(i) ≤ Umax",
+    "ninguna ruta supera Umax clientes"
+   ],
+   [
+    "fin(i)",
+    "f(i) ≥ Lmin·(1 − Σ j x(i,j))",
+    "el cliente sin sucesor cierra la ruta con al menos Lmin"
+   ]
+  ],
+  "lect": [
+   "Con balance: 309,68; sin balance (mismo archivo): 303,44.",
+   "D → 3 → 4 → 5 (fin)",
+   "D → 7 → 6 (fin)",
+   "D → 8 → 9 (fin)",
+   "D → 10 → 1 → 2 (fin)",
+   "El equilibrio cuesta 6,24."
+  ],
+  "z": 309.67819352155635,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c3",
+     "c4",
+     "c5"
+    ],
+    "fin": null,
+    "dist": 89.87003339563047,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c7",
+     "c6"
+    ],
+    "fin": null,
+    "dist": 72.03822062311728,
+    "carga": 9.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c9"
+    ],
+    "fin": null,
+    "dist": 70.91465805858502,
+    "carga": 8.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c10",
+     "c1",
+     "c2"
+    ],
+    "fin": null,
+    "dist": 76.85528144422356,
+    "carga": 9.0
+   }
+  ],
+  "stats": {
+   "vars": 142,
+   "ecs": 323,
+   "bin": 121,
+   "nodos": 1,
+   "tiempo": 0.03286552429199219,
+   "solves": 2
+  }
+ },
+ {
+  "id": "mtspmm",
+  "num": "07",
+  "sigla": "MM-mTSP",
+  "nombre": "mTSP min-max",
+  "fam": "Varios viajantes",
+  "clase": false,
+  "desc": "Minimiza la ruta más larga (makespan) en lugar de la suma: reparte el tiempo de trabajo entre los viajantes. a(i) acumula la distancia recorrida hasta el cliente i; T acota todas las rutas. Un peso pequeño sobre la distancia total desempata. Se agregan dos cortes válidos que fortalecen la relajación: m·T >= distancia total y T >= ida y vuelta a cada cliente.",
+  "ej": "Instancia CVRP-10, m = 3 viajantes; se minimiza la longitud de la ruta más larga.",
+  "arch": "07_mm_mtsp.gms",
+  "cambia": "Cambia el objetivo: en lugar de la suma se minimiza la ruta más larga T; a(i) acumula la distancia de cada ruta.",
+  "aplic": [
+   "Minimizar la hora de regreso del último vehículo (makespan).",
+   "Atención de emergencias: que ningún equipo tarde demasiado.",
+   "Jornadas laborales parejas entre conductores."
+  ],
+  "sup": [
+   "m = 3 viajantes, sin capacidad.",
+   "El peso w = 0,001 sobre la distancia total solo desempata.",
+   "Big-M ajustadas y dos cortes válidos fortalecen la relajación."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "m, Amax, w",
+    "viajantes, cota de distancia acumulada, peso de desempate"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "a(i) ≥ 0",
+    "distancia acumulada al llegar a i"
+   ],
+   [
+    "T ≥ 0",
+    "longitud de la ruta más larga"
+   ]
+  ],
+  "fo": "min z = T + w·Σ dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "saleDep / entraDep",
+    "m salidas y m regresos",
+    "m rutas cerradas"
+   ],
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "mtz(i,j), i ≠ j ∈ C",
+    "u(i) − u(j) + n·x(i,j) ≤ n − 1",
+    "elimina subtours: si se usa i → j, u(j) ≥ u(i) + 1"
+   ],
+   [
+    "aIni(j)",
+    "a(j) ≥ dist(d,j)·x(d,j)",
+    "distancia al primer cliente"
+   ],
+   [
+    "aSig(i,j)",
+    "a(j) ≥ a(i) + dist(i,j) − M·(1 − x(i,j))",
+    "acumula la distancia de la ruta"
+   ],
+   [
+    "larga(i)",
+    "T ≥ a(i) + dist(i,d) − M·(1 − x(i,d))",
+    "T acota cada ruta completa"
+   ],
+   [
+    "corteProm",
+    "m·T ≥ Σ dist·x",
+    "la más larga es al menos el promedio"
+   ],
+   [
+    "corteIda(i)",
+    "T ≥ 2·dist(d,i)",
+    "ida y vuelta a cada cliente"
+   ]
+  ],
+  "lect": [
+   "Ruta más larga T = 147,68; distancia total 426,35 (el mTSP suma 415,54).",
+   "D → 6 → 5 → 4 → D",
+   "D → 9 → 8 → 7 → D",
+   "D → 10 → 1 → 2 → 3 → D",
+   "Las tres rutas miden casi lo mismo (137 a 148): se sacrifica distancia total por equidad."
+  ],
+  "z": 148.10168869041337,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c6",
+     "c5",
+     "c4"
+    ],
+    "fin": "d",
+    "dist": 147.6753403059432,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c9",
+     "c8",
+     "c7"
+    ],
+    "fin": "d",
+    "dist": 141.5910430455673,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c10",
+     "c1",
+     "c2",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 137.08200111871656,
+    "carga": 14.0
+   }
+  ],
+  "stats": {
+   "vars": 132,
+   "ecs": 234,
+   "bin": 110,
+   "nodos": 414,
+   "tiempo": 1.0409231185913086,
+   "solves": 1
+  }
+ },
+ {
+  "id": "cvrp",
+  "num": "08",
+  "sigla": "CVRP",
+  "nombre": "VRP con capacidad",
+  "fam": "Capacidad",
+  "clase": true,
+  "desc": "Flota homogénea de vehículos de capacidad Q = 15 con base en el depósito. Cada cliente se atiende una vez y la carga de cada ruta no supera Q. Formulación de dos índices con carga acumulada (MTZ).",
+  "ej": "Instancia CVRP-10: Q = 15, demanda total 38, a lo sumo K = 5 vehículos.",
+  "arch": "08_cvrp.gms",
+  "cambia": "Respecto al mTSP se agrega la capacidad Q: la carga acumulada ql(i) reemplaza a la posición u(i) y elimina subtours.",
+  "aplic": [
+   "Distribución de mercancía desde un centro de distribución a tiendas.",
+   "Recolección de residuos o de leche con camiones de capacidad fija.",
+   "Reparto de pedidos de comercio electrónico."
+  ],
+  "sup": [
+   "Flota homogénea de capacidad Q = 15 en un depósito.",
+   "Cada cliente se atiende una sola vez y completo.",
+   "A lo sumo K = 5 vehículos."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada al salir del cliente i"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "cotas",
+    "dem(i) ≤ ql(i) ≤ Q",
+    "la carga al salir de i incluye su demanda y no supera Q"
+   ]
+  ],
+  "lect": [
+   "Óptimo 425,05 con 3 rutas (cargas 12, 12 y 14 de 15):",
+   "D → 2 → 1 → 10 → 9 → D",
+   "D → 3 → 4 → 5 → D",
+   "D → 8 → 7 → 6 → D",
+   "Es el óptimo que usan como referencia las heurísticas y metaheurísticas (brecha = 0 %)."
+  ],
+  "z": 425.05128788750835,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c2",
+     "c1",
+     "c10",
+     "c9"
+    ],
+    "fin": "d",
+    "dist": 151.09339327484713,
+    "carga": 14.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c3",
+     "c4",
+     "c5"
+    ],
+    "fin": "d",
+    "dist": 134.27724001797952,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c7",
+     "c6"
+    ],
+    "fin": "d",
+    "dist": 139.6806545946818,
+    "carga": 12.0
+   }
+  ],
+  "stats": {
+   "vars": 121,
+   "ecs": 113,
+   "bin": 110,
+   "nodos": 1033,
+   "tiempo": 1.7462232112884521,
+   "solves": 1
+  }
+ },
+ {
+  "id": "ovrp",
+  "num": "09",
+  "sigla": "OVRP",
+  "nombre": "VRP abierto",
+  "fam": "Capacidad",
+  "clase": false,
+  "desc": "CVRP en el que los vehículos no regresan al depósito (flota tercerizada o entrega en la ruta de regreso a casa). Se eliminan los arcos hacia el depósito y la ruta termina en su último cliente.",
+  "ej": "Instancia CVRP-10, Q = 15, K = 5; rutas abiertas.",
+  "arch": "09_ovrp.gms",
+  "cambia": "Es el CVRP sin arcos de regreso: los clientes tienen a lo sumo un sucesor y x(i,d) = 0.",
+  "aplic": [
+   "Flota tercerizada pagada solo hasta el último cliente.",
+   "Rutas de buses escolares de la mañana (terminan en el colegio).",
+   "Reparto en el que el conductor se queda con el vehículo."
+  ],
+  "sup": [
+   "Q = 15, K = 5.",
+   "Rutas abiertas desde el depósito.",
+   "Cada cliente se atiende completo."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada al salir del cliente i"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j x(i,j) ≤ 1",
+    "el último cliente no tiene sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "x(i,d) = 0",
+    "x.fx(i,'d') = 0",
+    "no se regresa"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "cotas",
+    "dem(i) ≤ ql(i) ≤ Q",
+    "la carga al salir de i incluye su demanda y no supera Q"
+   ]
+  ],
+  "lect": [
+   "Distancia 292,92, frente a 425,05 del CVRP (31,1 % menos).",
+   "D → 2 → 1 → 10 → 9 (fin)",
+   "D → 3 → 4 → 5 (fin)",
+   "D → 8 → 7 → 6 (fin)",
+   "Las rutas cambian: al no regresar conviene terminar en el cliente más lejano."
+  ],
+  "z": 292.92170486930667,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c2",
+     "c1",
+     "c10",
+     "c9"
+    ],
+    "fin": null,
+    "dist": 108.71415307401296,
+    "carga": 14.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c3",
+     "c4",
+     "c5"
+    ],
+    "fin": null,
+    "dist": 89.87003339563047,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c7",
+     "c6"
+    ],
+    "fin": null,
+    "dist": 94.33751839966328,
+    "carga": 12.0
+   }
+  ],
+  "stats": {
+   "vars": 121,
+   "ecs": 112,
+   "bin": 110,
+   "nodos": 9,
+   "tiempo": 0.273282527923584,
+   "solves": 1
+  }
+ },
+ {
+  "id": "dcvrp",
+  "num": "10",
+  "sigla": "DCVRP",
+  "nombre": "VRP con capacidad y distancia máxima",
+  "fam": "Capacidad",
+  "clase": false,
+  "desc": "CVRP en el que además ninguna ruta puede superar una distancia (o duración) máxima L, por jornada laboral o autonomía del vehículo. a(i) acumula la distancia de la ruta hasta i.",
+  "ej": "Instancia CVRP-10, Q = 15, K = 5 y L = 150 (en el CVRP una ruta mide 151,1: deja de ser factible).",
+  "arch": "10_dcvrp.gms",
+  "cambia": "Al CVRP se agrega a(i), la distancia acumulada, y el límite L por ruta (jornada o autonomía).",
+  "aplic": [
+   "Jornada laboral máxima del conductor.",
+   "Autonomía de vehículos eléctricos o drones.",
+   "Productos perecederos con tiempo máximo en ruta."
+  ],
+  "sup": [
+   "Q = 15, K = 5, L = 150.",
+   "Tiempo de viaje = distancia.",
+   "Sin tiempos de servicio."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ],
+   [
+    "L, M",
+    "distancia máxima por ruta y constante grande"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada al salir del cliente i"
+   ],
+   [
+    "a(i) ≥ 0",
+    "distancia acumulada al llegar a i"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "cotas",
+    "dem(i) ≤ ql(i) ≤ Q",
+    "la carga al salir de i incluye su demanda y no supera Q"
+   ],
+   [
+    "aIni(j)",
+    "a(j) ≥ dist(d,j)·x(d,j)",
+    "distancia hasta el primer cliente"
+   ],
+   [
+    "aSig(i,j)",
+    "a(j) ≥ a(i) + dist(i,j) − M·(1 − x(i,j))",
+    "acumula la distancia de la ruta"
+   ],
+   [
+    "largoMax(i)",
+    "a(i) + dist(i,d) ≤ L + M·(1 − x(i,d))",
+    "con el regreso, la ruta no supera L"
+   ]
+  ],
+  "lect": [
+   "Distancia 426,35 (CVRP: 425,05). La ruta de 151,1 del CVRP ya no es factible.",
+   "D → 6 → 5 → 4 → D",
+   "D → 7 → 8 → 9 → D",
+   "D → 10 → 1 → 2 → 3 → D",
+   "Todas las rutas miden ≤ 150; el costo sube solo 1,30."
+  ],
+  "z": 426.348384470227,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c6",
+     "c5",
+     "c4"
+    ],
+    "fin": "d",
+    "dist": 147.6753403059432,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c7",
+     "c8",
+     "c9"
+    ],
+    "fin": "d",
+    "dist": 141.5910430455673,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c10",
+     "c1",
+     "c2",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 137.08200111871656,
+    "carga": 14.0
+   }
+  ],
+  "stats": {
+   "vars": 131,
+   "ecs": 223,
+   "bin": 110,
+   "nodos": 2159,
+   "tiempo": 3.4078915119171143,
+   "solves": 1
+  }
+ },
+ {
+  "id": "vrpl",
+  "num": "11",
+  "sigla": "CVRP-L",
+  "nombre": "CVRP con máximo de paradas",
+  "fam": "Capacidad",
+  "clase": false,
+  "desc": "CVRP en el que cada ruta puede visitar como máximo P clientes (límite de paradas por turno o por reglas de servicio). f(i) cuenta las paradas hasta i.",
+  "ej": "Instancia CVRP-10, Q = 15, K = 5 y P = 3 paradas por ruta (el CVRP tiene una ruta de 4).",
+  "arch": "11_cvrp_l.gms",
+  "cambia": "Al CVRP se agrega un contador de paradas f(i) con máximo P por ruta.",
+  "aplic": [
+   "Límite de entregas por turno o por conductor.",
+   "Normas de servicio (máximo de pacientes por ruta de ambulancia).",
+   "Rutas de cobranza o de mantenimiento con cupo de visitas."
+  ],
+  "sup": [
+   "Q = 15, K = 5, P = 3 paradas.",
+   "Flota homogénea.",
+   "Cada cliente se atiende completo."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ],
+   [
+    "P",
+    "máximo de paradas por ruta (3)"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada al salir del cliente i"
+   ],
+   [
+    "f(i) ≥ 0",
+    "paradas hasta el cliente i"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "cotas",
+    "dem(i) ≤ ql(i) ≤ Q",
+    "la carga al salir de i incluye su demanda y no supera Q"
+   ],
+   [
+    "paradas(i,j)",
+    "f(j) ≥ f(i) + 1 − P·(1 − x(i,j))",
+    "cuenta paradas (MTZ)"
+   ],
+   [
+    "cotas",
+    "1 ≤ f(i) ≤ P",
+    "a lo sumo P paradas"
+   ]
+  ],
+  "lect": [
+   "Distancia 476,80 con 4 rutas (CVRP: 425,05 con 3).",
+   "D → 5 → 4 → 3 → D",
+   "D → 6 → 7 → 8 → D",
+   "D → 9 → D",
+   "D → 10 → 1 → 2 → D",
+   "La ruta de 4 clientes del CVRP debe partirse: aparece una ruta extra y el costo sube."
+  ],
+  "z": 476.8027127147298,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c5",
+     "c4",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 134.27724001797952,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c6",
+     "c7",
+     "c8"
+    ],
+    "fin": "d",
+    "dist": 139.6806545946818,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c9"
+    ],
+    "fin": "d",
+    "dist": 84.75848040166836,
+    "carga": 5.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c10",
+     "c1",
+     "c2"
+    ],
+    "fin": "d",
+    "dist": 118.08633770040018,
+    "carga": 9.0
+   }
+  ],
+  "stats": {
+   "vars": 131,
+   "ecs": 203,
+   "bin": 110,
+   "nodos": 3612,
+   "tiempo": 5.03242826461792,
+   "solves": 1
+  }
+ },
+ {
+  "id": "minveh",
+  "num": "12",
+  "sigla": "MinVeh",
+  "nombre": "CVRP con mínima flota",
+  "fam": "Capacidad",
+  "clase": false,
+  "desc": "Objetivo jerárquico (lexicográfico): primero el menor número de vehículos y, con esa flota fija, la menor distancia. Se resuelve en dos fases: (1) minimizar los vehículos que salen del depósito; (2) fijar ese número y minimizar la distancia. El archivo resuelve también el CVRP puro para comparar.",
+  "ej": "Instancia CVRP-10 con Q = 13: el CVRP puro (mínima distancia) usa 4 vehículos; la mínima flota es ⌈38/13⌉ = 3.",
+  "arch": "12_minveh.gms",
+  "cambia": "Mismas restricciones del CVRP; cambia el objetivo: primero mínima flota y luego mínima distancia (dos fases).",
+  "aplic": [
+   "Cuando el costo fijo del vehículo y el conductor domina al de combustible.",
+   "Dimensionar la flota mínima para un día de operación.",
+   "Comparar escenarios de flota propia vs. alquilada."
+  ],
+  "sup": [
+   "Q = 13, K = 5.",
+   "Fase 1: minimizar vehículos; fase 2: fijar ese número y minimizar distancia.",
+   "Se compara con el CVRP puro en el mismo archivo."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada al salir del cliente i"
+   ],
+   [
+    "nv",
+    "vehículos usados (fase 1)"
+   ]
+  ],
+  "fo": "fase 1: min nv = Σ c x(d,c);  fase 2: min Σ dist·x",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "cotas",
+    "dem(i) ≤ ql(i) ≤ Q",
+    "la carga al salir de i incluye su demanda y no supera Q"
+   ],
+   [
+    "fijaNv (fase 2)",
+    "Σ c x(d,c) = vehMin",
+    "la flota queda fija en el mínimo"
+   ]
+  ],
+  "lect": [
+   "CVRP puro: 4 vehículos y 476,80 de distancia.",
+   "Mínima flota: 3 vehículos y 477,01 de distancia.",
+   "D → 6 → 5 → 3 → D",
+   "D → 9 → 8 → 7 → D",
+   "D → 10 → 1 → 2 → 4 → D",
+   "Se ahorra un vehículo a cambio de solo 0,21 de distancia."
+  ],
+  "z": 477.01079213193384,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c6",
+     "c5",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 159.99146002080238,
+    "carga": 13.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c9",
+     "c8",
+     "c7"
+    ],
+    "fin": "d",
+    "dist": 141.5910430455673,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c10",
+     "c1",
+     "c2",
+     "c4"
+    ],
+    "fin": "d",
+    "dist": 175.4282890655644,
+    "carga": 13.0
+   }
+  ],
+  "stats": {
+   "vars": 121,
+   "ecs": 114,
+   "bin": 110,
+   "nodos": 2691,
+   "tiempo": 9.473027467727661,
+   "solves": 3
+  }
+ },
+ {
+  "id": "cvrpb",
+  "num": "13",
+  "sigla": "BCVRP",
+  "nombre": "CVRP balanceado",
+  "fam": "Capacidad",
+  "clase": false,
+  "desc": "CVRP con rutas equilibradas: cada ruta atiende entre Lmin y Umax clientes, con el número de rutas fijado en m. Útil para repartir el trabajo entre conductores.",
+  "ej": "Instancia CVRP-10, Q = 15, exactamente 4 rutas con 2 o 3 clientes cada una (el CVRP usa 3 rutas de 3, 3 y 4).",
+  "arch": "13_bcvrp.gms",
+  "cambia": "CVRP con número de rutas fijo y contador exacto de clientes entre Lmin y Umax.",
+  "aplic": [
+   "Repartir el trabajo de forma pareja entre conductores.",
+   "Equidad en rutas de recolección municipal.",
+   "Planeación de turnos con igual número de visitas."
+  ],
+  "sup": [
+   "Q = 15, exactamente 4 rutas.",
+   "Cada ruta con 2 o 3 clientes.",
+   "Equilibrio medido en número de clientes."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ],
+   [
+    "Lmin, Umax",
+    "mínimo y máximo de clientes por ruta (2, 3)"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada al salir del cliente i"
+   ],
+   [
+    "f(i) ≥ 0",
+    "contador de clientes"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) = K",
+    "exactamente K = 4 rutas"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "cIni, cIni2",
+    "f(j) = 1 si x(d,j) = 1",
+    "el primer cliente de la ruta tiene contador 1 (dos desigualdades con big-M)"
+   ],
+   [
+    "cSig, cSig2",
+    "f(j) = f(i) + 1 si x(i,j) = 1",
+    "el contador aumenta exactamente en 1 por arco"
+   ],
+   [
+    "cotas",
+    "1 ≤ f(i) ≤ Umax",
+    "ninguna ruta supera Umax clientes"
+   ],
+   [
+    "fin(i)",
+    "f(i) ≥ Lmin·x(i,d)",
+    "cada ruta cierra con al menos Lmin clientes"
+   ]
+  ],
+  "lect": [
+   "Distancia 483,04 con 4 rutas de 2 o 3 clientes (CVRP: 425,05).",
+   "D → 2 → 1 → 10 → D",
+   "D → 5 → 4 → 3 → D",
+   "D → 6 → 7 → D",
+   "D → 8 → 9 → D",
+   "El equilibrio cuesta 57,99 (13,6 %)."
+  ],
+  "z": 483.0388327959347,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c2",
+     "c1",
+     "c10"
+    ],
+    "fin": "d",
+    "dist": 118.08633770040018,
+    "carga": 9.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c5",
+     "c4",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 134.27724001797952,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c6",
+     "c7"
+    ],
+    "fin": "d",
+    "dist": 117.38135681813583,
+    "carga": 9.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c9"
+    ],
+    "fin": "d",
+    "dist": 113.2938982594192,
+    "carga": 8.0
+   }
+  ],
+  "stats": {
+   "vars": 131,
+   "ecs": 323,
+   "bin": 110,
+   "nodos": 1,
+   "tiempo": 0.05166459083557129,
+   "solves": 1
+  }
+ },
+ {
+  "id": "vrptw",
+  "num": "14",
+  "sigla": "VRPTW",
+  "nombre": "VRP con ventanas de tiempo",
+  "fam": "Tiempo",
+  "clase": true,
+  "desc": "Cada cliente debe empezar a atenderse dentro de su ventana [ea, la]; si el vehículo llega antes, espera. Tiempo de viaje = distancia (velocidad 1) y servicio de 10 minutos. El vehículo regresa antes del cierre del depósito.",
+  "ej": "Instancia CVRP-10 con ventanas de 70-80 minutos por cliente, Q = 15, K = 5, depósito abierto de 0 a 480.",
+  "arch": "14_vrptw.gms",
+  "cambia": "Al CVRP se agrega la hora de llegada tL(i) con ventanas [ea, la], tiempo de servicio y cierre del depósito.",
+  "aplic": [
+   "Entregas con citas o franjas horarias acordadas con el cliente.",
+   "Recogida de pacientes, mantenimiento programado.",
+   "Restricciones de cargue y descargue en centros urbanos."
+  ],
+  "sup": [
+   "Tiempo de viaje = distancia (velocidad 1); servicio de 10 min.",
+   "Ventanas de 70-80 min; depósito abierto de 0 a 480.",
+   "Q = 15, K = 5."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ],
+   [
+    "ea(i), la(i)",
+    "inicio y fin de la ventana"
+   ],
+   [
+    "sv(i)",
+    "tiempo de servicio"
+   ],
+   [
+    "M",
+    "constante grande (1000)"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada al salir del cliente i"
+   ],
+   [
+    "tL(i) ≥ 0",
+    "hora de llegada al cliente i"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "cotas",
+    "dem(i) ≤ ql(i) ≤ Q",
+    "la carga al salir de i incluye su demanda y no supera Q"
+   ],
+   [
+    "tIni(j)",
+    "tL(j) ≥ dist(d,j) − M·(1 − x(d,j))",
+    "llegada al primer cliente"
+   ],
+   [
+    "tSig(i,j)",
+    "tL(j) ≥ tL(i) + sv(i) + dist(i,j) − M·(1 − x(i,j))",
+    "secuencia de tiempos (también elimina subtours)"
+   ],
+   [
+    "ventana(i)",
+    "ea(i) ≤ tL(i) ≤ la(i)",
+    "servicio dentro de la ventana; si llega antes, espera"
+   ],
+   [
+    "tFin(i)",
+    "tL(i) + sv(i) + dist(i,d) ≤ la(d) + M·(1 − x(i,d))",
+    "regreso antes del cierre"
+   ]
+  ],
+  "lect": [
+   "Distancia 468,72 (CVRP sin ventanas: 425,05).",
+   "D → 2 → 1 → 10 → 9 → D",
+   "D → 4 → 5 → 3 → D",
+   "D → 8 → 6 → 7 → D",
+   "Las rutas se reorganizan por hora, no solo por cercanía: c5 se atiende a las 170 y c7 justo a las 270 (fin de su ventana)."
+  ],
+  "z": 468.724743041414,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c2",
+     "c1",
+     "c10",
+     "c9"
+    ],
+    "fin": "d",
+    "dist": 151.09339327484713,
+    "carga": 14.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c4",
+     "c5",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 154.37062456671438,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c6",
+     "c7"
+    ],
+    "fin": "d",
+    "dist": 163.26072519985252,
+    "carga": 12.0
+   }
+  ],
+  "stats": {
+   "vars": 131,
+   "ecs": 233,
+   "bin": 110,
+   "nodos": 1,
+   "tiempo": 0.013558387756347656,
+   "solves": 1
+  }
+ },
+ {
+  "id": "ovrptw",
+  "num": "15",
+  "sigla": "OVRPTW",
+  "nombre": "VRP abierto con ventanas de tiempo",
+  "fam": "Tiempo",
+  "clase": false,
+  "desc": "VRPTW con rutas abiertas: los vehículos terminan en su último cliente y no deben volver al depósito antes del cierre.",
+  "ej": "Instancia CVRP-10 con las mismas ventanas del VRPTW, Q = 15, K = 5, rutas abiertas.",
+  "arch": "15_ovrptw.gms",
+  "cambia": "VRPTW con rutas abiertas: no hay regreso ni restricción de cierre del depósito.",
+  "aplic": [
+   "Técnicos con citas que terminan en casa.",
+   "Transporte de personal con horarios de recogida.",
+   "Mensajería tercerizada con franjas horarias."
+  ],
+  "sup": [
+   "Mismas ventanas del VRPTW, Q = 15, K = 5.",
+   "Rutas abiertas.",
+   "Tiempo de viaje = distancia."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ],
+   [
+    "ea, la, sv, M",
+    "ventanas, servicio y constante grande"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada al salir del cliente i"
+   ],
+   [
+    "tL(i) ≥ 0",
+    "hora de llegada"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j x(i,j) ≤ 1",
+    "rutas abiertas"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "x(i,d) = 0",
+    "sin regreso",
+    "la ruta termina en un cliente"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "cotas",
+    "dem(i) ≤ ql(i) ≤ Q",
+    "la carga al salir de i incluye su demanda y no supera Q"
+   ],
+   [
+    "tIni(j)",
+    "tL(j) ≥ dist(d,j) − M·(1 − x(d,j))",
+    "llegada al primer cliente"
+   ],
+   [
+    "tSig(i,j)",
+    "tL(j) ≥ tL(i) + sv(i) + dist(i,j) − M·(1 − x(i,j))",
+    "secuencia de tiempos (también elimina subtours)"
+   ],
+   [
+    "ventana(i)",
+    "ea(i) ≤ tL(i) ≤ la(i)",
+    "servicio dentro de la ventana; si llega antes, espera"
+   ]
+  ],
+  "lect": [
+   "Distancia 325,20 con 4 rutas (VRPTW cerrado: 468,72).",
+   "D → 2 → 1 → 10 → 9 (fin)",
+   "D → 4 → 3 (fin)",
+   "D → 6 → 5 (fin)",
+   "D → 8 → 7 (fin)",
+   "Sin regreso conviene usar más rutas cortas que respeten las ventanas."
+  ],
+  "z": 325.1999844758721,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c2",
+     "c1",
+     "c10",
+     "c9"
+    ],
+    "fin": null,
+    "dist": 108.71415307401296,
+    "carga": 14.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c4",
+     "c3"
+    ],
+    "fin": null,
+    "dist": 73.3570016765485,
+    "carga": 9.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c6",
+     "c5"
+    ],
+    "fin": null,
+    "dist": 76.6480878800156,
+    "carga": 8.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c7"
+    ],
+    "fin": null,
+    "dist": 66.48074184529504,
+    "carga": 7.0
+   }
+  ],
+  "stats": {
+   "vars": 131,
+   "ecs": 222,
+   "bin": 110,
+   "nodos": 1,
+   "tiempo": 0.01774740219116211,
+   "solves": 1
+  }
+ },
+ {
+  "id": "hfvrp",
+  "num": "16",
+  "sigla": "HFVRP",
+  "nombre": "VRP con flota heterogénea",
+  "fam": "Flota",
+  "clase": false,
+  "desc": "La flota tiene tipos de vehículo con capacidad y costo por kilómetro distintos y una cantidad limitada de cada tipo. Se decide qué tipo cubre cada ruta. Índice t de tipo en lugar de índice de vehículo (menos simetría).",
+  "ej": "Instancia CVRP-10; 2 camiones grandes (Q = 20, 1,3 $/km) y 2 pequeños (Q = 10, 0,8 $/km).",
+  "arch": "16_hfvrp.gms",
+  "cambia": "Se agrega el índice t de tipo de vehículo: x(i,j,t). Capacidad y costo por km dependen del tipo.",
+  "aplic": [
+   "Flotas con camiones grandes y furgonetas.",
+   "Elegir qué vehículo asignar a cada ruta según volumen.",
+   "Distribución urbana con vehículos pequeños para el centro."
+  ],
+  "sup": [
+   "2 grandes (Q 20, 1,3 $/km) y 2 pequeños (Q 10, 0,8 $/km).",
+   "Sin costo fijo.",
+   "Un depósito."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ],
+   [
+    "t",
+    "tipos: grande, pequeño"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "capT(t), cpk(t)",
+    "capacidad y costo por km del tipo"
+   ],
+   [
+    "nveh(t)",
+    "vehículos disponibles del tipo"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j,t) ∈ {0,1}",
+    "1 si un vehículo del tipo t recorre i → j"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada"
+   ]
+  ],
+  "fo": "min z = Σ(i,j,t) cpk(t)·dist(i,j)·x(i,j,t)",
+  "res": [
+   [
+    "visita(j)",
+    "Σ(i,t) x(i,j,t) = 1",
+    "cada cliente lo visita un vehículo de un tipo"
+   ],
+   [
+    "flujo(i,t)",
+    "Σ j x(i,j,t) = Σ j x(j,i,t)",
+    "la ruta conserva su tipo de vehículo"
+   ],
+   [
+    "disp(t)",
+    "Σ c x(d,c,t) ≤ nveh(t)",
+    "vehículos disponibles por tipo"
+   ],
+   [
+    "carga(i,j)",
+    "ql(j) ≥ ql(i) + dem(j) − Qmax·(1 − Σ t x(i,j,t))",
+    "carga acumulada (MTZ)"
+   ],
+   [
+    "capac(j)",
+    "ql(j) ≤ Σ(i,t) capT(t)·x(i,j,t)",
+    "carga ≤ capacidad del tipo que llega a j"
+   ]
+  ],
+  "lect": [
+   "Costo 442,37. Rutas:",
+   "D → 4 → 3 → D",
+   "D → 5 → 6 → 7 → 8 → 9 → D",
+   "D → 10 → 1 → 2 → D",
+   "La ruta de 20 unidades usa un camión grande; las de 9 usan los pequeños, más baratos por km."
+  ],
+  "z": 442.36956420616804,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c4",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 108.28550006969446,
+    "carga": 9.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c5",
+     "c6",
+     "c7",
+     "c8",
+     "c9"
+    ],
+    "fin": "d",
+    "dist": 200.97853383853257,
+    "carga": 20.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c10",
+     "c1",
+     "c2"
+    ],
+    "fin": "d",
+    "dist": 118.08633770040018,
+    "carga": 9.0
+   }
+  ],
+  "stats": {
+   "vars": 231,
+   "ecs": 135,
+   "bin": 220,
+   "nodos": 1022,
+   "tiempo": 6.024445295333862,
+   "solves": 1
+  }
+ },
+ {
+  "id": "fsmvrp",
+  "num": "17",
+  "sigla": "FSMVRP",
+  "nombre": "VRP de tamaño y mezcla de flota",
+  "fam": "Flota",
+  "clase": false,
+  "desc": "Decisión táctica: qué vehículos comprar o alquilar. Cada tipo tiene capacidad y costo fijo propios (el costo por km es igual). Se minimiza costo fijo + distancia. Formulación de 2 índices: w(j,t) elige el tipo de la ruta que empieza en j y kap(i) propaga esa capacidad a lo largo de la ruta.",
+  "ej": "Instancia CVRP-10; tipos grande (Q 20, fijo 80), mediano (Q 15, fijo 60) y pequeño (Q 10, fijo 45); 1 $/km; hasta 2 de cada tipo.",
+  "arch": "17_fsmvrp.gms",
+  "cambia": "Decisión de flota: cada ruta elige su tipo w(j,t) (con costo fijo) y la capacidad kap(i) se propaga por la ruta.",
+  "aplic": [
+   "Decidir qué vehículos comprar o alquilar.",
+   "Renovación de flota y análisis de costo fijo vs. variable.",
+   "Contratos de transporte con tarifas por tipo de camión."
+  ],
+  "sup": [
+   "Tipos grande (20, fijo 80), mediano (15, 60) y pequeño (10, 45); 1 $/km.",
+   "Hasta 2 de cada tipo.",
+   "Un depósito."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ],
+   [
+    "t",
+    "tipos: grande, mediano, pequeño"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "capT(t), fijo(t)",
+    "capacidad y costo fijo del tipo"
+   ],
+   [
+    "nveh(t)",
+    "disponibles del tipo"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "w(j,t) ∈ {0,1}",
+    "1 si la ruta que empieza en j usa el tipo t"
+   ],
+   [
+    "ql(i), kap(i) ≥ 0",
+    "carga acumulada y capacidad del vehículo que visita i"
+   ]
+  ],
+  "fo": "min z = Σ(c,t) fijo(t)·w(c,t) + Σ dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "tipoIni(j)",
+    "Σ t w(j,t) = x(d,j)",
+    "cada ruta elige un tipo"
+   ],
+   [
+    "disp(t)",
+    "Σ c w(c,t) ≤ nveh(t)",
+    "vehículos por tipo"
+   ],
+   [
+    "kapIni(j)",
+    "kap(j) = Σ t capT(t)·w(j,t) si x(d,j) = 1",
+    "capacidad del primer cliente"
+   ],
+   [
+    "kapSig(i,j)",
+    "kap(j) = kap(i) si x(i,j) = 1",
+    "se propaga por la ruta"
+   ],
+   [
+    "carga, cap(i)",
+    "ql(i) ≤ kap(i)",
+    "la carga no supera la capacidad del tipo"
+   ]
+  ],
+  "lect": [
+   "Costo 526,76 = fijo 160,00 + distancia 366,76.",
+   "Mezcla óptima: 2 grandes.",
+   "D → 4 → 5 → 6 → 7 → 8 → D",
+   "D → 9 → 10 → 1 → 2 → 3 → D",
+   "Dos camiones grandes con 19 unidades cada uno salen más baratos que tres medianos."
+  ],
+  "z": 526.758779203751,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c4",
+     "c5",
+     "c6",
+     "c7",
+     "c8"
+    ],
+    "fin": "d",
+    "dist": 196.66972251058795,
+    "carga": 19.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c9",
+     "c10",
+     "c1",
+     "c2",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 170.0890566931635,
+    "carga": 19.0
+   }
+  ],
+  "stats": {
+   "vars": 161,
+   "ecs": 335,
+   "bin": 140,
+   "nodos": 78987,
+   "tiempo": 78.9234504699707,
+   "solves": 1
+  }
+ },
+ {
+  "id": "hfvrptw",
+  "num": "18",
+  "sigla": "HFVRPTW",
+  "nombre": "Flota heterogénea con ventanas de tiempo",
+  "fam": "Flota",
+  "clase": false,
+  "desc": "Combina la flota heterogénea (capacidad y costo por tipo) con ventanas de tiempo en los clientes.",
+  "ej": "Instancia CVRP-10 con las ventanas del VRPTW; 2 grandes (Q 20, 1,3 $/km) y 2 pequeños (Q 10, 0,8 $/km).",
+  "arch": "18_hfvrptw.gms",
+  "cambia": "HFVRP + ventanas de tiempo; la secuencia de tiempos usa Σ t x(i,j,t).",
+  "aplic": [
+   "Flota mixta con citas de entrega.",
+   "Distribución urbana con franjas de cargue y vehículos de distinto tamaño.",
+   "Servicio técnico con camionetas y motos."
+  ],
+  "sup": [
+   "Tipos del HFVRP; ventanas del VRPTW.",
+   "Servicio 10 min; tiempo = distancia.",
+   "Regreso antes de 480."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ],
+   [
+    "t",
+    "tipos"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "capT(t), cpk(t)",
+    "capacidad y costo por km del tipo"
+   ],
+   [
+    "nveh(t)",
+    "vehículos disponibles del tipo"
+   ],
+   [
+    "ea, la, sv",
+    "ventanas y servicio"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j,t) ∈ {0,1}",
+    "arco por tipo"
+   ],
+   [
+    "ql(i), tL(i) ≥ 0",
+    "carga y hora de llegada"
+   ]
+  ],
+  "fo": "min z = Σ cpk(t)·dist(i,j)·x(i,j,t)",
+  "res": [
+   [
+    "visita(j)",
+    "Σ(i,t) x(i,j,t) = 1",
+    "cada cliente lo visita un vehículo de un tipo"
+   ],
+   [
+    "flujo(i,t)",
+    "Σ j x(i,j,t) = Σ j x(j,i,t)",
+    "la ruta conserva su tipo de vehículo"
+   ],
+   [
+    "disp(t)",
+    "Σ c x(d,c,t) ≤ nveh(t)",
+    "vehículos disponibles por tipo"
+   ],
+   [
+    "carga(i,j)",
+    "ql(j) ≥ ql(i) + dem(j) − Qmax·(1 − Σ t x(i,j,t))",
+    "carga acumulada (MTZ)"
+   ],
+   [
+    "capac(j)",
+    "ql(j) ≤ Σ(i,t) capT(t)·x(i,j,t)",
+    "carga ≤ capacidad del tipo que llega a j"
+   ],
+   [
+    "tSig(i,j)",
+    "tL(j) ≥ tL(i) + sv(i) + dist(i,j) − M·(1 − Σ t x(i,j,t))",
+    "secuencia de tiempos"
+   ],
+   [
+    "ventanas",
+    "ea(i) ≤ tL(i) ≤ la(i)",
+    "servicio en la ventana"
+   ],
+   [
+    "tFin(i)",
+    "regreso ≤ la(d)",
+    "cierre del depósito"
+   ]
+  ],
+  "lect": [
+   "Costo 522,57 (HFVRP sin ventanas: 442,37).",
+   "D → 2 → 1 → 10 → 9 → D",
+   "D → 4 → 3 → D",
+   "D → 6 → 5 → D",
+   "D → 8 → 7 → D",
+   "Las ventanas obligan a 4 rutas; las cortas usan los vehículos pequeños."
+  ],
+  "z": 522.566545681031,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c2",
+     "c1",
+     "c10",
+     "c9"
+    ],
+    "fin": "d",
+    "dist": 151.09339327484713,
+    "carga": 14.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c4",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 108.28550006969446,
+    "carga": 9.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c6",
+     "c5"
+    ],
+    "fin": "d",
+    "dist": 121.05529450236463,
+    "carga": 8.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c7"
+    ],
+    "fin": "d",
+    "dist": 110.66218591404409,
+    "carga": 7.0
+   }
+  ],
+  "stats": {
+   "vars": 241,
+   "ecs": 255,
+   "bin": 220,
+   "nodos": 1,
+   "tiempo": 0.16286563873291016,
+   "solves": 1
+  }
+ },
+ {
+  "id": "mdvrp",
+  "num": "19",
+  "sigla": "MDVRP",
+  "nombre": "VRP con múltiples depósitos",
+  "fam": "Depósitos",
+  "clase": false,
+  "desc": "Hay varios depósitos; cada cliente se asigna a uno (y(c,g)) y cada ruta sale y regresa al mismo depósito. Las restricciones «mismo» obligan a que dos clientes consecutivos pertenezcan al mismo depósito.",
+  "ej": "Clientes de la instancia CVRP-10 con dos depósitos: d1 (30, 70) y d2 (72, 30); Q = 15; hasta 3 vehículos por depósito.",
+  "arch": "19_mdvrp.gms",
+  "cambia": "Varios depósitos: y(c,g) asigna cada cliente a un depósito y la ruta vuelve al depósito de donde salió.",
+  "aplic": [
+   "Empresas con varios centros de distribución.",
+   "Hospitales o bodegas regionales que atienden su zona.",
+   "Planeación de recolección desde varias bases."
+  ],
+  "sup": [
+   "Depósitos d1 (30, 70) y d2 (72, 30).",
+   "Q = 15; hasta 3 vehículos por depósito.",
+   "Cada ruta regresa a su propio depósito."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósitos d1, d2 y clientes"
+   ],
+   [
+    "c(i), dp(i)",
+    "clientes y depósitos (g ∈ dp)"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "Kd",
+    "vehículos por depósito"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "y(c,g) ∈ {0,1}",
+    "el cliente c se atiende desde g"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "asig(i)",
+    "Σ g y(i,g) = 1",
+    "cada cliente se asigna a un depósito"
+   ],
+   [
+    "balDep(g)",
+    "Σ c x(g,c) = Σ c x(c,g)",
+    "salen y regresan los mismos al depósito g"
+   ],
+   [
+    "salDep, regDep",
+    "x(g,j) ≤ y(j,g);  x(i,g) ≤ y(i,g)",
+    "el depósito solo conecta con sus clientes"
+   ],
+   [
+    "mismo1, mismo2",
+    "|y(j,g) − y(i,g)| ≤ 1 − x(i,j)",
+    "clientes consecutivos → mismo depósito"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "flotaDep(g)",
+    "Σ c x(g,c) ≤ Kd",
+    "vehículos por depósito"
+   ]
+  ],
+  "lect": [
+   "Distancia 377,94 (un solo depósito central: 425,05).",
+   "D1 → 9 → 10 → 1 → 2 → D1",
+   "D2 → 3 → 4 → 5 → D2",
+   "D2 → 6 → 7 → 8 → D2",
+   "Cada depósito atiende su zona: d1 el noroeste (c9, c10, c1, c2) y d2 el resto."
+  ],
+  "z": 377.9426163635453,
+  "rutas": [
+   {
+    "ini": "d1",
+    "cli": [
+     "c9",
+     "c10",
+     "c1",
+     "c2"
+    ],
+    "fin": "d1",
+    "dist": 129.72547231717078,
+    "carga": 14.0
+   },
+   {
+    "ini": "d2",
+    "cli": [
+     "c3",
+     "c4",
+     "c5"
+    ],
+    "fin": "d2",
+    "dist": 135.47215282319985,
+    "carga": 12.0
+   },
+   {
+    "ini": "d2",
+    "cli": [
+     "c6",
+     "c7",
+     "c8"
+    ],
+    "fin": "d2",
+    "dist": 112.7449912231748,
+    "carga": 12.0
+   }
+  ],
+  "stats": {
+   "vars": 163,
+   "ecs": 525,
+   "bin": 152,
+   "nodos": 436,
+   "tiempo": 2.821293592453003,
+   "solves": 1
+  }
+ },
+ {
+  "id": "mdvrptw",
+  "num": "20",
+  "sigla": "MDVRPTW",
+  "nombre": "Múltiples depósitos con ventanas de tiempo",
+  "fam": "Depósitos",
+  "clase": false,
+  "desc": "MDVRP más ventanas de tiempo en los clientes; los tiempos parten del depósito asignado.",
+  "ej": "Dos depósitos d1 (30, 70) y d2 (72, 30), ventanas del VRPTW, Q = 15, hasta 3 vehículos por depósito.",
+  "arch": "20_mdvrptw.gms",
+  "cambia": "MDVRP + ventanas de tiempo; la llegada al primer cliente se mide desde su depósito.",
+  "aplic": [
+   "Redes de distribución con varias bodegas y citas de entrega.",
+   "Servicios de salud a domicilio desde varias sedes.",
+   "Logística urbana con microcentros y franjas horarias."
+  ],
+  "sup": [
+   "Depósitos d1 y d2, ventanas del VRPTW.",
+   "Q = 15; 3 vehículos por depósito.",
+   "Servicio 10 min; tiempo = distancia."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos"
+   ],
+   [
+    "c(i), dp(i)",
+    "clientes y depósitos"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "ea, la, sv",
+    "ventanas y servicio"
+   ],
+   [
+    "Kd",
+    "vehículos por depósito"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "y(c,g)",
+    "asignación"
+   ],
+   [
+    "ql(i), tL(i)",
+    "carga y hora de llegada"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "asig(i)",
+    "Σ g y(i,g) = 1",
+    "cada cliente se asigna a un depósito"
+   ],
+   [
+    "balDep(g)",
+    "Σ c x(g,c) = Σ c x(c,g)",
+    "salen y regresan los mismos al depósito g"
+   ],
+   [
+    "salDep, regDep",
+    "x(g,j) ≤ y(j,g);  x(i,g) ≤ y(i,g)",
+    "el depósito solo conecta con sus clientes"
+   ],
+   [
+    "mismo1, mismo2",
+    "|y(j,g) − y(i,g)| ≤ 1 − x(i,j)",
+    "clientes consecutivos → mismo depósito"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "flotaDep(g)",
+    "Σ c x(g,c) ≤ Kd",
+    "vehículos por depósito"
+   ],
+   [
+    "tIni(g,j)",
+    "tL(j) ≥ dist(g,j) − M·(1 − x(g,j))",
+    "llegada desde el depósito"
+   ],
+   [
+    "tSig, ventanas",
+    "como en el VRPTW",
+    "secuencia y ventanas"
+   ],
+   [
+    "tFin(i,g)",
+    "regreso ≤ la(g)",
+    "cierre de cada depósito"
+   ]
+  ],
+  "lect": [
+   "Distancia 405,37 (MDVRP sin ventanas: 377,94).",
+   "D1 → 2 → 1 → 10 → 9 → D1",
+   "D2 → 4 → 3 → 5 → D2",
+   "D2 → 6 → D2",
+   "D2 → 8 → 7 → D2",
+   "Las ventanas separan c6 en una ruta propia muy corta desde d2."
+  ],
+  "z": 405.36965527802647,
+  "rutas": [
+   {
+    "ini": "d1",
+    "cli": [
+     "c2",
+     "c1",
+     "c10",
+     "c9"
+    ],
+    "fin": "d1",
+    "dist": 129.72547231717078,
+    "carga": 14.0
+   },
+   {
+    "ini": "d2",
+    "cli": [
+     "c4",
+     "c3",
+     "c5"
+    ],
+    "fin": "d2",
+    "dist": 147.60742293241339,
+    "carga": 12.0
+   },
+   {
+    "ini": "d2",
+    "cli": [
+     "c6"
+    ],
+    "fin": "d2",
+    "dist": 26.832815729997478,
+    "carga": 5.0
+   },
+   {
+    "ini": "d2",
+    "cli": [
+     "c8",
+     "c7"
+    ],
+    "fin": "d2",
+    "dist": 101.20394429844484,
+    "carga": 7.0
+   }
+  ],
+  "stats": {
+   "vars": 173,
+   "ecs": 665,
+   "bin": 152,
+   "nodos": 1,
+   "tiempo": 0.05833101272583008,
+   "solves": 1
+  }
+ },
+ {
+  "id": "lrp",
+  "num": "21",
+  "sigla": "LRP",
+  "nombre": "Localización y ruteo",
+  "fam": "Depósitos",
+  "clase": false,
+  "desc": "Decide a la vez qué depósitos abrir (costo fijo y capacidad) y las rutas desde los depósitos abiertos. Es el MDVRP con variables de apertura w(g) y capacidad de depósito.",
+  "ej": "Clientes CVRP-10; candidatos d1 (30, 70) y d2 (72, 30) con apertura 100 y capacidad 25, y d3 (50, 50) con apertura 160 y capacidad 40; Q = 15.",
+  "arch": "21_lrp.gms",
+  "cambia": "MDVRP + decisión de apertura w(g) con costo fijo y capacidad de cada depósito candidato.",
+  "aplic": [
+   "Dónde ubicar centros de distribución considerando las rutas.",
+   "Diseño de redes de recolección de residuos o reciclaje.",
+   "Ubicación de bases de emergencia o de mantenimiento."
+  ],
+  "sup": [
+   "Candidatos d1, d2 (apertura 100, capacidad 25) y d3 (160, 40).",
+   "Q = 15; 3 vehículos por depósito.",
+   "Costo = apertura + distancia."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: 3 depósitos candidatos y clientes"
+   ],
+   [
+    "c(i), dp(i)",
+    "clientes y candidatos"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "fA(g), capD(g)",
+    "costo de apertura y capacidad del depósito"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "y(c,g)",
+    "asignación"
+   ],
+   [
+    "w(g) ∈ {0,1}",
+    "1 si se abre el depósito"
+   ],
+   [
+    "ql(i)",
+    "carga acumulada"
+   ]
+  ],
+  "fo": "min z = Σ g fA(g)·w(g) + Σ dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "asig(i)",
+    "Σ g y(i,g) = 1",
+    "cada cliente se asigna a un depósito"
+   ],
+   [
+    "balDep(g)",
+    "Σ c x(g,c) = Σ c x(c,g)",
+    "salen y regresan los mismos al depósito g"
+   ],
+   [
+    "salDep, regDep",
+    "x(g,j) ≤ y(j,g);  x(i,g) ≤ y(i,g)",
+    "el depósito solo conecta con sus clientes"
+   ],
+   [
+    "mismo1, mismo2",
+    "|y(j,g) − y(i,g)| ≤ 1 − x(i,j)",
+    "clientes consecutivos → mismo depósito"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "flotaDep(g)",
+    "Σ c x(g,c) ≤ Kd",
+    "vehículos por depósito"
+   ],
+   [
+    "abre(c,g)",
+    "y(c,g) ≤ w(g)",
+    "solo los depósitos abiertos atienden"
+   ],
+   [
+    "capDep(g)",
+    "Σ c dem(c)·y(c,g) ≤ capD(g)·w(g)",
+    "capacidad del depósito"
+   ]
+  ],
+  "lect": [
+   "Depósitos abiertos: D1, D2. Costo 577,94 = apertura 200,00 + rutas 377,94.",
+   "D1 → 9 → 10 → 1 → 2 → D1",
+   "D2 → 5 → 4 → 3 → D2",
+   "D2 → 6 → 7 → 8 → D2",
+   "El depósito central d3 (160) no compensa: dos depósitos periféricos acortan más las rutas."
+  ],
+  "z": 577.9426163635453,
+  "rutas": [
+   {
+    "ini": "d1",
+    "cli": [
+     "c9",
+     "c10",
+     "c1",
+     "c2"
+    ],
+    "fin": "d1",
+    "dist": 129.72547231717078,
+    "carga": 14.0
+   },
+   {
+    "ini": "d2",
+    "cli": [
+     "c5",
+     "c4",
+     "c3"
+    ],
+    "fin": "d2",
+    "dist": 135.47215282319985,
+    "carga": 12.0
+   },
+   {
+    "ini": "d2",
+    "cli": [
+     "c6",
+     "c7",
+     "c8"
+    ],
+    "fin": "d2",
+    "dist": 112.7449912231748,
+    "carga": 12.0
+   }
+  ],
+  "stats": {
+   "vars": 200,
+   "ecs": 760,
+   "bin": 189,
+   "nodos": 2036,
+   "tiempo": 11.4012291431427,
+   "solves": 1
+  }
+ },
+ {
+  "id": "vrpb",
+  "num": "22",
+  "sigla": "VRPB",
+  "nombre": "VRP con recogidas en el regreso (backhauls)",
+  "fam": "Cargas",
+  "clase": false,
+  "desc": "Clientes de entrega (linehaul, L) y de recogida (backhaul, B). En cada ruta se atienden primero todas las entregas y después las recogidas; ninguna ruta empieza por una recogida. Cargas de entrega y de recogida no superan Q por separado.",
+  "ej": "CVRP-10 con c1-c6 de entrega y c7-c10 de recogida (mismas cantidades), Q = 15, K = 5.",
+  "arch": "22_vrpb.gms",
+  "cambia": "Clientes de entrega L y de recogida B; se prohíben los arcos B → L y d → B, y cada carga se controla por separado.",
+  "aplic": [
+   "Distribuidor que reparte y luego recoge envases o devoluciones.",
+   "Retorno de vehículos con carga de proveedores (backhauling).",
+   "Logística inversa de reciclaje en la ruta de regreso."
+  ],
+  "sup": [
+   "c1-c6 de entrega y c7-c10 de recogida.",
+   "Primero todas las entregas, después las recogidas.",
+   "Q = 15 para cada tipo de carga; K = 5."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ],
+   [
+    "L(i), B(i)",
+    "clientes de entrega y de recogida"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "qL(i), qB(i) ≥ 0",
+    "carga acumulada de entregas y de recogidas"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "x(i,j) = 0",
+    "i ∈ B, j ∈ L  y  i = d, j ∈ B",
+    "recogidas solo después de las entregas"
+   ],
+   [
+    "cargaL(i,j)",
+    "qL(j) ≥ qL(i) + dem(j) − Q·(1 − x(i,j))",
+    "entregas ≤ Q"
+   ],
+   [
+    "cargaB(i,j)",
+    "qB(j) ≥ qB(i) + dem(j) − Q·(1 − x(i,j))",
+    "recogidas ≤ Q"
+   ]
+  ],
+  "lect": [
+   "Distancia 364,68 con 2 rutas.",
+   "D → 3 → 2 → 1 → 10 → D  (entrega 12, recoge 2)",
+   "D → 4 → 5 → 6 → 7 → 8 → 9 → D  (entrega 12, recoge 12)",
+   "Como entregas y recogidas no comparten el espacio a la vez, una ruta lleva 12 + 12 unidades."
+  ],
+  "z": 364.6805807608195,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c3",
+     "c2",
+     "c1",
+     "c10"
+    ],
+    "fin": "d",
+    "dist": 137.08200111871656,
+    "carga": 14.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c4",
+     "c5",
+     "c6",
+     "c7",
+     "c8",
+     "c9"
+    ],
+    "fin": "d",
+    "dist": 227.59857964211113,
+    "carga": 24.0
+   }
+  ],
+  "stats": {
+   "vars": 121,
+   "ecs": 65,
+   "bin": 110,
+   "nodos": 1,
+   "tiempo": 0.17608380317687988,
+   "solves": 1
+  }
+ },
+ {
+  "id": "vrpspd",
+  "num": "23",
+  "sigla": "VRPSPD",
+  "nombre": "VRP con entrega y recogida simultáneas",
+  "fam": "Cargas",
+  "clase": false,
+  "desc": "Cada cliente recibe una entrega y devuelve una recogida en la misma visita (envases, devoluciones). La carga a bordo cambia a lo largo de la ruta: sale con todas las entregas y va acumulando recogidas. Formulación de flujo con dos mercancías: D (entregas aún a bordo) y P (recogidas a bordo).",
+  "ej": "CVRP-10: entregas = demandas originales y recogidas de 4 a 7 unidades por cliente (total 56); Q = 15, K = 5.",
+  "arch": "23_vrpspd.gms",
+  "cambia": "Cada cliente entrega y recoge en la misma visita. Dos flujos por arco: D (entregas aún a bordo) y P (recogidas a bordo).",
+  "aplic": [
+   "Reparto de bebidas con devolución de envases.",
+   "Entrega de equipos nuevos y retiro de los usados.",
+   "Logística inversa de pallets o canastas."
+  ],
+  "sup": [
+   "Entregas = demandas; recogidas de 4 a 7 (total 56).",
+   "La carga a bordo cambia a lo largo de la ruta.",
+   "Q = 15, K = 5."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ],
+   [
+    "pk(i)",
+    "cantidad recogida en el cliente"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "D(i,j), P(i,j) ≥ 0",
+    "entregas y recogidas a bordo en el arco"
+   ]
+  ],
+  "fo": "min z = Σ(i,j) dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), i ∈ C",
+    "Σ j≠i x(i,j) = 1",
+    "cada cliente tiene un sucesor"
+   ],
+   [
+    "entra(j), j ∈ C",
+    "Σ i≠j x(i,j) = 1",
+    "cada cliente tiene un predecesor"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "flujoD(j)",
+    "Σ i D(i,j) − Σ h D(j,h) = dem(j)",
+    "el cliente recibe su entrega"
+   ],
+   [
+    "flujoP(j)",
+    "Σ h P(j,h) − Σ i P(i,j) = pk(j)",
+    "el cliente entrega su recogida"
+   ],
+   [
+    "capArco(i,j)",
+    "D(i,j) + P(i,j) ≤ Q·x(i,j)",
+    "carga a bordo ≤ Q y solo en arcos usados"
+   ],
+   [
+    "salDepP, llegaDepD",
+    "Σ P(d,c) = 0;  Σ D(c,d) = 0",
+    "sale sin recogidas y vuelve sin entregas"
+   ]
+  ],
+  "lect": [
+   "Distancia 534,37 con 4 rutas (CVRP solo entregas: 425,05).",
+   "D → 4 → 3 → D",
+   "D → 5 → 6 → 7 → D",
+   "D → 8 → 10 → D",
+   "D → 9 → 1 → 2 → D",
+   "Las recogidas (56) superan a las entregas (38): la carga máxima a bordo, no la entrega, define las rutas."
+  ],
+  "z": 534.3669452414683,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c4",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 108.28550006969446,
+    "carga": 9.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c5",
+     "c6",
+     "c7"
+    ],
+    "fin": "d",
+    "dist": 147.75037893046337,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c10"
+    ],
+    "fin": "d",
+    "dist": 127.2380333185879,
+    "carga": 5.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c9",
+     "c1",
+     "c2"
+    ],
+    "fin": "d",
+    "dist": 151.0930329227226,
+    "carga": 12.0
+   }
+  ],
+  "stats": {
+   "vars": 331,
+   "ecs": 155,
+   "bin": 110,
+   "nodos": 582,
+   "tiempo": 6.216770648956299,
+   "solves": 1
+  }
+ },
+ {
+  "id": "vrppd",
+  "num": "24",
+  "sigla": "VRPPD",
+  "nombre": "VRP con recogida y entrega por pares",
+  "fam": "Cargas",
+  "clase": false,
+  "desc": "Cada solicitud tiene un punto de recogida y uno de entrega: ambos deben estar en la misma ruta y la recogida antes de la entrega (mensajería, transporte de pacientes). Índice k de vehículo para garantizar la misma ruta; u(i) da el orden de visita.",
+  "ej": "5 solicitudes sobre la instancia CVRP-10: c1→c4, c2→c6, c3→c8, c9→c10, c5→c7, con la demanda del punto de recogida; Q = 15; 3 vehículos.",
+  "arch": "24_vrppd.gms",
+  "cambia": "Pares recogida → entrega en la misma ruta y en ese orden. Índice k de vehículo, orden u(i) y carga a bordo con signo.",
+  "aplic": [
+   "Mensajería puerta a puerta y domicilios.",
+   "Transporte de pacientes (dial-a-ride).",
+   "Carga compartida entre proveedores y clientes."
+  ],
+  "sup": [
+   "5 solicitudes: c1→c4, c2→c6, c3→c8, c9→c10, c5→c7.",
+   "La carga sube en la recogida y baja en la entrega.",
+   "Q = 15; 3 vehículos."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ],
+   [
+    "k",
+    "vehículos"
+   ],
+   [
+    "pr(i,j)",
+    "pares recogida → entrega"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "w(i)",
+    "+dem en la recogida, −dem en la entrega"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j,k) ∈ {0,1}",
+    "el vehículo k recorre i → j"
+   ],
+   [
+    "u(i) ≥ 0",
+    "orden de visita"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga a bordo al salir de i"
+   ]
+  ],
+  "fo": "min z = Σ(i,j,k) dist(i,j)·x(i,j,k)",
+  "res": [
+   [
+    "visita(j)",
+    "Σ(i,k) x(i,j,k) = 1",
+    "cada punto se visita una vez"
+   ],
+   [
+    "flujo(i,k)",
+    "entra = sale para cada vehículo",
+    "rutas continuas"
+   ],
+   [
+    "salida(k)",
+    "Σ c x(d,c,k) ≤ 1",
+    "cada vehículo sale a lo sumo una vez"
+   ],
+   [
+    "mismo(i,j,k), (i,j) ∈ pr",
+    "visita de i por k = visita de j por k",
+    "recogida y entrega en el mismo vehículo"
+   ],
+   [
+    "orden(i,j)",
+    "u(j) ≥ u(i) + 1 − n·(1 − Σ k x(i,j,k))",
+    "orden de visita (MTZ)"
+   ],
+   [
+    "prec(i,j), (i,j) ∈ pr",
+    "u(j) ≥ u(i) + 1",
+    "recoger antes de entregar"
+   ],
+   [
+    "cIni, cSig",
+    "ql(j) = ql(i) + w(j) si se usa i → j",
+    "carga a bordo exacta"
+   ],
+   [
+    "cotas",
+    "0 ≤ ql(i) ≤ Q",
+    "capacidad"
+   ]
+  ],
+  "lect": [
+   "Distancia 315,74: un solo vehículo atiende las 5 solicitudes.",
+   "D → 9 → 10 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → D",
+   "Cada recogida va antes de su entrega (orden u) y la carga a bordo nunca pasa de 12 de 15."
+  ],
+  "z": 315.7445633871624,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c9",
+     "c10",
+     "c1",
+     "c2",
+     "c3",
+     "c4",
+     "c5",
+     "c6",
+     "c7",
+     "c8"
+    ],
+    "fin": "d",
+    "dist": 315.74456338716243,
+    "carga": 38.0
+   }
+  ],
+  "stats": {
+   "vars": 351,
+   "ecs": 357,
+   "bin": 330,
+   "nodos": 17,
+   "tiempo": 1.8705110549926758,
+   "solves": 1
+  }
+ },
+ {
+  "id": "sdvrp",
+  "num": "25",
+  "sigla": "SDVRP",
+  "nombre": "VRP con entrega dividida",
+  "fam": "Cargas",
+  "clase": false,
+  "desc": "La demanda de un cliente puede repartirse entre varios vehículos (split delivery). Ahorra distancia y vehículos cuando las demandas son grandes respecto a Q. Índice k de vehículo, cantidad entregada e(i,k) y MTZ por vehículo. El archivo resuelve también la versión sin división para comparar.",
+  "ej": "8 clientes (c1-c8) con demandas grandes de 5 a 9 unidades (total 53) y Q = 15: 4 vehículos.",
+  "arch": "25_sdvrp.gms",
+  "cambia": "La demanda puede dividirse: e(i,k) es lo que el vehículo k entrega a i. Se necesita índice de vehículo y MTZ por vehículo.",
+  "aplic": [
+   "Clientes con demandas cercanas o mayores a la capacidad del vehículo.",
+   "Distribución de combustible, cemento o alimentos a granel.",
+   "Ahorro de vehículos cuando las cargas no encajan bien."
+  ],
+  "sup": [
+   "8 clientes con demandas de 5 a 9 (total 53), Q = 15, 4 vehículos.",
+   "Un cliente puede recibir de varios vehículos.",
+   "Se compara con la versión sin división (misma flota)."
+  ],
+  "conj": [
+   [
+    "i, j",
+    "nodos: depósito y c1…c8"
+   ],
+   [
+    "k",
+    "vehículos k1…k4"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j,k) ∈ {0,1}",
+    "el vehículo k recorre i → j"
+   ],
+   [
+    "e(i,k) ≥ 0",
+    "cantidad que k entrega a i"
+   ],
+   [
+    "u(i,k) ≥ 0",
+    "orden en la ruta de k"
+   ]
+  ],
+  "fo": "min z = Σ(i,j,k) dist(i,j)·x(i,j,k)",
+  "res": [
+   [
+    "flujo(i,k), salida(k)",
+    "entra = sale; a lo sumo una salida",
+    "rutas continuas por vehículo"
+   ],
+   [
+    "demanda(i)",
+    "Σ k e(i,k) = dem(i)",
+    "se entrega toda la demanda"
+   ],
+   [
+    "soloSiVisita(i,k)",
+    "e(i,k) ≤ dem(i)·Σ j x(j,i,k)",
+    "entrega solo si k visita a i"
+   ],
+   [
+    "capV(k)",
+    "Σ c e(c,k) ≤ Q",
+    "capacidad de cada vehículo"
+   ],
+   [
+    "mtzK(i,j,k)",
+    "u(j,k) ≥ u(i,k) + 1 − n·(1 − x(i,j,k))",
+    "subtours por vehículo"
+   ],
+   [
+    "sin división",
+    "e(i,k) = dem(i)·v(i,k)",
+    "versión comparada: todo o nada"
+   ]
+  ],
+  "lect": [
+   "Con división: 472,01; sin división: 484,64 (ahorro 12,62).",
+   "D → 2 → 1 → D",
+   "D → 8 → 7 → D",
+   "D → 5 → 6 → D",
+   "D → 5 → 4 → 3 → D",
+   "c5 (demanda 7) se reparte entre dos vehículos: 6 y 1 unidades, lo que permite llenar ambos."
+  ],
+  "z": 472.0128633367389,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c2",
+     "c1"
+    ],
+    "fin": "d",
+    "dist": 106.01814290236736,
+    "carga": 12.000000000000016
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c7"
+    ],
+    "fin": "d",
+    "dist": 110.66218591404409,
+    "carga": 10.999999999999801
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c5",
+     "c6"
+    ],
+    "fin": "d",
+    "dist": 121.05529450236463,
+    "carga": 15.000000000000451
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c5",
+     "c4",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 134.27724001797952,
+    "carga": 15.00000000000128
+   }
+  ],
+  "stats": {
+   "vars": 353,
+   "ecs": 341,
+   "bin": 288,
+   "nodos": 13790,
+   "tiempo": 51.60743999481201,
+   "solves": 2
+  }
+ },
+ {
+  "id": "pcvrp",
+  "num": "26",
+  "sigla": "PCVRP",
+  "nombre": "VRP con beneficios (prize-collecting)",
+  "fam": "Selectivos",
+  "clase": false,
+  "desc": "No es obligatorio visitar a todos: cada cliente aporta un beneficio y se visitan solo los rentables. Maximiza beneficio recogido − costo de distancia, con capacidad Q y flota limitada.",
+  "ej": "CVRP-10 con beneficios de 45 a 180 por cliente, costo 1 $/km, Q = 15 y solo K = 2 vehículos (no caben los 38 de demanda).",
+  "arch": "26_pcvrp.gms",
+  "cambia": "Visitar es opcional: y(i) decide si se atiende al cliente y el objetivo es beneficio − costo.",
+  "aplic": [
+   "Selección de pedidos rentables cuando la flota no alcanza.",
+   "Visitas comerciales con ingreso esperado por cliente.",
+   "Recolección selectiva (residuos aprovechables, donaciones)."
+  ],
+  "sup": [
+   "Beneficios de 45 a 180; costo 1 $/km.",
+   "Solo K = 2 vehículos con Q = 15 (no caben los 38).",
+   "Se maximiza beneficio neto."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "dem(i)",
+    "demanda del cliente"
+   ],
+   [
+    "Q",
+    "capacidad del vehículo"
+   ],
+   [
+    "K",
+    "vehículos disponibles"
+   ],
+   [
+    "pr(i)",
+    "beneficio por visitar"
+   ],
+   [
+    "cpk",
+    "costo por unidad de distancia"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "y(i) ∈ {0,1}",
+    "1 si se visita el cliente"
+   ],
+   [
+    "ql(i) ≥ 0",
+    "carga acumulada"
+   ]
+  ],
+  "fo": "max z = Σ c pr(c)·y(c) − cpk·Σ dist(i,j)·x(i,j)",
+  "res": [
+   [
+    "sale(i), entra(i)",
+    "Σ j x(i,j) = Σ j x(j,i) = y(i)",
+    "grado 1 solo si se visita"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ K",
+    "a lo sumo K vehículos salen del depósito"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "carga(i,j), i ≠ j ∈ C",
+    "ql(j) ≥ ql(i) + dem(j) − Q·(1 − x(i,j))",
+    "carga acumulada (MTZ): elimina subtours y limita a Q"
+   ],
+   [
+    "cargaMin/Max(i)",
+    "dem(i)·y(i) ≤ ql(i) ≤ Q·y(i)",
+    "carga solo en visitados"
+   ],
+   [
+    "arcoY1, arcoY2",
+    "x(i,j) ≤ y(i);  x(i,j) ≤ y(j)",
+    "cortes válidos"
+   ],
+   [
+    "capTot",
+    "Σ dem(c)·y(c) ≤ K·Q",
+    "lo atendido cabe en la flota"
+   ]
+  ],
+  "lect": [
+   "Beneficio neto 450,55 = premios 750,00 − costo 299,45.",
+   "Se visitan 6 de 10 clientes:",
+   "D → 2 → 4 → 5 → D",
+   "D → 8 → 9 → 10 → D",
+   "Quedan fuera los de menor beneficio relativo a su desvío."
+  ],
+  "z": 450.55069723272055,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c2",
+     "c4",
+     "c5"
+    ],
+    "fin": "d",
+    "dist": 165.7958038258025,
+    "carga": 10.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c9",
+     "c10"
+    ],
+    "fin": "d",
+    "dist": 133.65349894147758,
+    "carga": 10.0
+   }
+  ],
+  "stats": {
+   "vars": 131,
+   "ecs": 314,
+   "bin": 120,
+   "nodos": 27464,
+   "tiempo": 26.96094512939453,
+   "solves": 1
+  }
+ },
+ {
+  "id": "top",
+  "num": "27",
+  "sigla": "TOP",
+  "nombre": "Orienteering por equipos",
+  "fam": "Selectivos",
+  "clase": false,
+  "desc": "m vehículos con una distancia máxima L por ruta maximizan el premio total recogido; no hay costo por distancia, el límite es el tiempo. Modela vendedores con jornada fija o visitas turísticas.",
+  "ej": "CVRP-10 con los premios del PCVRP, m = 2 vehículos y L = 160 por ruta.",
+  "arch": "27_top.gms",
+  "cambia": "Sin costo por distancia: se maximiza el premio y el límite es la distancia L por ruta.",
+  "aplic": [
+   "Vendedores con jornada fija que eligen a qué clientes visitar.",
+   "Rutas turísticas con tiempo limitado.",
+   "Inspecciones prioritarias con tiempo de equipo limitado."
+  ],
+  "sup": [
+   "m = 2 vehículos, L = 160 por ruta.",
+   "Premios del PCVRP; sin capacidad.",
+   "Visitar es opcional."
+  ],
+  "conj": [
+   [
+    "i, j, h",
+    "nodos: depósito d y clientes c1…c10"
+   ],
+   [
+    "c(i)",
+    "subconjunto de clientes C"
+   ]
+  ],
+  "par": [
+   [
+    "dist(i,j)",
+    "distancia euclidiana (también tiempo de viaje)"
+   ],
+   [
+    "pr(i)",
+    "premio"
+   ],
+   [
+    "m, L",
+    "vehículos y distancia máxima por ruta"
+   ]
+  ],
+  "var": [
+   [
+    "x(i,j) ∈ {0,1}",
+    "1 si se recorre el arco i → j"
+   ],
+   [
+    "y(i) ∈ {0,1}",
+    "visita"
+   ],
+   [
+    "a(i) ≥ 0",
+    "distancia acumulada"
+   ]
+  ],
+  "fo": "max z = Σ c pr(c)·y(c)",
+  "res": [
+   [
+    "sale(i), entra(i)",
+    "grado = y(i)",
+    "solo los visitados"
+   ],
+   [
+    "flota",
+    "Σ c x(d,c) ≤ m",
+    "m vehículos"
+   ],
+   [
+    "balDep",
+    "Σ c x(d,c) = Σ c x(c,d)",
+    "salen tantos vehículos como regresan"
+   ],
+   [
+    "aIni(j)",
+    "a(j) ≥ dist(d,j)·x(d,j)",
+    "distancia hasta el primer cliente"
+   ],
+   [
+    "aSig(i,j)",
+    "a(j) ≥ a(i) + dist(i,j) − M·(1 − x(i,j))",
+    "acumula la distancia de la ruta"
+   ],
+   [
+    "largoMax(i)",
+    "a(i) + dist(i,d) ≤ L + M·(1 − x(i,d))",
+    "con el regreso, la ruta no supera L"
+   ],
+   [
+    "arcoY, cota de a",
+    "x ≤ y;  a(c) ≤ L − dist(c,d)",
+    "cortes válidos"
+   ]
+  ],
+  "lect": [
+   "Premio 885 recorriendo 312,83 en total.",
+   "D → 4 → 5 → 3 → D",
+   "D → 8 → 9 → 10 → 1 → D",
+   "Ambas rutas quedan cerca del límite de 160; c2, c6 y c7 no caben."
+  ],
+  "z": 885.000000000004,
+  "rutas": [
+   {
+    "ini": "d",
+    "cli": [
+     "c4",
+     "c5",
+     "c3"
+    ],
+    "fin": "d",
+    "dist": 154.37062456671438,
+    "carga": 12.0
+   },
+   {
+    "ini": "d",
+    "cli": [
+     "c8",
+     "c9",
+     "c10",
+     "c1"
+    ],
+    "fin": "d",
+    "dist": 158.4634819726163,
+    "carga": 14.0
+   }
+  ],
+  "stats": {
+   "vars": 131,
+   "ecs": 313,
+   "bin": 120,
+   "nodos": 18661,
+   "tiempo": 18.176023960113525,
+   "solves": 1
+  }
+ }
+]

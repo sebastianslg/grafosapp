@@ -3,7 +3,8 @@
    control segmentado como firma (Especificación · Ejemplo · GAMS · Resultados), contraste ≥ 4,5:1. */
 const pptxgen = require('pptxgenjs');
 const pres = new pptxgen(); pres.layout = 'LAYOUT_WIDE';
-pres.title = 'Ruteo de vehículos: algoritmos, modelos y GAMS'; pres.author = 'Juan Sebastián Salas Lugo';
+pres.title = 'Ruteo de vehículos: modelos, algoritmos y GAMS'; pres.author = 'Juan Sebastián Salas Lugo y Alejandro Álvarez Torres'; pres.company = 'Universidad Tecnológica de Bolívar';
+const LOG = []; const CFG = { pie: 'Distribución y Transporte · UTB · Salas Lugo y Álvarez Torres', logo: require('path').join(__dirname, '../img/logo_utb.png') };
 const C = { BG: 'F5F5F7', CARD: 'FFFFFF', INK: '1D1D1F', SUB: '6E6E73', LINE: 'D2D2D7', TRACK: 'E5E5EA', BLUE: '0071E3', BLUE_T: '0058B0', GREEN: '248A3D', GREEN_BG: 'E6F4EA', ORANGE: 'B25000', ORANGE_BG: 'FFF1DC', RED: 'C4001A', PURPLE: '7B3FA0',
   CODE_BG: '1D1D1F', CODE_TX: 'F5F5F7', CODE_KW: '64D2FF', CODE_FN: 'FFD60A', CODE_CM: '9A9AA0', CODE_NUM: 'FF9F0A', CODE_STR: 'A6E3A1', CODE_GUT: '6E6E73', BLUE_BG: 'E8F1FC' };
 const F = { T: 'Arial', M: 'Courier New' };
@@ -13,24 +14,34 @@ function nuevaSlide(opts) {
   opts = opts || {}; const s = pres.addSlide(); nSlide++; s.background = { color: opts.bg || C.BG };
   s._n = nSlide; return s;
 }
-function txt(s, t, o) { return s.addText(t, Object.assign({ fontFace: F.T, color: C.INK, margin: 0, fontSize: 12, valign: 'top', isTextBox: true }, o)); }
+function txt(s, t, o) {
+  const op = Object.assign({ fontFace: F.T, color: C.INK, margin: 0, fontSize: 12, valign: 'top', isTextBox: true }, o);
+  /* registro para el verificador de desbordes (ref/verificar_textos.py) */
+  const runs = Array.isArray(t) ? t.map((r) => ({ t: r.text, s: (r.options && r.options.fontSize) || op.fontSize, b: !!((r.options && r.options.bold) || op.bold), f: (r.options && r.options.fontFace) || op.fontFace, br: !!(r.options && r.options.breakLine), bu: !!(r.options && r.options.bullet) })) : [{ t: String(t), s: op.fontSize, b: !!op.bold, f: op.fontFace, br: false }];
+  LOG.push({ n: s._n, x: op.x, y: op.y, w: op.w, h: op.h, ps: op.paraSpaceAfter || 0, cs: op.charSpacing || 0, runs, fit: op.fit || null });
+  return s.addText(t, op);
+}
 function card(s, x, y, w, h, o) {
   o = o || {};
-  s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w, h, rectRadius: o.r === undefined ? 0.12 : o.r, fill: { color: o.fill || C.CARD }, line: { color: o.line || o.fill || C.CARD, width: o.line ? 0.75 : 0 },
-    shadow: o.sombra === false ? undefined : { type: 'outer', color: '000000', opacity: 0.07, blur: 8, offset: 1.5, angle: 90 } });
+  /* sin sombras (mejor compatibilidad con visores de iPhone/iPad); tarjetas blancas con borde fino */
+  const fill = o.fill || C.CARD; const borde = o.line || (fill === C.CARD ? 'E1E1E6' : fill);
+  s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w, h, rectRadius: o.r === undefined ? 0.1 : o.r, fill: { color: fill }, line: { color: borde, width: 0.75 } });
 }
 function cabecera(s, eyebrow, titulo, o) {
   o = o || {};
   txt(s, eyebrow.toUpperCase(), { x: 0.5, y: 0.3, w: 8, h: 0.22, fontSize: 9.5, bold: true, color: C.BLUE_T, charSpacing: 1.5 });
-  txt(s, titulo, { x: 0.5, y: 0.52, w: o.wTitulo || 12.3, h: 0.5, fontSize: o.sizeTitulo || 23, bold: true, color: C.INK });
-  txt(s, 'Ruteo de vehículos · algoritmos, GAMS y pruebas', { x: 0.5, y: 7.13, w: 7, h: 0.2, fontSize: 8.5, color: C.SUB });
+  const wT = o.wTitulo || 12.3, szT = o.sizeTitulo || Math.min(23, Math.floor(wT * 72 / (0.56 * titulo.length) * 2) / 2);
+  txt(s, titulo, { x: 0.5, y: 0.52, w: wT, h: 0.5, fontSize: szT, bold: true, color: C.INK });
+  img(s, CFG.logo, 0.5, 7.04, 0.62, 0.3);
+  txt(s, CFG.pie, { x: 1.22, y: 7.13, w: 8, h: 0.2, fontSize: 8.5, color: C.SUB });
   txt(s, String(s._n), { x: 12.3, y: 7.13, w: 0.55, h: 0.2, fontSize: 8.5, color: C.SUB, align: 'right' });
 }
 const PASOS = ['Especificación', 'Ejemplo', 'Código GAMS', 'Resultados'];
-function segmentado(s, activo) {
+function segmentado(s, activo, pasos) {
+  pasos = pasos || PASOS;
   const x0 = 8.45, w = 4.4, wp = w / 4;
   s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: x0, y: 0.3, w, h: 0.3, rectRadius: 0.15, fill: { color: C.TRACK }, line: { color: C.TRACK, width: 0 } });
-  PASOS.forEach((p, i) => {
+  pasos.forEach((p, i) => {
     if (i === activo) s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: x0 + i * wp + 0.02, y: 0.32, w: wp - 0.04, h: 0.26, rectRadius: 0.13, fill: { color: C.BLUE }, line: { color: C.BLUE, width: 0 } });
     txt(s, p, { x: x0 + i * wp, y: 0.32, w: wp, h: 0.26, align: 'center', valign: 'middle', fontSize: 9, bold: i === activo, color: i === activo ? 'FFFFFF' : C.SUB });
   });
@@ -73,7 +84,10 @@ function runsGams(linea, size) {
   while ((m = re.exec(linea)) !== null) {
     const t = m[0], low = t.toLowerCase(); let col = C.CODE_TX, b = false;
     if (t[0] === "'") col = C.CODE_STR; else if (/^\d/.test(t)) col = C.CODE_NUM; else if (KW.has(low)) { col = C.CODE_KW; b = true; } else if (FN.has(low)) col = C.CODE_FN;
-    out.push({ text: t, options: Object.assign({}, base, { color: col, bold: b }) });
+    const prev = out[out.length - 1];
+    if (prev && prev.options.color === col && prev.options.bold === b) prev.text += t;   /* fusiona tokens del mismo estilo: menos runs */
+    else if (prev && /^\s+$/.test(t)) prev.text += t;
+    else out.push({ text: t, options: Object.assign({}, base, { color: col, bold: b }) });
   }
   return out;
 }
@@ -117,6 +131,7 @@ function tabla(s, filas, x, y, w, colW, o) {
     return { text: obj.text, options: { fontFace: (o.mono && o.mono.includes(j) && !esH) ? F.M : F.T, fontSize: size, bold: esH || obj.b || (j === 0 && o.boldFirst), color: esH ? C.SUB : (obj.c || C.INK), fill: { color: esH ? 'EFEFF2' : (obj.fill || (i % 2 === 0 && o.zebra ? 'FAFAFC' : 'FFFFFF')) },
       valign: 'middle', align: (o.align && o.align[j]) || 'left', margin: [0.03, 0.08, 0.03, 0.08], border: [{ type: 'none' }, { type: 'none' }, { pt: 0.5, color: C.LINE }, { type: 'none' }] } };
   }));
+  LOG.push({ tabla: true, n: s._n, x, y, w, colW, rowH, size, maxY: o.maxY || 6.95, filas: filas.map((r, i) => r.map((t) => { const ob = (typeof t === 'object' && t !== null) ? t : { text: String(t) }; return { t: String(ob.text), b: i === 0 || !!ob.b || false, f: (o.mono && i > 0) ? F.T : F.T }; })) });
   s.addTable(celdas, { x, y, w, colW, rowH, fontFace: F.T, autoPage: false });
 }
 const fsl = require('fs');
@@ -125,4 +140,4 @@ function img(s, ruta, x, y, w, h, o) { /* ajusta la imagen dentro de la caja con
   const [iw, ih] = dimPng(ruta); const k = Math.min(w / iw, h / ih), ww = iw * k, hh = ih * k;
   s.addImage(Object.assign({ path: ruta, x: x + (w - ww) / 2, y: y + (h - hh) / 2, w: ww, h: hh }, o || {})); }
 function nota(s, t) { s.addNotes(t); }
-module.exports = { pres, C, F, W, H, nuevaSlide, txt, card, cabecera, segmentado, etiqueta, chip, stat, bullets, kv, codigo, pseudo, tabla, img, nota, envolver, runsGams, PASOS, getN: () => nSlide };
+module.exports = { LOG, CFG, pres, C, F, W, H, nuevaSlide, txt, card, cabecera, segmentado, etiqueta, chip, stat, bullets, kv, codigo, pseudo, tabla, img, nota, envolver, runsGams, PASOS, getN: () => nSlide };
