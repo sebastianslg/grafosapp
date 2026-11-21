@@ -430,6 +430,9 @@
 
   /* ================= arranque ================= */
   App.arrancar = async () => {
+    /* latido: mientras la ventana esté abierta, el servidor sigue; al cerrarla, se detiene solo */
+    const latir = () => fetch('/api/latido', { method: 'POST', body: '{}', keepalive: true }).catch(() => {});
+    latir(); setInterval(latir, 5000);
     construirProblema(); App.construirModelos && App.construirModelos(); window.VrpUi && VrpUi.montar(); App.construirBusqueda();
     Mapa.iniciar('mapa', (e) => { if (e === 'mapa-offline') chip('Sin conexión: el mapa base no está disponible, pero los nodos y las rutas sí'); });
     try { S.sets.cali = await Datos.cargar('cali'); S.sets.cali.parcial = true; S.sets.china = await Datos.cargar('china'); S.sets.china.parcial = true; for (const p of Datos.listar()) { const d = await Datos.cargar(p.clave); if (d) S.sets[p.clave] = d; } }

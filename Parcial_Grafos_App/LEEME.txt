@@ -2,10 +2,17 @@ PARCIAL DE TEORIA DE GRAFOS - OPTIMIZACION DE RUTAS Y REDES
 ==============================================================================
 Autor: Juan Sebastian Salas Lugo - Distribucion y Transporte (UTB)
 
-COMO EJECUTARLO (solo se necesita Python 3.9 o superior; no hay que instalar nada mas)
-  - Windows:  doble clic en  Ejecutar_App.bat   (o:  python ejecutar_app.py)
-  - Mac/Linux:  python3 ejecutar_app.py
-  Se abre el navegador en http://127.0.0.1:8765 . Dejar abierta la ventana negra mientras se usa; Ctrl+C la cierra.
+COMO EJECUTARLO (UN SOLO CLIC)
+  - Windows:  doble clic en  Ejecutar_App.bat
+              Trae su propio Python (carpeta python-embed); no hay que instalar nada.
+  - Mac:      doble clic en  Ejecutar_App.command
+              Necesita Python 3 instalado (python.org). Puede quedar abierta una ventana de Terminal: se puede cerrar.
+  - Linux:    doble clic en  Ejecutar_App.sh (o en la terminal:  ./Ejecutar_App.sh)
+  La aplicacion se abre sola en el navegador. No hay que escribir ninguna direccion.
+  Se cierra sola al cerrar la ventana del navegador (o al cabo de un minuto sin ventana abierta).
+  Si el navegador no se abre, la app muestra la direccion en un aviso.
+  Si ya esta abierta y vuelve a hacer doble clic, se muestra la misma ventana (no se abre otra copia).
+  Registro de errores (solo si algo falla): registro_app.txt, en la misma carpeta.
 
 QUE ES
   Una aplicacion para construir grafos sobre un mapa y resolverlos con OPTIMIZACION EXACTA (programacion lineal / entera
@@ -103,6 +110,8 @@ VRP · 27 VARIANTES (nuevo)
 VALIDACION Y PRUEBAS (para el profesor o para revisar la app)
   - Las 27 variantes se validaron contra los modelos GAMS sobre la misma instancia CVRP-10 (óptimo 425,05):
     node pruebas/validar_gams.js          (sale con código 1 si alguna no coincide)
-  - Pruebas de interfaz (navegador, con ejecutar_app.py en marcha):  node pruebas/e2e_vrp.js  y  node pruebas/e2e_parar.js
+  - Pruebas de interfaz (navegador):  node pruebas/e2e_vrp.js  y  node pruebas/e2e_parar.js
+  - Prueba del doble clic (ventana abierta / cerrada):  node pruebas/e2e_un_clic.js  (con la app abierta con LATIDO_SEG=12)
+  - Todas juntas: node pruebas/correr_todo.js   (informa PASA o FALLA por cada prueba)
   - Pruebas de modelos: node pruebas/prueba_solver.js, prueba_flota.js, prueba_mtz.js, prueba_nuevos.js
   Todas usan HiGHS (highspy). Cada prueba informa OK o FALLA.

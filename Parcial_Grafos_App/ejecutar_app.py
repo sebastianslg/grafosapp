@@ -1,6 +1,7 @@
 """Parcial de Teoría de Grafos: TSP, m-TSP, caminos y árboles por optimización.
 
-Ejecutar:   python ejecutar_app.py        (abre http://127.0.0.1:8765 en el navegador)
+Uso normal: doble clic en Ejecutar_App.bat (Windows) o Ejecutar_App.command (Mac). No hace falta escribir nada.
+Uso técnico: python ejecutar_app.py   (abre la app en el navegador; se cierra sola al cerrar la ventana)
 
 Solo usa la biblioteca estándar de Python. El solver de optimización (HiGHS) corre dentro del navegador
 (WebAssembly incluido en web/vendor). Si el navegador no pudiera usarlo, la interfaz ofrece instalar
@@ -30,6 +31,10 @@ from xml.sax.saxutils import escape
 
 AQUI = Path(__file__).resolve().parent
 WEB = AQUI / "web"
+IDENT = "parcial-grafos"                       # identifica esta app (para no abrirla dos veces)
+PUERTO_BASE = int(os.environ.get("PUERTO", "8765"))
+LATIDO_SEG = float(os.environ.get("LATIDO_SEG", "60"))   # sin latidos de la ventana durante este tiempo, la app se cierra
+_latido, _conectado, _inicio = [0.0], [False], time.time()
 CACHE_ARCHIVO = AQUI / "datos" / "cache_rutas.json"
 OSRM = os.environ.get("OSRM_URL", "https://router.project-osrm.org")
 mimetypes.add_type("application/wasm", ".wasm")
@@ -316,6 +321,8 @@ class Manejador(BaseHTTPRequestHandler):
 
     def do_GET(self):
         ruta = self.path.split("?")[0]
+        if ruta == "/api/identidad":
+            return self._enviar(200, {"app": IDENT})
         if ruta == "/":
             ruta = "/index.html"
         if ruta == "/datos/cache_rutas.json":
@@ -340,6 +347,9 @@ class Manejador(BaseHTTPRequestHandler):
                 except ImportError:
                     hp = False
                 return self._enviar(200, {"highspy": hp, "python": sys.version.split()[0], "cache": len(_cache)})
+            if ruta == "/api/latido":
+                _latido[0], _conectado[0] = time.time(), True
+                return self._enviar(200, {"ok": True})
             if ruta == "/api/parar":
                 _parar["on"] = bool(d.get("on"))
                 return self._enviar(200, {"on": _parar["on"]})
@@ -376,34 +386,99 @@ class Manejador(BaseHTTPRequestHandler):
         pass
 
 
+def _mensaje(titulo, texto):
+    """Muestra un aviso aunque no haya consola (doble clic)."""
+    try:
+        if os.name == "nt":
+            import ctypes  # noqa: PLC0415
+            ctypes.windll.user32.MessageBoxW(0, texto, titulo, 0x10)
+        elif sys.platform == "darwin":
+            t = texto.replace('"', "'").replace("\n", " ")
+            subprocess.run(["osascript", "-e", f'display dialog "{t}" with title "{titulo}" buttons {{"OK"}} with icon stop'], timeout=120)
+        else:
+            print(titulo + ": " + texto, file=sys.stderr)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _abrir(url):
+    """Abre la ventana en el navegador predeterminado."""
+    try:
+        if not webbrowser.open(url) and os.name == "nt":
+            os.startfile(url)  # noqa: S606 (Windows)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _es_esta_app(p):
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{p}/api/identidad", timeout=0.5) as r:
+            return json.loads(r.read()).get("app") == IDENT
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _preparar_salida():
+    """Con doble clic en Windows (pythonw) no hay consola: el registro se guarda en un archivo."""
+    if sys.stdout is None or sys.stderr is None:
+        try:
+            f = open(AQUI / "registro_app.txt", "a", encoding="utf-8", buffering=1)
+        except OSError:
+            f = open(os.devnull, "w")
+        sys.stdout = sys.stderr = f
+
+
+def _vigilar(srv, url):
+    """Cierra el servidor cuando se cierra la ventana (sin latidos durante LATIDO_SEG) o si la ventana nunca se conectó."""
+    while True:
+        time.sleep(2)
+        if _conectado[0]:
+            if time.time() - _latido[0] > LATIDO_SEG:
+                break
+        elif time.time() - _inicio > 300:
+            _mensaje("Parcial de Grafos", "No se pudo abrir la ventana de la aplicación.\n\nAbra su navegador y escriba: " + url)
+            break
+    srv.shutdown()
+
+
 def main():
+    _preparar_salida()
+    for p in range(PUERTO_BASE, PUERTO_BASE + 20):          # ya está abierta: solo mostrar su ventana
+        if _es_esta_app(p):
+            _abrir(f"http://127.0.0.1:{p}/")
+            return
     cargar_cache()
-    puerto = int(os.environ.get("PUERTO", "8765"))
     srv = None
-    for p in range(puerto, puerto + 20):
+    for p in range(PUERTO_BASE, PUERTO_BASE + 20):
         try:
             srv = ThreadingHTTPServer(("127.0.0.1", p), Manejador)
-            puerto = p
             break
         except OSError:
             continue
     if srv is None:
-        sys.exit("No hay un puerto libre entre %d y %d." % (puerto, puerto + 19))
-    url = f"http://127.0.0.1:{puerto}/"
+        _mensaje("Parcial de Grafos", f"No hay un puerto libre entre {PUERTO_BASE} y {PUERTO_BASE + 19}.")
+        return
+    url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print("=" * 62)
     print(" Parcial de Teoría de Grafos · TSP, m-TSP, caminos y árboles")
-    print(" Aplicación en:", url)
-    print(" Deje esta ventana abierta mientras la usa. Ctrl+C para terminar.")
+    print(" Aplicación en:", url, "(se abre sola; se cierra al cerrar la ventana)")
     print("=" * 62)
     if not os.environ.get("SIN_NAVEGADOR"):
-        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.8, lambda: _abrir(url)).start()
+    threading.Thread(target=_vigilar, args=(srv, url), daemon=True).start()
     try:
         srv.serve_forever()
-    except KeyboardInterrupt:
-        pass
     finally:
+        srv.server_close()
         guardar_cache(True)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:  # noqa: BLE001
+        import traceback  # noqa: PLC0415
+        _preparar_salida()
+        traceback.print_exc()
+        _mensaje("Parcial de Grafos", f"No se pudo iniciar la aplicación:\n{e}\n\nVea el archivo registro_app.txt")
+        sys.exit(1)

@@ -6,3 +6,5 @@ backend/data/*.db
 node_modules/
 .venv/
 Exposicion_src/ref/cache_modelos/
+Parcial_Grafos_App/python-embed/
+Parcial_Grafos_App/registro_app.txt
