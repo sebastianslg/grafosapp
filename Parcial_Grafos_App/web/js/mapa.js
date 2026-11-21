@@ -1,7 +1,14 @@
 /* Mapa: capas base, nodos, centro de distribución, candidatos, aristas, área, imagen de fondo y rutas por las calles. */
 (function (root) {
   'use strict';
-  const COL = ['#ff3b30', '#007aff', '#34c759', '#af52de', '#ff9500', '#5ac8fa', '#ff2d55', '#a2845e', '#30b0c7', '#ffcc00', '#5856d6', '#8e8e93'];
+  /* colores de las rutas: orden categórico validado (daltonismo y contraste) para tema claro y oscuro; las rutas 9-12 se
+     distinguen además por su número. COL se actualiza en su lugar al cambiar de tema (todos los módulos comparten el arreglo). */
+  const CLARO = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948', '#0e8a8a', '#9c6b30', '#b04fc2', '#4f6b8a'];
+  const OSCURO = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#0ca30c', '#9085e9', '#e66767', '#1aa3a3', '#b8834a', '#c46fd4', '#7d97b5'];
+  const COL = CLARO.slice();
+  const oscuro = () => { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; };
+  const temaColores = () => { (oscuro() ? OSCURO : CLARO).forEach((c, i) => { COL[i] = c; }); };
+  temaColores();
   const reducir = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const key = (a, b, c, d) => `${a.toFixed(5)},${b.toFixed(5)}>${c.toFixed(5)},${d.toFixed(5)}`;
   const BASES = {
@@ -11,7 +18,7 @@
   };
 
   const M = {
-    COL, BASES, map: null, ds: null, cb: {}, editar: false, fallosTiles: 0, base: null, capaBase: null, cache: {},
+    COL, BASES, temaColores, map: null, ds: null, cb: {}, editar: false, fallosTiles: 0, base: null, capaBase: null, cache: {},
     marcadores: [], marcCand: [], capasRuta: [], fondo: null,
 
     iniciar(id, onEstado) {

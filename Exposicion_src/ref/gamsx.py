@@ -898,13 +898,16 @@ class Interprete:
         if obj and self.sim[obj].vtipo != 'free' and False: pass
         rows, colsi, vals, lb, ub = [], [], [], [], []
         for i, (_, _, r, op) in enumerate(filas):
-            for k, a in r.k.items(): rows.append(i); colsi.append(cols[k]); vals.append(a)
+            for k, a in r.k.items():
+                if a != 0: rows.append(i); colsi.append(cols[k]); vals.append(a)   # como GAMS: los coeficientes nulos no entran a la matriz
             b = -r.c
             lb.append(b if op in ('=e=', '=g=') else -np.inf); ub.append(b if op in ('=e=', '=l=') else np.inf)
         A = csr_matrix((vals, (rows, colsi)), shape=(len(filas), n))
         c = np.zeros(n); c[cols[(obj, ())]] = 1.0 if sentido == 'minimizing' else -1.0
         opts = {'disp': False, 'mip_rel_gap': float(self.opciones.get('optcr', 0.1)), 'time_limit': float(self.opciones.get('reslim', 1000))}
         res = milp(c, constraints=[LinearConstraint(A, lb, ub)], bounds=Bounds(lo, up), integrality=integ, options=opts)
+        if res.status == 4:   # «Solve error» del presolve de algunas versiones de HiGHS: se repite sin presolve
+            res = milp(c, constraints=[LinearConstraint(A, lb, ub)], bounds=Bounds(lo, up), integrality=integ, options=dict(opts, presolve=False))
         m = self.sim[modelo]; dt = time.time() - t0
         m.attr['numvar'] = n; m.attr['numequ'] = len(filas); m.attr['resusd'] = dt
         m.attr['nodusd'] = int(getattr(res, 'mip_node_count', 0) or 0)

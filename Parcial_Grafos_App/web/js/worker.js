@@ -1,6 +1,6 @@
 /* Worker: ejecuta los modelos de optimización sin congelar la interfaz.
    Motor 1: HiGHS (WebAssembly, dentro del navegador). Motor 2: HiGHS de Python vía el servidor local. */
-importScripts('../vendor/highs.js', 'solver.js', 'vrp.js', 'heur.js');
+importScripts('../vendor/highs.js', 'solver.js', 'vrp.js', 'heur.js', 'variantes.js');
 let motor = null, highsP = null;
 let lineaLog = null;   // función que recibe cada línea del registro de HiGHS durante una resolución
 const enLog = (t) => { if (lineaLog) lineaLog(String(t)); };
@@ -31,7 +31,8 @@ function xhr(url, cuerpo) {
   return { codigo: x.status, texto: x.responseText };
 }
 
-const hayParar = () => { try { const r = xhr('/api/parar_estado', {}); return r.codigo === 200 && !!JSON.parse(r.texto).on; } catch (e) { return false; } };
+let idCorrida = '';
+const hayParar = () => { try { const r = xhr('/api/parar_estado', { id: idCorrida }); return r.codigo === 200 && !!JSON.parse(r.texto).on; } catch (e) { return false; } };
 
 /* Una etapa de HiGHS con tope de tiempo `tl`. `cota` (opcional) = valor de la mejor solución ya conocida: poda lo peor. */
 async function etapa(lp, tl, gap, cota) {
@@ -45,7 +46,7 @@ async function etapa(lp, tl, gap, cota) {
     };
     const op = { time_limit: tl, mip_rel_gap: gap, output_flag: true, log_to_console: true };
     if (cota != null) op.objective_bound = cota;
-    let r; try { r = h.solve(lp, op); } finally { lineaLog = null; }
+    let r; try { r = h.solve(lp, op); if (r && /error/i.test(String(r.Status))) r = h.solve(lp, Object.assign({}, op, { presolve: 'off' })); } finally { lineaLog = null; }   // reintento sin presolve ante un «Solve error»
     const a = adaptar(r); a.dual = dual; a.seg = (performance.now() - t0) / 1000; return a;
   }
   const t0 = performance.now(), x = xhr('/api/solve', { lp, tl, gap, cota });
@@ -80,7 +81,7 @@ async function resolverLP(lp, o) {
       mejor.status = parar ? 'detenido por el usuario (mejor solución encontrada, no probada óptima)' : 'límite de tiempo (mejor solución encontrada, no probada óptima)';
       if (parar) detenido = true; return mejor;
     }
-    tl = tl * 1.7;
+    tl = Math.min(tl * 1.7, 20);   // fases de a lo sumo 20 s: «Parar» responde pronto incluso sin límite de tiempo
   }
 }
 let detenido = false;
@@ -112,6 +113,24 @@ async function correrVrp(d, ctx) {
   return r;
 }
 
+/* Análisis de sensibilidad: resuelve el modelo matemático para cada valor del parámetro y envía cada punto apenas termina */
+async function correrSens(d, ctx) {
+  const o = d.opt, b = d.base, v = Variantes.porId[d.variante], puntos = []; let paro = false;
+  for (const val of o.valores) {
+    if (hayParar()) { paro = true; break; }
+    const S0 = { D: b.D, nodos: b.nodos, flota: JSON.parse(JSON.stringify(b.flota)), vt: Object.assign({}, b.vt) }, p = Object.assign({}, d.p);
+    if (o.par === 'm') p.m = Math.max(1, Math.round(val)); else if (o.par === 'cap') S0.flota.forEach((t) => { t.cap = v.mixta ? (+t.cap || 0) * val : val; });
+    else if (o.par === 'L') p.Lmax = val; else if (o.par === 'serv') S0.vt.servicio = val; else if (o.par === 'vel') S0.flota.forEach((t) => { t.vel = Math.max(1, (+t.vel || 30) * val); });
+    let pt; ctx.log((o.par === 'm' ? 'Vehículos' : 'Valor') + ' = ' + val + '…');
+    try { const { I } = Variantes.construir(d.variante, S0, p); const r = await Vrp.vrp(I, ctx, { tiempo: o.tiempo, brecha: 1e-6, metodo: o.metodo });
+      const ok = r.rutas && r.rutas.length; pt = { valor: val, objetivo: ok ? r.objetivo : null, total: ok ? r.total : null, rutas: ok ? r.rutas.length : 0, gap: ok ? (String(r.estado).startsWith('óptimo') ? 0 : r.gap ?? null) : null, estado: String(r.estado || '') };
+    } catch (err) { pt = { valor: val, objetivo: null, rutas: 0, gap: null, estado: 'error: ' + (err && err.message || err) }; }
+    puntos.push(pt); postMessage({ tipo: 'sens', punto: pt });
+    if (detenido) { paro = true; break; }
+  }
+  return { puntos, detenido: paro };
+}
+
 onmessage = async (e) => {
   const d = e.data;
   try {
@@ -127,7 +146,7 @@ onmessage = async (e) => {
       }
       postMessage({ tipo: 'listo', motor, detalle: detalleWasm });
     } else if (d.tipo === 'resolver') {
-      detenido = false; corrida = { t0: performance.now() };
+      detenido = false; corrida = { t0: performance.now() }; idCorrida = String(d.idCorrida || '');
       const ctx = { log: (s) => postMessage({ tipo: 'log', s }), solve: resolverLP, detenido: () => detenido };
       let res;
       switch (d.kind) {
@@ -145,6 +164,7 @@ onmessage = async (e) => {
         case 'cvrp': res = await Solver.cvrp(d.D, ctx, d.opt); break;
         case 'libre': res = await Solver.modeloLibre(d.lp, ctx, d.opt); break;
         case 'vrp': res = await correrVrp(d, ctx); break;
+        case 'sens': res = await correrSens(d, ctx); break;
         default: throw new Error('Problema desconocido: ' + d.kind);
       }
       postMessage({ tipo: 'fin', id: d.id, res });

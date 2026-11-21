@@ -5,25 +5,33 @@ const { spawnSync, spawn } = require('child_process'); const path = require('pat
 const APP = path.join(__dirname, '..');
 const dir = __dirname, URL = 'http://127.0.0.1:8765/';
 const PRUEBAS = [
-  ['validación de las 27 variantes contra GAMS', ['validar_gams.js']],
+  ['validación de las 27 variantes base contra los modelos GAMS escritos a mano', ['validar_gams.js']],
+  ['el código GAMS exportado (34 variantes) compila y da el mismo óptimo', ['validar_export_gams.js']],
+  ['heurísticas consistentes con el modelo exacto (34 variantes)', ['prueba_heur.js']],
   ['solver: Cali TSP, m-TSP, camino', ['prueba_solver.js']],
   ['flota (balanceada, ventanas, mixta)', ['prueba_flota.js']],
   ['m-TSP con MTZ (ecuaciones del curso)', ['prueba_mtz.js']],
   ['modelo libre y nuevos problemas', ['prueba_nuevos.js']],
   ['interfaz: métodos, MinVeh, SDVRP, comparación', ['e2e_vrp.js', URL]],
   ['interfaz: parar y progreso en vivo', ['e2e_parar.js', URL]],
+  ['interfaz: simulación, gráficas, sensibilidad, variantes nuevas', ['e2e_graficas.js', URL]],
+  ['caos: 300 acciones al azar (semilla 11)', ['caos.js', URL, '300', '11']],
+  ['caos: 300 acciones al azar (semilla 12)', ['caos.js', URL, '300', '12']],
 ];
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const arriba = async () => { try { return (await fetch(URL + 'api/identidad')).ok; } catch (e) { return false; } };
 (async () => {
 let malas = 0;
-// 1) servidor para las pruebas de interfaz (latido largo: no se cierra entre pruebas)
+// 1) servidor para las pruebas de interfaz (latido largo: no se cierra entre pruebas). Se arranca justo antes de la primera
+//    prueba que lo necesita: si nadie se conecta en 5 minutos, el servidor se apaga solo (así funciona el «un clic»).
 let servidor = null;
-if (!(await arriba())) {
+const asegurarServidor = async () => {
+  if (await arriba()) return;
   servidor = spawn('python3', [path.join(APP, 'ejecutar_app.py')], { cwd: APP, env: Object.assign({}, process.env, { SIN_NAVEGADOR: '1', LATIDO_SEG: '900' }), stdio: 'ignore' });
-  for (let i = 0; i < 40 && !(await arriba()); i++) await esperar(250);
-}
+  for (let i = 0; i < 60 && !(await arriba()); i++) await esperar(250);
+};
 for (const [nombre, args] of PRUEBAS) {
+  if (args.includes(URL)) await asegurarServidor();
   const r = spawnSync('node', [path.join(dir, args[0]), ...args.slice(1)], { encoding: 'utf8', timeout: 1800000, maxBuffer: 1 << 26 });
   const ok = r.status === 0; if (!ok) malas++;
   console.log(`${ok ? 'PASA ' : 'FALLA'} (código ${r.status})  ${nombre}`);

@@ -138,7 +138,7 @@
       <label class="check"><input type="checkbox" id="hDir" ${ds.dirigido ? 'checked' : ''}> Aristas dirigidas (con flecha)</label>
       <label class="check"><input type="checkbox" id="hVer" ${(S.mostrarAristas ?? (!ds.completo && ds.nodos.length > 0)) ? 'checked' : ''}> Mostrar las aristas en el mapa</label>`;
     c.querySelectorAll('[data-m]').forEach((b) => (b.onclick = () => { const m = b.dataset.m; if (m === 'mover') { Mapa.setEditar(!Mapa.editar); App.actualizarHerramientas(); chip(Mapa.editar ? 'Arrastre los nodos para moverlos' : S.ds.subtitulo || S.ds.titulo); } else App.modoActivar(m); }));
-    $('hDist').onchange = (e) => { ds.modoDist = e.target.value; Datos.guardar(ds); }; $('hFactor').onchange = (e) => { ds.factor = +e.target.value || 1; S.factor = ds.factor; Datos.guardar(ds); };
+    $('hDist').onchange = (e) => { ds.modoDist = e.target.value; Datos.guardar(ds); }; $('hFactor').onchange = (e) => { ds.factor = App.num(e.target.value, 1, 0.01, 100); e.target.value = ds.factor; S.factor = ds.factor; Datos.guardar(ds); };
     $('hAuto').onchange = (e) => (S.autoConectar = e.target.checked); $('hDir').onchange = (e) => { ds.dirigido = e.target.checked; Datos.guardar(ds); App.pintarAristas(); }; $('hVer').onchange = (e) => { S.mostrarAristas = e.target.checked; App.pintarAristas(); };
   };
 
@@ -167,11 +167,11 @@
     const n = nodo(i);
     if (f === 'nombre') n.nombre = v;
     else if (f === 'tipo') { n.tipo = v === 'dc' ? 'dc' : 'cliente'; Mapa.montar(S.ds, App.callbacksMapa); App.llenarSelects(); }
-    else if (['rec', 'premio', 'costoApertura'].includes(f)) { const x = Number(String(v).replace(',', '.')); n[f] = isFinite(x) && x > 0 ? x : 0; Datos.guardar(S.ds); App.limpiarResultado(); return; }
+    else if (['rec', 'premio', 'costoApertura'].includes(f)) { n[f] = App.num(v, 0, 0, 1e12); inp.value = n[f]; Datos.guardar(S.ds); App.limpiarResultado(); return; }
     else if (f === 'par') { n.par = String(v).trim(); Datos.guardar(S.ds); App.limpiarResultado(); return; }
     else if (f === 'vtOn') { n.vtOn = !!v; Datos.guardar(S.ds); return App.renderPanel(); }
     else if (f === 'vtA' || f === 'vtB') { n[f] = App.horas(v); if (n.vtB < n.vtA) { n.vtB = n.vtA; } Datos.guardar(S.ds); return App.renderPanel(); }
-    else if (f === 'peso') { const x = Number(String(v).replace(',', '.')); if (!(x > 0)) { inp.value = n.peso; return; } n.peso = x; Datos.guardar(S.ds); App.limpiarResultado(); return; }
+    else if (f === 'peso') { const x = App.num(v, NaN, 0, 1e9); if (!(x > 0)) { inp.value = n.peso; return; } n.peso = x; Datos.guardar(S.ds); App.limpiarResultado(); return; }
     else { const x = Number(String(v).replace(',', '.')); if (!isFinite(x) || (f === 'lat' && Math.abs(x) > 90) || (f === 'lon' && Math.abs(x) > 180)) { inp.value = n[f]; return; } n[f] = x; }
     Datos.guardar(S.ds); Mapa.actualizarNodo(i); App.llenarSelects(); App.pintarAristas();
     if (f === 'lat' || f === 'lon') { if (n.tipo === 'dc') return colocarDc(n.lat, n.lon, i); S.sucio = 'la posición de un nodo'; App.renderPanel(); }
@@ -198,15 +198,15 @@
     $('aFiltro').onchange = (e) => { S.filtroArista = e.target.value; App.renderPanel(); };
     $('aAdd').onclick = async () => {
       const a = +$('aDe').value, b = +$('aA').value; if (a === b) return chip('Elija dos nodos distintos');
-      let c = $('aC').value.trim() === '' ? null : Number($('aC').value.replace(',', '.')); let via = '';
+      let c = $('aC').value.trim() === '' ? null : App.num($('aC').value, NaN, 0, 1e12); let via = ''; if (Number.isNaN(c)) return chip('Costo inválido: escriba un número mayor o igual a 0, o déjelo vacío para calcularlo');
       if (c === null) { const r = await distancias([[nodo(a).lat, nodo(a).lon]], [[nodo(b).lat, nodo(b).lon]]); c = +r.D[0][0].toFixed(4); via = aviso(r.via); }
-      const k = $('aK').value.trim() === '' ? INF : Number($('aK').value.replace(',', '.')); Datos.ponerArista(ds, a, b, c, isFinite(k) ? k : (ds.cap ? INF : undefined)); huboCambio(); chip(`Arista ${corto(a)}–${corto(b)}: ${fmt(c)}${via}`);
+      const k = $('aK').value.trim() === '' ? INF : App.num($('aK').value, INF, 0, 1e12); Datos.ponerArista(ds, a, b, c, isFinite(k) ? k : (ds.cap ? INF : undefined)); huboCambio(); chip(`Arista ${corto(a)}–${corto(b)}: ${fmt(c)}${via}`);
     };
     $('aTodas').onclick = async () => { chip('Conectando todos con todos…'); const pts = ds.nodos.map((x) => [x.lat, x.lon]), r = await distancias(pts, pts); r.D.forEach((f, i) => f.forEach((v, j) => { if (i !== j) ds.D[i][j] = +v.toFixed(4); })); huboCambio(); chip('Grafo completo' + aviso(r.via)); };
     $('aNinguna').onclick = () => { ds.D.forEach((f, i) => f.forEach((_, j) => (f[j] = INF))); if (ds.cap) ds.cap.forEach((f, i) => f.forEach((_, j) => (f[j] = INF))); huboCambio(); };
     el.querySelectorAll('input[data-f]').forEach((inp) => (inp.onchange = () => {
       const i = +inp.dataset.i, j = +inp.dataset.j;
-      if (inp.dataset.f === 'w') { const v = Number(inp.value.replace(',', '.')); if (!(v > 0)) { inp.value = ds.pesoArista ? ds.pesoArista[i][j] : 1; return; } Datos.ponerPesoArista(ds, i, j, v); Datos.guardar(ds); App.limpiarResultado(); return; }
+      if (inp.dataset.f === 'w') { const v = App.num(inp.value, NaN, 0, 1e9); if (!(v > 0)) { inp.value = ds.pesoArista ? ds.pesoArista[i][j] : 1; return; } Datos.ponerPesoArista(ds, i, j, v); Datos.guardar(ds); App.limpiarResultado(); return; }
       if (inp.dataset.f === 'c') { const v = Number(inp.value.replace(',', '.')); if (!isFinite(v) || v < 0) { inp.value = ds.D[i][j]; return; } Datos.ponerArista(ds, i, j, v); }
       else { const v = inp.value.trim() === '' ? INF : Number(inp.value.replace(',', '.')); if (isNaN(v) || v < 0) { inp.value = ''; return; } Datos.ponerArista(ds, i, j, ds.D[i][j], v); }
       Datos.guardar(ds); App.limpiarResultado();
@@ -216,13 +216,18 @@
 
   /* ---------- panel Matriz ---------- */
   function pMatriz(el) {
-    const ds = S.ds;
+    const ds = S.ds, n = ds.nodos.length, B = 40;   // con muchos nodos se edita por bloques de 40 × 40 (dibujar n² celdas congelaría la página)
+    const nb = Math.ceil(n / B), bf = Math.min(S.bloqF || 0, Math.max(0, nb - 1)), bc = Math.min(S.bloqC || 0, Math.max(0, nb - 1));
+    const rango = (b) => Array.from({ length: Math.min(B, n - b * B) }, (_, q) => b * B + q), filas = rango(bf), cols = rango(bc);
+    const opB = (sel) => Array.from({ length: nb }, (_, b) => `<option value="${b}" ${b === sel ? 'selected' : ''}>${esc(String(ds.nodos[b * B].tipo === 'dc' ? 'CD' : ds.nodos[b * B].id))} … ${esc(String(ds.nodos[Math.min(n, (b + 1) * B) - 1].tipo === 'dc' ? 'CD' : ds.nodos[Math.min(n, (b + 1) * B) - 1].id))}</option>`).join('');
+    const bloques = nb > 1 ? `<div class="fila"><label class="campo">Filas (nodos)<select id="mBf">${opB(bf)}</select></label><label class="campo">Columnas (nodos)<select id="mBc">${opB(bc)}</select></label></div><p class="nota">Matriz de ${n} × ${n}: se muestra un bloque de ${B} × ${B}. Para editarla completa, exporte a Excel, edítela e impórtela.</p>` : '';
     const orig = ds.parcial ? '<option value="original">Carretera (datos originales del parcial)</option>' : '';
-    el.innerHTML = `<div class="fila"><label class="campo" style="flex-basis:100%">Tipo de matriz de distancias<select id="tipoMatriz"><option value="euclidiana" ${ds.modoDist !== 'carretera' ? 'selected' : ''}>Euclidiana (km sobre el plano de las coordenadas)</option>${orig}<option value="carretera" ${ds.modoDist === 'carretera' ? 'selected' : ''}>Por carretera (OSRM, requiere internet)</option></select></label></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><label class="check" style="flex:none"><input type="checkbox" id="chkSim" ${S.simetrica !== false ? 'checked' : ''}> Mantener simétrica</label><span class="nota">Edite una celda; <b>#</b> = no hay arco.</span></div><div class="matriz-wrap"><table class="matriz"><tr><th></th>${ds.nodos.map((x) => `<th title="${esc(x.nombre)}">${esc(x.tipo === 'dc' ? 'CD' : x.id)}</th>`).join('')}</tr>${ds.D.map((f, i) => `<tr><td title="${esc(ds.nodos[i].nombre)}">${esc(ds.nodos[i].tipo === 'dc' ? 'CD' : ds.nodos[i].id)}</td>${f.map((v, j) => (i === j ? '<td class="diag"></td>' : `<td><input data-i="${i}" data-j="${j}" value="${isFinite(v) ? v : '#'}" inputmode="decimal"></td>`)).join('')}</tr>`).join('')}</table></div>`;
+    el.innerHTML = `<div class="fila"><label class="campo" style="flex-basis:100%">Tipo de matriz de distancias<select id="tipoMatriz"><option value="euclidiana" ${ds.modoDist !== 'carretera' ? 'selected' : ''}>Euclidiana (km sobre el plano de las coordenadas)</option>${orig}<option value="carretera" ${ds.modoDist === 'carretera' ? 'selected' : ''}>Por carretera (OSRM, requiere internet)</option></select></label></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><label class="check" style="flex:none"><input type="checkbox" id="chkSim" ${S.simetrica !== false ? 'checked' : ''}> Mantener simétrica</label><span class="nota">Edite una celda; <b>#</b> = no hay arco.</span></div>${bloques}<div class="matriz-wrap"><table class="matriz"><tr><th></th>${cols.map((j) => `<th title="${esc(ds.nodos[j].nombre)}">${esc(ds.nodos[j].tipo === 'dc' ? 'CD' : ds.nodos[j].id)}</th>`).join('')}</tr>${filas.map((i) => `<tr><td title="${esc(ds.nodos[i].nombre)}">${esc(ds.nodos[i].tipo === 'dc' ? 'CD' : ds.nodos[i].id)}</td>${cols.map((j) => { const v = ds.D[i][j]; return i === j ? '<td class="diag"></td>' : `<td><input data-i="${i}" data-j="${j}" value="${isFinite(v) ? +(+v).toFixed(4) : '#'}" inputmode="decimal"></td>`; }).join('')}</tr>`).join('')}</table></div>`;
     $('tipoMatriz').onchange = (e) => { const v = e.target.value; if (v === 'original') { ds.D = Datos.aInf(ds.original.D); ds.modoDist = 'carretera'; Datos.guardar(ds); App.huboCambio(); chip('Matriz original por carretera restaurada'); } else recalcularTodo(v); };
     $('chkSim').onchange = (e) => (S.simetrica = e.target.checked);
+    if ($('mBf')) { $('mBf').onchange = (e) => { S.bloqF = +e.target.value; App.renderPanel(); }; $('mBc').onchange = (e) => { S.bloqC = +e.target.value; App.renderPanel(); }; }
     el.querySelectorAll('input[data-i]').forEach((inp) => (inp.onchange = () => {
-      const i = +inp.dataset.i, j = +inp.dataset.j, v = Datos.num(inp.value); inp.value = isFinite(v) ? v : '#'; ds.D[i][j] = v;
+      const i = +inp.dataset.i, j = +inp.dataset.j, v0 = Datos.num(inp.value), v = v0 < 0 ? INF : v0; if (v0 < 0) chip('Las distancias no pueden ser negativas: la celda quedó sin conexión (#)'); inp.value = isFinite(v) ? v : '#'; ds.D[i][j] = v;
       if (S.simetrica !== false) { ds.D[j][i] = v; const o = el.querySelector(`input[data-i="${j}"][data-j="${i}"]`); if (o) o.value = inp.value; }
       Datos.guardar(ds); S.res = null; Mapa.limpiarRutas(); App.pintarAristas(); chip('Matriz editada: vuelva a resolver');
     }));

@@ -13,8 +13,10 @@
   const idx = (v) => S.ds.nodos.findIndex((n) => String(n.id) === String(v));
   const reducir = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const chip = (t) => { $('chipMapa').textContent = t; };
+  /* lector numérico seguro: acepta coma decimal, rechaza vacío/NaN/±∞ (devuelve def) y acota a [min, max] */
+  const num = (x, def = 0, min = -Infinity, max = Infinity) => { const t = String(x ?? '').trim().replace(',', '.'); if (t === '') return def; const v = Number(t); return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : def; };
 
-  const App = window.App = { S, $, esc, fmt, nodo, etq, corto, idx, chip, COL, paneles: [], reducir };
+  const App = window.App = { S, $, esc, fmt, nodo, etq, corto, idx, chip, COL, paneles: [], reducir, num };
 
   /* ================= control segmentado con indicador deslizante ================= */
   App.indicador = (nav) => { const sel = nav.querySelector('[aria-selected="true"]'), ind = nav.querySelector('.ind'); if (!sel || !ind) return; ind.style.width = sel.offsetWidth + 'px'; ind.style.transform = `translateX(${sel.offsetLeft}px)`; };
@@ -26,7 +28,10 @@
   /* ================= tema ================= */
   const tema = (t) => { if (t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('parcial-grafos:tema', t); } catch (e) { /* */ } } };
   try { tema(localStorage.getItem('parcial-grafos:tema')); } catch (e) { /* */ }
-  $('bTema').onclick = () => { const o = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; tema(o ? 'light' : 'dark'); };
+  /* al cambiar de tema, los colores de las rutas cambian a su variante para fondo oscuro/claro y se redibuja el resultado */
+  const repintarTema = () => { Mapa.temaColores(); if (S.res && S.res.ds === S.clave && App.dibujarResultado && S.res.kind !== 'ubicar') App.dibujarResultado(); if (App.renderPanel && S.ds) App.renderPanel(); };
+  $('bTema').onclick = () => { const o = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; tema(o ? 'light' : 'dark'); repintarTema(); };
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!document.documentElement.dataset.theme) repintarTema(); }); } catch (e) { /* navegador antiguo */ }
 
   /* ================= hoja modal y menú ================= */
   App.hoja = (html, alAccion) => {
@@ -45,6 +50,14 @@
   App.cerrarMenu = () => $('menuExp').classList.remove('abierto');
   document.addEventListener('click', (e) => { if (!e.target.closest('#menuExp') && !e.target.closest('[data-menu]')) App.cerrarMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { App.cerrarHoja(); App.cerrarMenu(); App.cancelarModo && App.cancelarModo(); } });
+  /* atajos: Ctrl/⌘+Enter resuelve; Espacio reproduce o pausa la simulación; ? muestra los atajos */
+  const escribiendo = (el) => el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); const b = $('bResolver'); if (b && !b.disabled) b.click(); return; }
+    if (escribiendo(e.target) || $('velo').classList.contains('abierto')) return;
+    if (e.key === ' ' && !/^(BUTTON|A)$/.test(e.target.tagName) && window.Sim && Sim.rutas.length) { e.preventDefault(); Sim.reproduciendo ? Sim.parar() : Sim.play(); }
+    else if (e.key === '?') App.hoja(`<h3>Atajos de teclado</h3><table><tr><td><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td><td>Resolver el problema elegido</td></tr><tr><td><kbd>Espacio</kbd></td><td>Reproducir o pausar la simulación de los vehículos</td></tr><tr><td><kbd>Esc</kbd></td><td>Cerrar ventanas y menús, salir de una herramienta</td></tr><tr><td><kbd>?</kbd></td><td>Mostrar esta ayuda</td></tr></table><p class="nota" style="margin-top:12px">Parcial de Grafos · Juan Sebastián Salas Lugo y Alejandro Álvarez Torres · Distribución y Transporte, Universidad Tecnológica de Bolívar.</p><div class="acc"><button class="btn" data-x="c">Entendido</button></div>`, () => App.cerrarHoja());
+  });
 
   /* ================= solver (worker) ================= */
   const pill = (estado, texto) => { const p = $('pMotor'); p.className = 'pill ' + estado; p.querySelector('span').textContent = texto; };
@@ -60,6 +73,7 @@
         if (!d.motor) ofrecerInstalar(d.detalle);
       } else if (d.tipo === 'log') logLinea(d.s);
       else if (d.tipo === 'progreso') progresoVivo(d);
+      else if (d.tipo === 'sens') { if (App.sensPunto) App.sensPunto(d.punto); }
       else if (d.tipo === 'fin') terminar(d.res);
       else if (d.tipo === 'error') terminarError(d.msg);
     };
@@ -79,11 +93,23 @@
       });
   }
   function progresoVivo(d) {
-    const v = S.vivo || (S.vivo = {}); if (d.mejor != null) v.mejor = d.mejor; if (d.cota != null && isFinite(d.cota)) v.cota = Math.max(v.cota ?? -Infinity, d.cota);
+    const v = S.vivo || (S.vivo = {}); if (d.mejor != null && isFinite(d.mejor)) v.mejor = v.mejor == null ? d.mejor : Math.min(v.mejor, d.mejor); if (d.cota != null && isFinite(d.cota)) v.cota = Math.max(v.cota ?? -Infinity, d.cota);
+    if (v.cota != null && v.mejor != null && v.cota > v.mejor) v.cota = v.mejor;
+    if (!v.hist) v.hist = []; const ht = +(d.t || 0); if (v.hist.length < 4000 && (v.mejor != null || v.cota != null)) { const u = v.hist[v.hist.length - 1]; if (!u || u.mejor !== v.mejor || u.cota !== v.cota) v.hist.push({ t: ht, mejor: v.mejor ?? null, cota: v.cota ?? null }); }
     const gap = v.mejor != null && v.cota != null ? Math.max(0, (v.mejor - v.cota) / Math.max(Math.abs(v.mejor), 1e-9)) : null, el = $('vivo'); if (!el) return;
     const pct = gap == null ? 0 : Math.max(2, Math.min(100, (1 - gap) * 100)), u = S.ds ? S.ds.unidad : '';
-    el.innerHTML = `<div class="vivo-g"><div><b class="tabular">${v.mejor == null ? '—' : fmt(v.mejor, 1) + ' ' + u}</b><span>mejor solución</span></div><div><b class="tabular">${v.cota == null ? '—' : fmt(v.cota, 1) + ' ' + u}</b><span>mejor cota (límite teórico)</span></div><div><b class="tabular">${gap == null ? '—' : (gap * 100).toFixed(2) + ' %'}</b><span>brecha al óptimo</span></div><div><b class="tabular">${fmt(d.t || 0, 0)} s</b><span>transcurrido</span></div></div>
-      <div class="gapbar" title="Qué tan cerca está la mejor solución del óptimo"><i style="width:${pct}%"></i></div><div class="nota">${v.mejor == null ? 'Buscando una primera solución…' : gap != null && gap < 1e-4 ? 'Óptimo alcanzado' : 'Cuando la brecha llega a 0 % la solución es óptima probada. Puede parar cuando quiera.'}</div>`;
+    el.innerHTML = `<div class="vivo-g"><div><b class="tabular">${v.mejor == null ? '—' : fmt(v.mejor, 1) + ' ' + u}</b><span>mejor solución</span></div><div><b class="tabular">${v.cota == null ? '—' : fmt(v.cota, 1) + ' ' + u}</b><span>mejor cota (límite teórico)</span></div><div><b class="tabular">${gap == null ? '—' : fmt(gap * 100, 2) + ' %'}</b><span>brecha al óptimo</span></div><div><b class="tabular">${fmt(d.t || 0, 0)} s</b><span>transcurrido</span></div></div>
+      <div class="gapbar" title="Qué tan cerca está la mejor solución del óptimo"><i style="width:${pct}%"></i></div>${miniConv(v.hist)}<div class="nota">${v.mejor == null ? 'Buscando una primera solución…' : gap != null && gap < 1e-4 ? 'Óptimo alcanzado' : 'Cuando la brecha llega a 0 % la solución es óptima probada. Puede parar cuando quiera.'}</div>`;
+  }
+  /* mini gráfica en vivo: mejor solución (azul) y cota (naranja) en el tiempo */
+  function miniConv(hist) {
+    if (!hist || hist.length < 2) return '';
+    const W = 300, H = 56, ts = hist.map((p) => p.t), ys = hist.flatMap((p) => [p.mejor, p.cota]).filter((y) => y != null && isFinite(y)); if (ys.length < 2) return '';
+    const fin = hist[hist.length - 1], ref = fin.mejor ?? Math.max(...ys);   // la primera solución suele ser muy mala: se recorta para que no aplaste la escala
+    const t0 = Math.min(...ts), t1 = Math.max(...ts), y0 = Math.min(...ys), y1 = Math.min(Math.max(...ys), ref + 1.5 * (ref - y0)), sx = t1 - t0 > 0 ? t1 - t0 : 1, sy = y1 - y0 > Math.abs(y0) * 1e-9 ? y1 - y0 : Math.max(1, Math.abs(y0) * 1e-6);   // escalas nunca nulas (valores iguales o enormes)
+    const X = (t) => 2 + (t - t0) / sx * (W - 4), Y = (y) => 4 + (1 - (Math.min(y, y0 + sy) - y0) / sy) * (H - 8);
+    const linea = (k) => { let d = ''; hist.forEach((p) => { if (p[k] == null || !isFinite(p[k])) return; d += (d ? ` H${X(p.t).toFixed(1)} V${Y(p[k]).toFixed(1)}` : `M${X(p.t).toFixed(1)} ${Y(p[k]).toFixed(1)}`); }); return d ? d + ` H${W - 2}` : ''; };
+    return `<svg class="miniconv" viewBox="0 0 ${W} ${H}" aria-label="Evolución de la mejor solución y de la cota"><path d="${linea('mejor')}" style="stroke:var(--viz-s1)"/><path d="${linea('cota')}" class="punteada" style="stroke:var(--viz-s2)"/></svg><div class="leyenda-g" style="margin:0 0 4px"><span><i class="linea" style="background:var(--viz-s1)"></i>mejor solución</span><span><i class="linea punteada" style="background:var(--viz-s2)"></i>cota</span></div>`;
   }
   const logLinea = (s) => { const l = $('log'); l.classList.remove('oculto'); l.textContent += s + '\n'; l.scrollTop = 1e9; };
   App.log = logLinea;
@@ -94,16 +120,19 @@
     if (S.corriendo) return;
     if (!S.motor) { if (S.worker) ofrecerInstalar(''); return; }
     $('log').textContent = ''; $('log').classList.remove('oculto'); App.ocupado(true); S.vivo = { mejor: null, cota: null };
-    try { await fetch('/api/parar', { method: 'POST', body: JSON.stringify({ on: false }) }); } catch (e) { /* sin servidor */ }
-    S.corrId++; S.pendiente = { kind, opt, titulo, extra: extra || {}, t0: performance.now() }; if (extra && extra.notas) extra.notas.forEach((n) => logLinea('ℹ ' + n));
-    S.worker.postMessage(Object.assign({ tipo: 'resolver', id: S.corrId, kind, D: S.ds.D, cap: S.ds.cap, opt }, datos || {}));
+    S.idCorrida = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);   // la orden de parar es solo para esta corrida (otras pestañas no interfieren)
+    S.corrId++; S.pendiente = { kind, opt, titulo, extra: extra || {}, t0: performance.now(), ds: S.clave }; if (extra && extra.notas) extra.notas.forEach((n) => logLinea('ℹ ' + n));
+    S.worker.postMessage(Object.assign({ tipo: 'resolver', id: S.corrId, idCorrida: S.idCorrida, kind, D: S.ds.D, cap: S.ds.cap, opt }, datos || {}));
   };
   function terminarError(msg) { App.ocupado(false); logLinea('Error: ' + msg); S.res = null; App.renderPanel(); }
   async function terminar(res) {
     App.ocupado(false); const p = S.pendiente; if (!p) return;
     if (p.extra && p.extra.cd && App.resultadoCd) { $('log').classList.add('oculto'); await App.resultadoCd(p, res); return; }
-    S.res = { kind: p.kind, opt: p.opt, titulo: p.titulo, res, extra: p.extra, ds: S.clave }; S.rutaSel = 0; S.celda = null;
-    $('log').classList.add('oculto'); App.setPanel('resultado');
+    if (p.extra && p.extra.sens) { $('log').classList.add('oculto'); if (App.sensFin) App.sensFin(res); return; }
+    S.res = { kind: p.kind, opt: p.opt, titulo: p.titulo, res, extra: p.extra, ds: p.ds || S.clave, hist: S.vivo && S.vivo.hist ? S.vivo.hist.slice() : [] }; S.rutaSel = 0; S.celda = null;
+    if (S.res.ds !== S.clave) { S.res = null; $('log').classList.add('oculto'); chip('La corrida terminó, pero usted cambió de proyecto: vuelva a resolver en este proyecto'); return; }   // el resultado ya no corresponde
+    if (App.registrarCorrida) App.registrarCorrida(S.res);
+    $('log').classList.add('oculto'); S.animarKpi = true; App.setPanel('resultado');
     if (p.kind === 'ubicar') { App.dibujarUbicarNodos(); return; }
     await dibujarResultado();
   }
@@ -111,7 +140,7 @@
   /* ================= tarjeta Problema ================= */
   const PROBLEMAS = [
     ['Rutas', [['tsp', 'TSP · un viajante (pesos = 1)'], ['mtsp', 'm-TSP · flota, pesos, balance y ventanas']]],
-    ['VRP · 27 variantes', [['vrp', 'VRP · 27 variantes con modelo matemático (óptimo)']]],
+    ['VRP · 34 variantes', [['vrp', 'VRP · 34 variantes con modelo matemático (óptimo)']]],
     ['Caminos y árboles', [['camino', 'Camino mínimo (origen → destino)'], ['desde', 'Caminos mínimos desde un origen'], ['arbol', 'Árbol de valor mínimo']]],
     ['Flujos y recorridos', [['flujomax', 'Flujo máximo'], ['flujocosto', 'Flujo de costo mínimo'], ['cartero', 'Cartero chino (recorrer todas las aristas)']]],
     ['Localización en los nodos', [['pmediana', 'p-mediana'], ['pcentro', 'p-centro'], ['cobertura', 'Cobertura de conjuntos']]],
@@ -156,10 +185,10 @@
       <p class="nota" id="ayudaProb" style="margin:0 0 10px"></p>
       <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn sec" id="bParar" disabled title="Detiene la búsqueda y muestra la mejor solución hallada, con su brecha">Parar y ver lo mejor</button><button class="btn gris" id="bDetener" disabled title="Cancela sin resultado">Cancelar</button></div>
       <div class="vivo oculto" id="vivo"></div><div class="barra-prog oculto" id="prog"><i></i></div><div class="log oculto" id="log"></div>`;
-    $('problema').onchange = App.camposProblema; $('modo').onchange = App.camposProblema; $('metodo').onchange = (e) => { S.ds.metodo = e.target.value; Datos.guardar(S.ds); }; $('balanceado').onchange = (e) => { S.ds.balanceado = e.target.checked; Datos.guardar(S.ds); App.camposProblema(); }; $('vtUsar').onchange = (e) => { S.ds.vt.usar = e.target.checked; Datos.guardar(S.ds); if (S.panel === 'nodos') App.renderPanel(); }; $('vtIni').onchange = (e) => { S.ds.vt.inicio = App.horas(e.target.value); Datos.guardar(S.ds); }; $('vtServ').onchange = (e) => { S.ds.vt.servicio = Math.max(0, +e.target.value || 0); Datos.guardar(S.ds); }; $('origen').onchange = App.pintarSeleccion; $('destino').onchange = App.pintarSeleccion;
+    $('problema').onchange = App.camposProblema; $('modo').onchange = App.camposProblema; $('metodo').onchange = (e) => { S.ds.metodo = e.target.value; Datos.guardar(S.ds); }; $('balanceado').onchange = (e) => { S.ds.balanceado = e.target.checked; Datos.guardar(S.ds); App.camposProblema(); }; $('vtUsar').onchange = (e) => { S.ds.vt.usar = e.target.checked; Datos.guardar(S.ds); if (S.panel === 'nodos') App.renderPanel(); }; $('vtIni').onchange = (e) => { S.ds.vt.inicio = App.horas(e.target.value); Datos.guardar(S.ds); }; $('vtServ').onchange = (e) => { S.ds.vt.servicio = num(e.target.value, 10, 0, 1440); e.target.value = S.ds.vt.servicio; Datos.guardar(S.ds); }; $('origen').onchange = App.pintarSeleccion; $('destino').onchange = App.pintarSeleccion;
     $('bResolver').onclick = () => { const p = parametros(); if (p) App.lanzar(p.kind, p.opt, p.titulo, p.extra, p.datos); };
     $('bDetener').onclick = () => { if (!S.corriendo) return; App.ocupado(false); logLinea('Cancelado por el usuario.'); App.crearWorker(); };
-    $('bParar').onclick = async () => { if (!S.corriendo) return; $('bParar').disabled = true; $('bParar').textContent = 'Deteniendo…'; logLinea('Parada solicitada: se cierra la fase de cálculo en curso y se muestra la mejor solución.'); try { await fetch('/api/parar', { method: 'POST', body: JSON.stringify({ on: true }) }); } catch (e) { /* sin servidor */ } };
+    $('bParar').onclick = async () => { if (!S.corriendo) return; $('bParar').disabled = true; $('bParar').textContent = 'Deteniendo…'; logLinea('Parada solicitada: se cierra la fase de cálculo en curso y se muestra la mejor solución.'); try { await fetch('/api/parar', { method: 'POST', body: JSON.stringify({ on: true, id: S.idCorrida }) }); } catch (e) { /* sin servidor */ } };
   }
   App.llenarSelects = () => {
     const opts = S.ds.nodos.map((n, i) => `<option value="${i}">${esc(etq(i))}</option>`).join('');
@@ -184,7 +213,8 @@
     const f = S.ds.flota, c = $('flotaTabla');
     c.innerHTML = `<table class="flota"><tr><th>Tipo</th><th>Cant.</th><th>Capac.</th><th>Costo/km</th><th>km/h</th></tr>` + f.map((t, i) => `<tr><td><input data-i="${i}" data-f="tipo" value="${esc(t.tipo)}"></td><td><input data-i="${i}" data-f="n" type="number" min="0" max="20" value="${t.n}"></td><td><input data-i="${i}" data-f="cap" type="number" min="0" value="${t.cap}"></td><td><input data-i="${i}" data-f="costoKm" type="number" min="0" step="0.1" value="${t.costoKm}"></td><td><input data-i="${i}" data-f="vel" type="number" min="1" value="${t.vel}"></td></tr>`).join('') + `</table><div class="nota" id="flotaTot"></div>`;
     const tot = () => { const n = f.reduce((a, t) => a + (+t.n || 0), 0); $('flotaTot').textContent = `${n} vehículo(s) en total · capacidad 0 = sin límite`; }; tot();
-    c.querySelectorAll('input').forEach((i) => (i.onchange = () => { const t = f[+i.dataset.i], k = i.dataset.f; t[k] = k === 'tipo' ? i.value : Math.max(0, +i.value || 0); Datos.guardar(S.ds); tot(); }));
+    const LIM = { n: [0, 0, 20], cap: [0, 0, 1e9], costoKm: [1, 0, 1e6], vel: [30, 1, 1e4] };
+    c.querySelectorAll('input').forEach((i) => (i.onchange = () => { const t = f[+i.dataset.i], k = i.dataset.f; if (k === 'tipo') t[k] = i.value.slice(0, 60) || 'vehículo'; else { const [d, a, b] = LIM[k]; t[k] = num(i.value, d, a, b); if (k === 'n') t[k] = Math.round(t[k]); i.value = t[k]; } Datos.guardar(S.ds); tot(); }));
   };
   App.pintarSeleccion = () => {
     const o = +$('origen').value, d = +$('destino').value, usa = !$('fDestino').classList.contains('oculto');
@@ -195,7 +225,7 @@
   const distCompletas = () => { const D = S.ds.D, n = D.length, big = 1e6; return D.map((f, i) => f.map((v, j) => (i === j ? 0 : (isFinite(v) ? v : big)))); };
   function parametros() {
     if ($('problema').value === 'vrp') return window.VrpUi.parametros();
-    const p = $('problema').value, o = +$('origen').value, d = +$('destino').value, n = S.ds.nodos.length, tiempo = $('sinLimite') && $('sinLimite').checked ? 1e9 : Math.max(5, +$('tiempo').value || 120);
+    const p = $('problema').value, o = +$('origen').value, d = +$('destino').value, n = S.ds.nodos.length, tiempo = $('sinLimite') && $('sinLimite').checked ? 1e9 : num($('tiempo').value, 120, 5, 1e7);
     const ds = S.ds;
     if (n < 2) return aviso('Agregue nodos primero (herramienta «Agregar nodos» o pestaña Nodos).');
     if (p === 'tsp') {
@@ -207,7 +237,7 @@
       const veh = ds.flota.flatMap((t) => Array.from({ length: Math.round(+t.n || 0) }, () => ({ tipo: t.tipo, cap: t.cap > 0 ? +t.cap : Infinity, costoKm: +t.costoKm || 1, vel: +t.vel || 30, fijo: 0 })));
       const m = veh.length, nc = n - 1, bal = $('balanceado').checked, abierto = $('abierto').checked, obj = $('objetivo').value;
       if (m < 1) return aviso('Defina al menos 1 vehículo en la flota (cantidad).'); if (m >= n) return aviso(`Hay más vehículos (${m}) que clientes (${nc}).`);
-      const lmin = Math.max(0, +$('lmin').value || 0), lmax = Math.max(0, +$('lmax').value || 0);
+      const lmin = Math.floor(num($('lmin').value, 0, 0, 1e6)), lmax = Math.floor(num($('lmax').value, 0, 0, 1e6));
       if (!bal && (lmin * m > nc || (lmax && lmax * m < nc))) return aviso(`Los límites por ruta son imposibles para ${nc} clientes y ${m} vehículos.`);
       const peso = ds.nodos.map((x) => +x.peso || 1), pesoArco = ds.pesoArista, usaVt = $('vtUsar').checked;
       const sumW = peso.reduce((a, v, i) => a + (i === o ? 0 : v), 0), tipos = new Set(veh.map((v) => v.tipo)), pesosUno = peso.every((v, i) => i === o || Math.abs(v - 1) < 1e-9) && (!pesoArco || pesoArco.every((f, i) => f.every((v, j) => i === j || !isFinite(v) || Math.abs(v - 1) < 1e-9)));
@@ -224,9 +254,9 @@
     if (p === 'flujocosto') { const b = ds.nodos.map((x) => +x.balance || 0); if (!b.some((v) => v !== 0)) return aviso('Defina el balance de los nodos en la pestaña Nodos (oferta +, demanda −).'); return { kind: 'flujocosto', opt: { balance: b, tiempo }, titulo: 'Flujo de costo mínimo' }; }
     if (p === 'cartero') return { kind: 'cartero', opt: { dirigido: ds.dirigido, tiempo }, titulo: 'Cartero chino' };
     if (p === 'pmediana' || p === 'pcentro' || p === 'cobertura') {
-      const dist = distCompletas(), pesos = $('ponderar').checked ? ds.nodos.map((x) => (x.extra > 0 ? x.extra : 1)) : null, pp = +$('p').value || 1;
+      const dist = distCompletas(), pesos = $('ponderar').checked ? ds.nodos.map((x) => (x.extra > 0 ? x.extra : 1)) : null, pp = Math.round(num($('p').value, 1, 1, n));
       const tipo = { pmediana: 'mediana', pcentro: 'centro', cobertura: 'cobertura' }[p];
-      return { kind: 'ubicar', opt: { tipo, p: pp, pesos, radio: +$('radio').value, tiempo }, datos: { dist }, extra: { nodosComoCandidatos: true }, titulo: { mediana: `p-mediana (p = ${pp})`, centro: `p-centro (p = ${pp})`, cobertura: `Cobertura · radio ${$('radio').value}` }[tipo] };
+      return { kind: 'ubicar', opt: { tipo, p: pp, pesos, radio: num($('radio').value, 1500, 0, 1e12), tiempo }, datos: { dist }, extra: { nodosComoCandidatos: true }, titulo: { mediana: `p-mediana (p = ${pp})`, centro: `p-centro (p = ${pp})`, cobertura: `Cobertura · radio ${$('radio').value}` }[tipo] };
     }
     if (p === 'libre') return { kind: 'libre', opt: { tiempo }, datos: { lp: $('lp').value }, titulo: 'Modelo propio (LP)' };
   }
@@ -246,17 +276,25 @@
     if (!g.length) { if (window.Sim) Sim.limpiar(); Mapa.limpiarRutas(); S.colores = null; S.tenue = null; App.pintarSeleccion(); App.renderLeyenda(null); return; }
     const todos = g.flatMap((x) => x.pares);
     const usarCalles = todos.length <= 140;
-    if (usarCalles) { chip('Trazando calles…'); await Mapa.asegurar(todos, (a, b) => chip(`Trazando calles… ${a}/${b}`)); if (S.res !== r0) return; }
-    const { sinGeom, total } = Mapa.dibujar(usarCalles ? g : g.map((x) => Object.assign({}, x, { pares: x.pares })));
+    /* dibujo progresivo: primero lo que ya está en caché (o en línea recta), al instante; luego, si faltan calles, se piden y se redibuja */
+    let { sinGeom, total } = Mapa.dibujar(g);
+    if (usarCalles && sinGeom) {
+      chip('Trazando calles…'); estilo(g, r0, false);
+      await Mapa.asegurar(todos, (a, b) => chip(`Trazando calles… ${a}/${b}`)); if (S.res !== r0) return;
+      ({ sinGeom, total } = Mapa.dibujar(g));
+    }
     chip(sinGeom ? `${total - sinGeom} de ${total} tramos por calles · ${sinGeom} en línea recta (sin conexión a OSRM)` : `${total} tramos trazados por las calles`);
+    estilo(g, r0, true);
+  }
+  function estilo(g, r0, final) {
     const colores = {}, usados = new Set();
     g.forEach((x) => x.pares.forEach(([i, j]) => { usados.add(i); usados.add(j); colores[i] = colores[i] || x.color; colores[j] = colores[j] || x.color; }));
     const dep = ['mtsp', 'cvrp', 'flota'].includes(r0.kind) ? r0.opt.deposito : (r0.res.rutas && r0.res.rutas[0] ? r0.res.rutas[0][0] : r0.opt.raiz);
     S.colores = colores; if (dep !== undefined) delete colores[dep];
     S.tenue = new Set(S.ds.nodos.map((_, i) => i).filter((i) => !usados.has(i)));
     Mapa.estiloNodos({ deposito: dep, seleccion: null, colores, tenue: S.tenue });
-    App.renderLeyenda(g); Mapa.ajustar([...usados]);
-    if (window.Sim) Sim.preparar();
+    App.renderLeyenda(g); if (!final || !estilo.ajustado || estilo.ajustado !== r0) { Mapa.ajustar([...usados]); estilo.ajustado = r0; }
+    if (final && window.Sim) Sim.preparar();
   }
   App.dibujarResultado = dibujarResultado;
   App.renderLeyenda = (g) => {
@@ -271,11 +309,22 @@
     const nav = $('tabsDer'); nav.innerHTML = '<span class="ind"></span>' + App.paneles.map((p) => `<button role="tab" data-p="${p.id}" aria-selected="${p.id === S.panel}">${p.titulo}</button>`).join('');
     App.indicador(nav);
   };
-  App.setPanel = (p) => { S.panel = p; const nav = $('tabsDer'); nav.querySelectorAll('button[role="tab"]').forEach((b) => b.setAttribute('aria-selected', b.dataset.p === p)); App.indicador(nav); App.renderPanel(); };
+  App.setPanel = (p) => { S.panel = p; const nav = $('tabsDer'); nav.querySelectorAll('button[role="tab"]').forEach((b) => b.setAttribute('aria-selected', b.dataset.p === p)); App.indicador(nav); const sel = nav.querySelector('[aria-selected="true"]'); if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest', inline: 'nearest' }); App.renderPanel(); };
   App.renderPanel = () => {
     const c = $('contenido'); c.innerHTML = ''; const pan = App.paneles.find((x) => x.id === S.panel) || App.paneles[0];
     const div = document.createElement('div'); div.className = 'entra'; c.appendChild(div); pan.render(div); App.alRenderPanel && App.alRenderPanel(S.panel);
+    if (S.animarKpi && S.panel === 'resultado') { S.animarKpi = false; contar(div); }
   };
+  /* conteo animado de los indicadores cuando llega un resultado nuevo (respeta «reducir movimiento») */
+  function contar(raiz) {
+    if (reducir()) return;
+    raiz.querySelectorAll('.kpi b.tabular').forEach((b) => {
+      const t = b.textContent, m = /^(-?)([\d.]+)(,(\d+))?/.exec(t); if (!m) return;
+      const dec = m[4] ? m[4].length : 0, fin = (m[1] ? -1 : 1) * Number(m[2].replace(/\./g, '') + (m[4] ? '.' + m[4] : '')), resto = t.slice(m[0].length); if (!isFinite(fin) || fin === 0) return;
+      const t0 = performance.now(), dur = 650, paso = (now) => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); b.textContent = (fin * e).toLocaleString('es-CO', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + resto; if (k < 1 && b.isConnected) requestAnimationFrame(paso); else b.textContent = t; };
+      requestAnimationFrame(paso);
+    });
+  }
   const kpis = (items) => '<div class="kpis">' + items.map(([v, l, cls]) => `<div class="kpi ${cls || ''}"><b class="tabular">${v}</b><span>${l}</span></div>`).join('') + '</div>';
   const estadoKpi = (res) => { const e = String(res.estado), opt = e.startsWith('óptimo'); return [opt ? 'Óptimo probado' : e.startsWith('heurístico') ? 'Solución factible' : esc(e.startsWith('detenido') ? 'Detenido por usted' : e.startsWith('límite') ? 'Límite de tiempo' : res.estado), 'Estado', opt ? 'estado ok' : 'estado aviso']; };
   App.kpis = kpis; App.estadoKpi = estadoKpi;
@@ -289,7 +338,7 @@
     const x = r.res, u = S.ds.unidad; let h = `<h3 style="margin-bottom:10px">${esc(r.titulo)}</h3>`;
     const hay = x.rutas?.length || x.aristas?.length || x.flujos?.length || x.dist || x.abiertas || x.valores;
     if (!hay || x.objetivo === undefined && !x.dist) { el.innerHTML = h + `<div class="aviso error">${esc(x.estado)}. No se obtuvo una solución; revise los datos o aumente el tiempo.</div>`; return; }
-    const brecha = String(x.estado).startsWith('óptimo') ? '0 %' : (x.gap == null ? 'n/d' : (x.gap * 100).toFixed(2) + ' %');
+    const brecha = String(x.estado).startsWith('óptimo') ? '0 %' : (x.gap == null ? 'n/d' : fmt(x.gap * 100, 2) + ' %');
     const t = fmt(x.seg || 0, 2) + ' s';
     if (r.kind === 'tsp' || r.kind === 'mtsp' || r.kind === 'cvrp') {
       const items = [estadoKpi(x), [fmt(x.objetivo) + ' ' + u, r.kind === 'mtsp' && r.opt.objetivo === 'maximo' ? 'Ruta más larga' : 'Distancia total'], [brecha, 'Brecha de optimalidad'], [t, 'Tiempo de cálculo']];
@@ -336,7 +385,7 @@
       h += kpis([estadoKpi(x), [fmt(x.objetivo, 4), 'Valor óptimo'], [t, 'Tiempo de cálculo']]);
       h += `<table><tr><th>Variable</th><th>Valor</th></tr>` + x.valores.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="tabular">${fmt(v, 4)}</td></tr>`).join('') + '</table>';
     }
-    h += `<div class="sep"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec mini" data-e="csv">Resultado CSV</button><button class="btn sec mini" data-e="geojson">GeoJSON</button><button class="btn sec mini" data-e="xlsx">Excel</button></div>`;
+    h += `<div class="sep"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec mini" data-e="copiar" title="Copia un resumen en texto para pegarlo en un informe">Copiar resumen</button><button class="btn sec mini" data-e="csv">Resultado CSV</button><button class="btn sec mini" data-e="geojson">GeoJSON</button><button class="btn sec mini" data-e="xlsx">Excel</button></div>`;
     el.innerHTML = h;
     el.querySelectorAll('tr.clic[data-k]').forEach((tr) => (tr.onclick = () => { S.rutaSel = +tr.dataset.k; Mapa.resaltar(S.rutaSel); App.renderPanel(); }));
     el.querySelectorAll('tr.clic[data-i]').forEach((tr) => (tr.onclick = () => Mapa.ajustar([+tr.dataset.i, +tr.dataset.j])));
@@ -365,6 +414,14 @@
     else if (que === 'geojson') Datos.descargar(base + '_resultado.geojson', Datos.geojson(ds, r, (i, j) => Mapa.geom(i, j)), 'application/geo+json');
     else if (que === 'anylogistix') { const a = Datos.anylogistix(ds); Datos.descargar(base + '_anylogistix_instalaciones.csv', Datos.csv(a.fac), 'text/csv'); setTimeout(() => Datos.descargar(base + '_anylogistix_clientes.csv', Datos.csv(a.cli), 'text/csv'), 300); }
     else if (que === 'pdf') window.print();
+    else if (que === 'copiar') {
+      if (!r) return chip('No hay un resultado para copiar');
+      const L = [S.res.titulo, 'Proyecto: ' + ds.titulo, 'Estado: ' + r.estado, 'Objetivo: ' + fmt(r.objetivo, 4)];
+      if (r.gap != null && isFinite(r.gap)) L.push('Brecha: ' + (String(r.estado).startsWith('óptimo') ? '0' : (r.gap * 100).toFixed(3)) + ' %'); if (r.seg != null) L.push('Tiempo: ' + fmt(r.seg, 2) + ' s');
+      (r.rutas || []).forEach((ru, k) => L.push(`Ruta ${k + 1}${r.info && r.info[k] ? ' (' + r.info[k].tipo + ')' : ''}: ${ru.map((v) => corto(v)).join(' → ')} · ${fmt(r.dists ? r.dists[k] : 0, 2)} ${ds.unidad}`));
+      const texto = L.join('\n');
+      try { await navigator.clipboard.writeText(texto); chip('Resumen copiado al portapapeles'); } catch (e) { const ta = document.createElement('textarea'); ta.value = texto; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); chip('Resumen copiado al portapapeles'); } catch (e2) { chip('No se pudo copiar: el navegador lo bloqueó'); } ta.remove(); }
+    }
     else if (que === 'xlsx') {
       const hojas = [{ nombre: 'Nodos', filas: Datos.filasNodos(ds) }, { nombre: 'Matriz', filas: Datos.filasMatriz(ds).map((f) => f.map((v) => (v === '#' ? '' : v))) }, { nombre: 'Aristas', filas: Datos.filasAristas(ds) }];
       if (ds.candidatos.length) hojas.push({ nombre: 'Candidatos', filas: Datos.filasCandidatos(ds) });
@@ -388,7 +445,9 @@
       const l = await Datos.leerArchivo(file); const plan = { nodos: null, matriz: null, aristas: null, nombre: file.name, proyecto: null };
       if (l.tipo === 'json') {
         const j = l.json;
-        if (j.nodos && j.D) plan.proyecto = j; else if (j.nodos) plan.nodos = j.nodos.map((n, i) => ({ id: n.id ?? i + 1, nombre: n.nombre ?? 'Nodo ' + (i + 1), lat: +n.lat, lon: +n.lon, extra: n.extra ?? 0, tipo: n.tipo === 'dc' ? 'dc' : 'cliente' }));
+        if (!j || typeof j !== 'object' || !Array.isArray(j.nodos) || !j.nodos.length) throw new Error('El JSON no trae una lista «nodos».');
+        const D = Array.isArray(j.D) && j.D.length === j.nodos.length && j.D.every((f) => Array.isArray(f) && f.length === j.nodos.length) ? j.D : null;
+        if (D) plan.proyecto = Object.assign({}, j, { D }); else { plan.nodos = j.nodos; if (j.D) plan.error = 'La matriz D del archivo no coincide con los nodos: se usará la distancia euclidiana.'; }
       } else l.hojas.forEach((h) => { if (!h.filas.length) return; const t = Datos.detectar(h.filas); try { if (t === 'nodos' && !plan.nodos) plan.nodos = Datos.filasANodos(h.filas); else if (t === 'aristas' && !plan.aristas) plan.aristas = Datos.filasAAristas(h.filas); else if (t === 'matriz' && !plan.matriz && h.filas.length > 2) plan.matriz = Datos.filasAMatriz(h.filas); } catch (err) { plan.error = err.message; } });
       mostrarPlan(plan);
     } catch (err) { App.hoja(`<h3>No se pudo leer el archivo</h3><p class="nota">${esc(err.message)}</p><div class="acc"><button class="btn" data-x="c">Cerrar</button></div>`, () => App.cerrarHoja()); }
@@ -402,12 +461,36 @@
     App.hoja(`<h3>${esc(p.nombre)}</h3><p>Se detectó ${partes.join(', ')}.</p><p class="nota">${accion}</p>
       <div class="fila"><label class="campo">Destino<select id="impDestino"><option value="nuevo">Crear un proyecto nuevo</option><option value="este">Reemplazar «${esc(S.ds.titulo)}»</option></select></label><label class="campo">Escala (si hay que calcular la matriz euclidiana)<input id="impFactor" type="number" step="0.05" value="${S.factor}"></label></div>
       <div class="acc"><button class="btn gris" data-x="c">Cancelar</button><button class="btn" data-x="ok">Aplicar</button></div>`, (x, h) => {
-      if (x !== 'ok') return App.cerrarHoja(); S.factor = +h.querySelector('#impFactor').value || 1; const dest = h.querySelector('#impDestino').value; App.cerrarHoja(); aplicarPlan(p, dest); });
+      if (x !== 'ok') return App.cerrarHoja(); S.factor = num(h.querySelector('#impFactor').value, 1, 0.01, 100); const dest = h.querySelector('#impDestino').value; App.cerrarHoja(); aplicarPlan(p, dest); });
+  }
+  /* nodos importados: id único, nombre de texto, coordenadas válidas (si faltan, en círculo alrededor del centro) */
+  function sanear(lista, centro) {
+    const vistos = new Set();
+    return lista.filter((n) => n && typeof n === 'object').map((n, i, arr) => {
+      let id = n.id === undefined || n.id === null || String(n.id).trim() === '' ? i + 1 : (typeof n.id === 'number' && isFinite(n.id) ? n.id : String(n.id).slice(0, 30));
+      while (vistos.has(String(id))) id = String(id) + '′'; vistos.add(String(id));
+      const a = 2 * Math.PI * i / Math.max(1, arr.length), lat = num(n.lat, NaN), lon = num(n.lon, NaN), ok = Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+      const pos = (v, d) => { const x = num(v, d); return x; };
+      return Object.assign({}, n, { id, nombre: n.nombre === undefined || n.nombre === null || String(n.nombre).trim() === '' ? 'Nodo ' + id : String(n.nombre).slice(0, 80),
+        lat: ok ? lat : centro[0] + 0.02 * Math.cos(a), lon: ok ? lon : centro[1] + 0.02 * Math.sin(a), extra: pos(n.extra, 0), balance: pos(n.balance, 0), fijo: pos(n.fijo, 0), peso: num(n.peso, 1, 1e-9, 1e9), tipo: n.tipo === 'dc' ? 'dc' : 'cliente' });
+    });
+  }
+  const matrizSegura = (M, n) => (Array.isArray(M) && M.length === n && M.every((f) => Array.isArray(f) && f.length === n) ? M.map((f, i) => f.map((v, j) => { const x = i === j ? INF : (v === null || v === undefined || v === '' ? INF : Number(v)); return Number.isFinite(x) && x >= 0 ? x : INF; })) : null);
+  /* partes opcionales de un proyecto importado, validadas (un archivo editado a mano no debe romper el mapa) */
+  function extrasProyecto(j) {
+    const pt = (q) => Array.isArray(q) && q.length >= 2 && Math.abs(+q[0]) <= 90 && Math.abs(+q[1]) <= 180;
+    const cand = Array.isArray(j.candidatos) ? j.candidatos.filter((x) => x && Math.abs(+x.lat) <= 90 && Math.abs(+x.lon) <= 180).map((x) => Object.assign({}, x, { lat: +x.lat, lon: +x.lon, fijo: num(x.fijo, 0, 0) })) : [];
+    const area = Array.isArray(j.area) && j.area.length >= 3 && j.area.every(pt) ? j.area.map((q) => [+q[0], +q[1]]) : null;
+    const fondo = j.fondo && typeof j.fondo.src === 'string' && Array.isArray(j.fondo.bounds) && j.fondo.bounds.length === 2 && j.fondo.bounds.every(pt) ? j.fondo : null;
+    const flota = Array.isArray(j.flota) && j.flota.length ? j.flota.filter((t) => t && typeof t === 'object').map((t) => ({ tipo: String(t.tipo || 'vehículo').slice(0, 60), n: Math.round(num(t.n, 0, 0, 20)), cap: num(t.cap, 0, 0, 1e9), costoKm: num(t.costoKm, 1, 0, 1e6), vel: num(t.vel, 30, 1, 1e4), fijo: num(t.fijo, 0, 0, 1e9) })) : undefined;
+    const o = { candidatos: cand, area, fondo, base: ['calles', 'satelite', 'topo', 'ninguno'].includes(j.base) ? j.base : 'calles', dirigido: !!j.dirigido, factor: num(j.factor, 1.3, 0.01, 100) };
+    if (flota && flota.length) o.flota = flota; if (j.vt && typeof j.vt === 'object') o.vt = { usar: !!j.vt.usar, inicio: num(j.vt.inicio, 8, 0, 48), servicio: num(j.vt.servicio, 10, 0, 1440), cierre: num(j.vt.cierre, 0, 0, 72) };
+    return o;
   }
   function aplicarPlan(p, dest) {
     const ds = S.ds, c = ds.centro, circulo = (k, i) => { const a = 2 * Math.PI * i / k; return [c[0] + 0.02 * Math.cos(a), c[1] + 0.02 * Math.sin(a)]; };
-    let nodos = p.nodos, D = null, cap = null;
-    if (p.proyecto) { const j = p.proyecto; nodos = j.nodos; D = Datos.aInf(j.D); cap = j.cap; }
+    let nodos = p.nodos ? sanear(p.nodos, c) : null, D = null, cap = null;
+    if (p.proyecto) { const j = p.proyecto; nodos = sanear(j.nodos, c); D = nodos.length === j.nodos.length ? matrizSegura(j.D, nodos.length) : null; cap = matrizSegura(j.cap, nodos.length); if (!D) D = Datos.matrizEuclidiana(nodos, S.factor, c[0]); }
     else {
       if (p.matriz) { D = p.matriz.D; if (!nodos) nodos = D.length === ds.nodos.length ? ds.nodos : p.matriz.ids.map((id, i) => ({ id, nombre: 'Nodo ' + id, lat: circulo(D.length, i)[0], lon: circulo(D.length, i)[1], extra: 0 })); }
       else if (p.aristas && !nodos) {
@@ -416,15 +499,16 @@
       if (nodos && !D) D = p.aristas ? nodos.map(() => nodos.map(() => INF)) : Datos.matrizEuclidiana(nodos, S.factor, ds.centro[0]);
       if (p.aristas && nodos) { const pos = (id) => nodos.findIndex((n) => String(n.id) === String(id)); p.aristas.forEach(([a, b, w, k]) => { const i = pos(a), j = pos(b); if (i >= 0 && j >= 0) { D[i][j] = w; D[j][i] = w; if (isFinite(k)) { cap = cap || nodos.map(() => nodos.map(() => INF)); cap[i][j] = k; cap[j][i] = k; } } }); }
     }
+    if (nodos && nodos.length < 1) nodos = null;
     if (!nodos || !D || D.length !== nodos.length) return App.hoja('<h3>Datos inconsistentes</h3><p class="nota">El número de nodos no coincide con el tamaño de la matriz.</p><div class="acc"><button class="btn" data-x="c">Cerrar</button></div>', () => App.cerrarHoja());
-    nodos = nodos.map((n) => Object.assign({ extra: 0, balance: 0, fijo: 0, peso: 1, tipo: 'cliente' }, n)); D = D.map((f, i) => f.map((v, j) => (i === j ? INF : v)));
+    nodos = sanear(nodos, c); D = D.map((f, i) => f.map((v, j) => (i === j || !(v >= 0) ? INF : v)));
     const centro = nodos.length ? [nodos.reduce((a, n) => a + n.lat, 0) / nodos.length, nodos.reduce((a, n) => a + n.lon, 0) / nodos.length] : ds.centro;
     if (dest === 'nuevo') {
       const nuevo = Datos.nuevo({ titulo: p.proyecto ? p.proyecto.titulo || p.nombre : p.nombre.replace(/\.[a-z]+$/i, ''), centro, zoom: 12, modoDist: 'euclidiana' });
-      Object.assign(nuevo, { nodos, D, cap: cap ? Datos.aInf(cap) : null, grafoRalo: !!p.aristas }); if (p.proyecto) Object.assign(nuevo, { candidatos: p.proyecto.candidatos || [], area: p.proyecto.area || null, fondo: p.proyecto.fondo || null, base: p.proyecto.base || 'calles', dirigido: !!p.proyecto.dirigido, factor: p.proyecto.factor || 1.3 });
+      Object.assign(nuevo, { nodos, D, cap: cap ? Datos.aInf(cap) : null, grafoRalo: !!p.aristas }); if (p.proyecto) Object.assign(nuevo, extrasProyecto(p.proyecto));
       Datos.normalizar(nuevo); Datos.guardar(nuevo); Datos.registrar(nuevo); S.sets[nuevo.clave] = nuevo; App.proyectosRender(); App.cambiarTab(nuevo.clave); return;
     }
-    ds.nodos = nodos; ds.D = D; ds.cap = cap ? Datos.aInf(cap) : ds.cap; if (p.proyecto) Object.assign(ds, { candidatos: p.proyecto.candidatos || [], area: p.proyecto.area || null, fondo: p.proyecto.fondo || null });
+    ds.nodos = nodos; ds.D = D; ds.cap = cap ? Datos.aInf(cap) : (ds.cap && ds.cap.length === nodos.length ? ds.cap : null); ds.pesoArista = null; if (p.proyecto) Object.assign(ds, extrasProyecto(p.proyecto));
     Datos.normalizar(ds); Datos.guardar(ds); App.cargarProyectoEnVista(); chip(`Datos importados: ${ds.nodos.length} nodos`);
   }
 
@@ -435,7 +519,7 @@
     latir(); setInterval(latir, 5000);
     construirProblema(); App.construirModelos && App.construirModelos(); window.VrpUi && VrpUi.montar(); App.construirBusqueda();
     Mapa.iniciar('mapa', (e) => { if (e === 'mapa-offline') chip('Sin conexión: el mapa base no está disponible, pero los nodos y las rutas sí'); });
-    try { S.sets.cali = await Datos.cargar('cali'); S.sets.cali.parcial = true; S.sets.china = await Datos.cargar('china'); S.sets.china.parcial = true; for (const p of Datos.listar()) { const d = await Datos.cargar(p.clave); if (d) S.sets[p.clave] = d; } }
+    try { S.sets.cali = await Datos.cargar('cali'); S.sets.cali.parcial = true; S.sets.china = await Datos.cargar('china'); S.sets.china.parcial = true; for (const p of Datos.listar()) { try { const d = await Datos.cargar(p.clave); if (d && Array.isArray(d.nodos)) S.sets[p.clave] = d; } catch (e) { console.warn('Proyecto dañado omitido:', p.clave, e); } } }
     catch (e) { chip('No se pudieron cargar los datos: ' + e.message); return; }
     App.construirPaneles(); App.segmentado($('tabsDer'), (b) => { S.panel = b.dataset.p; App.renderPanel(); });
     App.crearWorker(); App.proyectosRender();

@@ -20,6 +20,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -98,18 +99,23 @@ def rdp(pts, tol):
     return [p for p, k in zip(pts, keep) if k]
 
 
+_sin_red = [0.0]   # hora del último fallo de conexión: durante 60 s no se insiste (sin internet, las rutas van en línea recta al instante)
+
+
 def osrm_tramo(la1, lo1, la2, lo2):
     """Trazado por calles entre dos puntos: [[lat, lon], ...] o None si no hay conexión."""
     k = clave(la1, lo1, la2, lo2)
     with _cache_lock:
         if k in _cache:
             return _cache[k]
+    if time.time() - _sin_red[0] < 60:
+        return None
     largo = math.hypot((lo2 - lo1) * 111.32 * math.cos(math.radians((la1 + la2) / 2)), (la2 - la1) * 110.574) > 80   # distancia euclidiana en km
     url = (f"{OSRM}/route/v1/driving/{lo1:.6f},{la1:.6f};{lo2:.6f},{la2:.6f}"
            "?overview=full&geometries=geojson&steps=false")
-    for intento in range(3):
+    for intento in range(2):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "parcial-grafos/1.0"}), timeout=40) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "parcial-grafos/1.0"}), timeout=15) as r:
                 d = json.loads(r.read())
             if d.get("code") != "Ok":
                 return None
@@ -121,8 +127,11 @@ def osrm_tramo(la1, lo1, la2, lo2):
                 _sucio[0] += 1
             guardar_cache()
             return res
-        except Exception:
+        except urllib.error.HTTPError:   # el servicio respondió (p. ej. límite de uso): se reintenta
             time.sleep(1.5 * (intento + 1))
+        except Exception:  # noqa: BLE001  sin conexión o sin respuesta: no insistir por un minuto
+            _sin_red[0] = time.time()
+            return None
     return None
 
 
@@ -186,7 +195,8 @@ def osrm_matriz(puntos):
 # ----------------------------------------------------------------------------------------------
 # Solver de respaldo (HiGHS de Python) y lectura/escritura de Excel (.xlsx) sin dependencias
 # ----------------------------------------------------------------------------------------------
-_parar = {"on": False}
+_parados = {}   # corridas a las que se pidió parar: id -> hora (cada pestaña y cada corrida tiene su propio id)
+_parados_lock = threading.Lock()
 
 
 def _sin_infinitos(x):
@@ -210,6 +220,8 @@ def resolver_highspy(lp, tiempo, brecha, cota=None):
         if cota is not None:
             h.setOptionValue("objective_bound", float(cota))
         h.readModel(ruta); h.run()
+        if "error" in h.modelStatusToString(h.getModelStatus()).lower():   # «Solve error» del presolve: se repite sin presolve
+            h.setOptionValue("presolve", "off"); h.run()
     finally:
         os.unlink(ruta)
     st = h.modelStatusToString(h.getModelStatus()); info = h.getInfo()
@@ -319,7 +331,20 @@ class Manejador(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(cuerpo)
 
+    def _local(self):
+        """Solo atiende a la propia app: Host local (evita «DNS rebinding») y, si hay Origin, que también sea local
+        (evita que otra página abierta en el navegador use la API: instalar el solver, leer archivos, etc.)."""
+        def es_local(valor):
+            try:
+                return urllib.parse.urlsplit("//" + valor if "//" not in valor else valor).hostname in ("127.0.0.1", "localhost", "::1")
+            except Exception:  # noqa: BLE001
+                return False
+        host, origen = self.headers.get("Host", ""), self.headers.get("Origin")
+        return (not host or es_local(host)) and (origen is None or es_local(origen))
+
     def do_GET(self):
+        if not self._local():
+            return self._enviar(403, {"error": "solo se atienden solicitudes de la propia aplicación"})
         ruta = self.path.split("?")[0]
         if ruta == "/api/identidad":
             return self._enviar(200, {"app": IDENT})
@@ -336,9 +361,18 @@ class Manejador(BaseHTTPRequestHandler):
         self._enviar(200, archivo.read_bytes(), tipo + ("; charset=utf-8" if tipo.startswith("text/") or tipo.endswith("javascript") or tipo.endswith("json") else ""))
 
     def do_POST(self):
+        if not self._local():
+            return self._enviar(403, {"error": "solo se atienden solicitudes de la propia aplicación"})
         try:
-            n = int(self.headers.get("Content-Length", 0))
-            d = json.loads(self.rfile.read(n) or b"{}")
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            if n < 0 or n > 60_000_000:
+                return self._enviar(413, {"error": "solicitud demasiado grande"})
+            try:
+                d = json.loads(self.rfile.read(n) or b"{}")
+            except (ValueError, UnicodeDecodeError, RecursionError):
+                return self._enviar(400, {"error": "el cuerpo no es JSON válido"})
+            if not isinstance(d, dict):
+                return self._enviar(400, {"error": "se esperaba un objeto JSON"})
             ruta = self.path.split("?")[0]
             if ruta == "/api/estado":
                 try:
@@ -351,10 +385,18 @@ class Manejador(BaseHTTPRequestHandler):
                 _latido[0], _conectado[0] = time.time(), True
                 return self._enviar(200, {"ok": True})
             if ruta == "/api/parar":
-                _parar["on"] = bool(d.get("on"))
-                return self._enviar(200, {"on": _parar["on"]})
+                rid = str(d.get("id", ""))[:80]
+                with _parados_lock:
+                    if d.get("on"):
+                        _parados[rid] = time.time()
+                    else:
+                        _parados.pop(rid, None)
+                    if len(_parados) > 500:   # limpieza: olvida las órdenes de hace más de un día
+                        for k in [k for k, t in _parados.items() if time.time() - t > 86400]:
+                            _parados.pop(k, None)
+                return self._enviar(200, {"on": rid in _parados})
             if ruta == "/api/parar_estado":
-                return self._enviar(200, {"on": _parar["on"]})
+                return self._enviar(200, {"on": str(d.get("id", ""))[:80] in _parados})
             if ruta == "/api/solve":
                 try:
                     return self._enviar(200, resolver_highspy(d["lp"], d["tl"], d["gap"], d.get("cota")))
@@ -365,6 +407,8 @@ class Manejador(BaseHTTPRequestHandler):
                 return self._enviar(200, {"ok": r.returncode == 0, "salida": (r.stdout + r.stderr)[-600:]})
             if ruta == "/api/rutas":
                 tramos = d["tramos"]
+                if not isinstance(tramos, list) or len(tramos) > 500 or not all(isinstance(t, list) and len(t) == 4 and all(isinstance(v, (int, float)) and math.isfinite(v) for v in t) for t in tramos):
+                    return self._enviar(400, {"error": "tramos inválidos: lista de [lat1, lon1, lat2, lon2] (máx. 500)"})
                 res = list(self.pool.map(lambda t: osrm_tramo(*t), tramos))
                 return self._enviar(200, {"geometrias": res})
             if ruta == "/api/matriz":
@@ -379,6 +423,8 @@ class Manejador(BaseHTTPRequestHandler):
                 datos = escribir_xlsx(d["hojas"])
                 return self._enviar(200, datos, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             return self._enviar(404, {"error": "ruta desconocida"})
+        except (KeyError, TypeError, ValueError, AttributeError, IndexError, zipfile.BadZipFile) as e:
+            return self._enviar(400, {"error": f"datos inválidos ({type(e).__name__}: {e})"})
         except Exception as e:  # noqa: BLE001
             return self._enviar(500, {"error": f"{type(e).__name__}: {e}"})
 

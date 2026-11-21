@@ -11,6 +11,7 @@ try:
     h = highspy.Highs(); h.setOptionValue("output_flag", False)
     h.setOptionValue("time_limit", max(tl, 1.0)); h.setOptionValue("mip_rel_gap", gap)
     h.readModel(path); os.unlink(path); h.run()
+    if 'error' in h.modelStatusToString(h.getModelStatus()).lower(): h.setOptionValue('presolve', 'off'); h.run()   # igual que la app
     st = h.modelStatusToString(h.getModelStatus()); info = h.getInfo(); sol = h.getSolution()
     names = [h.getColName(i)[1] for i in range(h.getNumCol())]
     ok = info.primal_solution_status == 2

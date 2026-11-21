@@ -22,6 +22,7 @@
     const w = I.w || D.map(() => 0), r = I.r || D.map(() => 0), mode = f.mode || 'entrega';
     const prize = I.prize || D.map(() => 0), optional = (i) => !!(I.optional && I.optional[i]);
     const obj = f.obj || 'costo', abierto = !!f.open, vt = f.vt && f.vt.usar ? f.vt : null;
+    const lat = obj === 'latencia', blandas = !!(vt && f.blandas), tmax = f.tmax > 0 ? f.tmax : null, servJ = f.servicio || (vt ? vt.servicio || 0 : 0);
     const metodo = mode === 'split' ? 'dfj' : (o.metodo === 'dfj' && !(I.pairs && I.pairs.length) ? 'dfj' : 'mtz');
     const hasArc = (k, i, j) => {   // reglas de arcos por vehículo
       const h = veh[k].depot; if (i === j) return false;
@@ -51,8 +52,8 @@
     const tinyTop = obj === 'top' ? 1e-4 : 1;
     for (let k = 0; k < m; k++) {
       const h = veh[k].depot, { A, has, nodes } = arcs[k];
-      for (const [i, j] of A) M.addVar(X(k, i, j), o.fase === 'veh' ? 0 : (maxo ? 1e-3 : 1) * tinyTop * costo(k, i, j), 0, 1, true);
-      for (const i of cl) M.addVar(Y(k, i), obj === 'costo' || obj === 'maximo' ? 0 : -(prize[i] || 0), 0, 1, true);
+      for (const [i, j] of A) M.addVar(X(k, i, j), o.fase === 'veh' ? 0 : (maxo || lat ? 1e-3 : 1) * tinyTop * costo(k, i, j), 0, 1, true);
+      for (const i of cl) M.addVar(Y(k, i), o.fase === 'veh' || !(obj === 'profit' || obj === 'top') ? 0 : -(prize[i] || 0), 0, 1, true);
       M.addVar(V(k), o.fase === 'veh' ? 1 : (veh[k].fijo || 0), todas ? 1 : 0, 1, true);
       const so = cl.filter((j) => has.has(h + ',' + j)), en = cl.filter((i) => has.has(i + ',' + h));
       M.addCon(so.map((j) => X(k, h, j)).concat([V(k)]), so.map(() => 1).concat([-1]), 0, 0);
@@ -66,6 +67,7 @@
       for (let a = 0; a < cl.length; a++) for (let b = a + 1; b < cl.length; b++) { const i = cl[a], j = cl[b]; if (has.has(i + ',' + j) && has.has(j + ',' + i)) M.addCon([X(k, i, j), X(k, j, i), Y(k, i)], [1, 1, -1], -INF, 0); }
       M.addCon(cl.map((i) => Y(k, i)).concat([V(k)]), cl.map(() => 1).concat([-lmin]), 0, INF);
       M.addCon(cl.map((i) => Y(k, i)).concat([V(k)]), cl.map(() => 1).concat([-(veh[k].lstops || lmax)]), -INF, 0);
+      if (tmax) M.addCon(A.map(([i, j]) => X(k, i, j)).concat(cl.map((i) => Y(k, i)), [V(k)]), A.map(([i, j]) => dist(k, i, j) / veh[k].vel).concat(cl.map(() => servJ), [-tmax]), -INF, 0);   // jornada máxima
       if (isFinite(veh[k].Lmax)) M.addCon(A.map(([i, j]) => X(k, i, j)).concat([V(k)]), A.map(([i, j]) => dist(k, i, j)).concat([-veh[k].Lmax]), -INF, 0);
       if (maxo) M.addCon(A.map(([i, j]) => X(k, i, j)).concat(['zmax']), A.map(([i, j]) => costo(k, i, j)).concat([-1]), -INF, 0);
       if (f.locDepot) { /* el vehículo solo sale de un depósito abierto */ M.addCon([V(k), DEP(h)], [1, -1], -INF, 0); }
@@ -127,15 +129,18 @@
       cl.forEach((j, pos) => { const prev = cl.slice(0, pos).map((l) => Y(k - 1, l)); M.addCon([Y(k, j), ...prev], [1, ...prev.map(() => -1)], -INF, 0); }); }
     // ventanas de tiempo
     if (vt) {
-      const H = Math.max(vt.H || 48, ...vt.b.filter(isFinite)), s = vt.servicio || 0, maxd = Math.max(...D.flat().filter(isFinite)), minv = Math.min(...veh.map((v) => v.vel)), Mt = H + s + maxd / minv;
-      for (const i of cl) M.addVar('t_' + i, 0, vt.a[i] ?? 0, vt.b[i] ?? H, false);
-      for (let k = 0; k < m; k++) { const h = veh[k].depot; for (const j of cl) if (arcs[k].has.has(h + ',' + j)) M.addCon(['t_' + j, X(k, h, j)], [1, -(D[h][j] / veh[k].vel + Mt)], (vt.inicio || 0) - Mt, INF); }
+      const T = (root.Variantes || require('./variantes.js')).tiempos(I), s = T.s, H0 = T.H0;   // cotas de tiempo y M grande ajustada por arco
+      for (const i of cl) M.addVar('t_' + i, o.fase !== 'veh' && lat ? 1 : 0, T.lo[i], T.up[i], false);
+      if (lat && o.fase !== 'veh') M.addVar('cte', -nc * (vt.inicio || 0), 1, 1, false);   // Σ (t_i − t0): constante −n·t0
+      if (blandas) for (const i of cl) { M.addVar('e_' + i, o.fase === 'veh' ? 0 : f.penRetraso || 0, 0, INF, false); M.addCon(['e_' + i, 't_' + i], [1, -1], -(vt.b[i] ?? H0), INF); }   // retraso ≥ t − b
+      for (let k = 0; k < m; k++) { const h = veh[k].depot; for (const j of cl) if (arcs[k].has.has(h + ',' + j)) { const Mk = T.Mdep(k, j); M.addCon(['t_' + j, X(k, h, j)], [1, -(D[h][j] / veh[k].vel + Mk)], (vt.inicio || 0) - Mk, INF); } }
       // cierre del depósito: la última parada más el regreso no pasan de la hora de cierre
-      if (!abierto && vt.cierre > 0) for (let k = 0; k < m; k++) { const h = veh[k].depot; for (const i of cl) if (arcs[k].has.has(i + ',' + h)) M.addCon(['t_' + i, X(k, i, h)], [1, Mt], -INF, vt.cierre + Mt - s - D[i][h] / veh[k].vel); }
+      if (!abierto && vt.cierre > 0) for (let k = 0; k < m; k++) { const h = veh[k].depot; for (const i of cl) if (arcs[k].has.has(i + ',' + h)) { const Mk = T.Mfin(k, i); M.addCon(['t_' + i, X(k, i, h)], [1, Mk], -INF, vt.cierre + Mk - s - D[i][h] / veh[k].vel); } }
       for (const i of cl) for (const j of cl) if (i !== j) {
-        const names = ['t_' + j, 't_' + i], coefs = [1, -1];
-        for (let k = 0; k < m; k++) if (arcs[k].has.has(i + ',' + j)) { names.push(X(k, i, j)); coefs.push(-(D[i][j] / veh[k].vel + Mt)); }
-        if (names.length > 2) M.addCon(names, coefs, s - Mt, INF);
+        const names = ['t_' + j, 't_' + i], coefs = [1, -1], ks = []; let Mx = 0;
+        for (let k = 0; k < m; k++) if (arcs[k].has.has(i + ',' + j)) { ks.push(k); Mx = Math.max(Mx, T.Mij(k, i, j)); }
+        ks.forEach((k) => { names.push(X(k, i, j)); coefs.push(-(D[i][j] / veh[k].vel + Mx)); });
+        if (names.length > 2) M.addCon(names, coefs, s - Mx, INF);
       }
     }
     // el valor de la función: costos de apertura ya están en las variables o_d
@@ -177,11 +182,13 @@
     const aper = f.locDepot ? depots.filter((d) => sol.val(DEP(d)) > 0.5) : null;
     const total = In.reduce((a, x) => a + x.dist, 0), totalCosto = In.reduce((a, x) => a + x.costo, 0);
     const premio = cl.filter((i) => visit.has(i)).reduce((a, i) => a + (prize[i] || 0), 0);
+    const latencia = lat ? cl.reduce((a, i) => a + sol.val('t_' + i) - (vt.inicio || 0), 0) : null, retraso = blandas ? cl.reduce((a, i) => a + Math.max(0, sol.val('e_' + i)), 0) : null;
+    const tarde = blandas ? cl.filter((i) => sol.val('e_' + i) > 1e-6) : null;
     const cota = sol.cota != null ? sol.cota : (sol.dual != null && isFinite(sol.dual) ? sol.dual : (sol.gap > 0 && isFinite(sol.gap) ? sol.obj - Math.abs(sol.obj) * sol.gap : sol.obj));
     const seg = (now() - t0) / 1000;
     const informe = { modelo: metodo === 'mtz' ? 'MILP con eliminación MTZ' : 'MILP con cortes DFJ', estado: sol.status, objetivo: sol.obj, cota, gap: sol.gap, tiempo: seg,
       variables: M.vars.length, binarias: M.vars.filter((v) => v.int).length, restricciones: M.cons.length, cortes, rutas: R.length, vehiculos: null, tiempoLimite: o.tiempo || 120, nodos: sol.nodos };
-    return { estado: sol.status, objetivo: sol.obj, total, totalCosto, rutas: R, dists: In.map((x) => x.dist), info: In, noVisitados: noVis, premio, abiertos: aper, gap: sol.gap, cota, cortes, seg, metodoSol: 'exacto', informe };
+    return { estado: sol.status, objetivo: sol.obj, total, totalCosto, rutas: R, dists: In.map((x) => x.dist), info: In, noVisitados: noVis, premio, abiertos: aper, latencia, retraso, tarde, gap: sol.gap, cota, cortes, seg, metodoSol: 'exacto', informe };
   }
   root.Vrp = { vrp };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.Vrp;

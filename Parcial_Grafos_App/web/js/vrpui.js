@@ -1,4 +1,4 @@
-/* Interfaz del VRP: 27 variantes, método de solución (modelo matemático / heurística / metaheurística / comparar),
+/* Interfaz del VRP: 34 variantes, método de solución (modelo matemático / heurística / metaheurística / comparar),
    resultado con brecha (gap), convergencia, comparación y exportación a GAMS. */
 (function () {
   'use strict';
@@ -9,7 +9,7 @@
   const ALGO = {
     heur: Object.entries(H.ALGORITMOS).filter(([, a]) => a.tipo === 'heuristica'), meta: Object.entries(H.ALGORITMOS).filter(([, a]) => a.tipo === 'meta'),
   };
-  const DESC_ALGO = { vecino: 'Va siempre al cliente más cercano que respeta las restricciones.', ahorros: 'Une rutas por mayor ahorro s = c₀ᵢ + c₀ⱼ − cᵢⱼ.', barrido: 'Ordena los clientes por ángulo y llena vehículos (necesita coordenadas).', insercion: 'Inserta cada cliente donde menos aumenta el costo.', vnd: 'Inserción + descenso por relocate, swap y 2-opt.', sa: 'Acepta empeoramientos con probabilidad e^(−Δ/T), enfriando T.', tabu: 'Mejor vecino no prohibido; lista tabú con aspiración.', ga: 'Población de permutaciones, cruce OX, mutación y elitismo.', aco: 'Hormigas construyen rutas guiadas por feromona τ y cercanía η.', grasp: 'Construcción voraz aleatorizada + búsqueda local, repetida.', vns: 'Agita la solución y cambia de vecindario al estancarse.' };
+  const DESC_ALGO = { vecino: 'Va siempre al cliente más cercano que respeta las restricciones.', ahorros: 'Une rutas por mayor ahorro s = c₀ᵢ + c₀ⱼ − cᵢⱼ.', barrido: 'Ordena los clientes por ángulo y llena vehículos (necesita coordenadas).', insercion: 'Inserta cada cliente donde menos aumenta el costo.', vnd: 'Inserción + descenso por relocate, swap y 2-opt.', sa: 'Acepta empeoramientos con probabilidad e^(−Δ/T), enfriando T.', tabu: 'Mejor vecino no prohibido; lista tabú con aspiración.', ga: 'Población de permutaciones, cruce OX, mutación y elitismo.', aco: 'Hormigas construyen rutas guiadas por feromona τ y cercanía η.', grasp: 'Construcción voraz aleatorizada + búsqueda local, repetida.', vns: 'Agita la solución y cambia de vecindario al estancarse.', ils: 'Perturba la mejor solución y vuelve a aplicar búsqueda local.', lns: 'Quita una parte de los clientes y los reinserta de la forma más barata.' };
 
   function montar() {
     if ($('vrpVar')) return;
@@ -20,9 +20,10 @@
       <div class="fila" data-c="vrpmetodo"><label class="campo">Cómo resolver<select id="vrpMetodo">${METODOS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label><label class="campo" id="vrpAlgoF">Algoritmo<select id="vrpAlgo"></select></label></div>
       <p class="nota" id="vrpAlgoDesc" data-c="vrpmetodo" style="margin:-4px 0 10px"></p>
       <div class="fila" data-c="vrpparams"><label class="campo" data-v="m">Vehículos<input id="vrpM" type="number" min="1" max="12" placeholder="de la flota"></label><label class="campo" data-v="L">Distancia máx. L<input id="vrpL" type="number" min="0" placeholder="automática"></label><label class="campo" data-v="P">Máx. clientes/ruta<input id="vrpP" type="number" min="0" placeholder="automático"></label><label class="campo" data-v="sem">Semilla<input id="vrpSem" type="number" value="1"></label></div>
+      <div class="fila" data-c="vrpparams"><label class="campo" data-v="T">Jornada máx. por ruta (h)<input id="vrpT" type="number" min="0" step="0.5" placeholder="automática"></label><label class="campo" data-v="pen">Penalización por hora de retraso<input id="vrpPen" type="number" min="0" placeholder="automática"></label></div>
       <div class="fila" data-c="vrpparams"><label class="check" data-v="cota"><input type="checkbox" id="vrpCota" checked> Calcular cota inferior para el gap</label><label class="campo" data-v="cota">Tiempo para la cota (s)<input id="vrpTc" type="number" min="2" value="8"></label></div>`;
     const ref = $('tiempo').closest('.fila'); [...filas.children].forEach((e) => ref.before(e));
-    $('vrpMetodo').onchange = refrescar; $('vrpVar').onchange = () => { refrescar(); if (S.panel === 'nodos') App.renderPanel(); }; $('vrpAlgo').onchange = refrescar;
+    $('vrpMetodo').onchange = refrescar; $('vrpVar').onchange = () => { refrescar(); if (['nodos', 'modelo', 'graficas'].includes(S.panel)) App.renderPanel(); }; $('vrpAlgo').onchange = refrescar;
     refrescar();
   }
   function refrescar() {
@@ -31,24 +32,34 @@
     const sel = $('vrpAlgo'), lista = ALGO[met] || [], prev = sel.value; sel.innerHTML = lista.map(([k, a]) => `<option value="${k}">${esc(a.nombre)}</option>`).join(''); if (lista.some(([k]) => k === prev)) sel.value = prev;
     $('vrpAlgoF').classList.toggle('oculto', !lista.length);
     $('vrpAlgoDesc').textContent = met === 'exacto' ? 'Resuelve las fórmulas del curso (MILP) con HiGHS; si llega al límite de tiempo informa la brecha.' : met === 'comparar' ? 'El modelo matemático da la solución óptima. Las heurísticas y metaheurísticas se ejecutan solo para comparar: cada una muestra su brecha frente al óptimo.' : (DESC_ALGO[sel.value] || '');
-    document.querySelectorAll('#cProblema [data-v]').forEach((el) => { const k = el.dataset.v; const mostrar = k === 'm' ? !v.mixta && !v.m : k === 'L' ? !!v.lmaxDist : k === 'P' ? !!v.paradas : k === 'sem' ? met === 'meta' || met === 'comparar' : k === 'cota' ? met === 'heur' || met === 'meta' : true; el.classList.toggle('oculto', !mostrar); });
+    document.querySelectorAll('#cProblema [data-v]').forEach((el) => { const k = el.dataset.v; const mostrar = k === 'm' ? !v.mixta && !v.m : k === 'L' ? !!v.lmaxDist : k === 'P' ? !!v.paradas : k === 'sem' ? met === 'meta' || met === 'comparar' : k === 'cota' ? met === 'heur' || met === 'meta' : k === 'T' ? !!v.jornada : k === 'pen' ? !!v.blandas : true; el.classList.toggle('oculto', !mostrar); });
     const tl = $('tiempo'); if (tl) tl.closest('.fila').classList.toggle('oculto', met === 'heur' && false);
   }
   App.vrpInfo = () => { if (!$('problema') || $('problema').value !== 'vrp' || !$('vrpVar')) return null; const v = Va.porId[$('vrpVar').value]; return { vt: !!v.vt, cols: [v.f && (v.f.mode === 'backhaul' || v.f.mode === 'spd') ? 'rec' : null, v.f && v.f.mode === 'pd' ? 'par' : null, v.opcional ? 'premio' : null, v.f && v.f.locDepot ? 'costoApertura' : null].filter(Boolean), v }; };
 
   function proyeccion() { const ns = S.ds.nodos, la0 = ns.reduce((a, n) => a + n.lat, 0) / Math.max(1, ns.length), c = Math.cos(la0 * Math.PI / 180); return ns.map((n) => [n.lon * 111.32 * c, n.lat * 110.574]); }
   function parametros() {
-    const ds = S.ds, v = Va.porId[$('vrpVar').value], met = $('vrpMetodo').value, tiempo = $('sinLimite') && $('sinLimite').checked ? 1e9 : Math.max(5, +$('tiempo').value || 120);
+    const ds = S.ds, v = Va.porId[$('vrpVar').value], met = $('vrpMetodo').value, tiempo = $('sinLimite') && $('sinLimite').checked ? 1e9 : App.num($('tiempo').value, 120, 5, 1e7);
     if (ds.nodos.length < 3) return App.aviso('Agregue nodos primero.');
     if (v.id === 'sdvrp' && met !== 'exacto') return App.aviso('La entrega dividida (SDVRP) solo se resuelve con el modelo matemático.');
-    const p = { origen: +$('origen').value, m: +$('vrpM').value || 0, Lmax: +$('vrpL').value || 0, lstops: +$('vrpP').value || 0, xy: proyeccion() };
+    const p = { origen: +$('origen').value, m: Math.round(App.num($('vrpM').value, 0, 0, 30)), Lmax: App.num($('vrpL').value, 0, 0, 1e12), lstops: Math.round(App.num($('vrpP').value, 0, 0, 1e4)), xy: proyeccion() };
+    extraParams(p);
     let c; try { c = Va.construir(v.id, { D: ds.D, nodos: ds.nodos, flota: ds.flota, vt: ds.vt }, p); } catch (e) { return App.aviso(e.message); }
     const I = c.I; if (I.veh.length > 10 && met === 'exacto') c.notas.push('Muchos vehículos (' + I.veh.length + '): el modelo exacto puede tardar; use «Vehículos» para reducirlos.');
     const algo = $('vrpAlgo').value, nombreMet = METODOS.find((x) => x[0] === met)[1];
-    const opt = { metodoSol: met, algo, tiempo: met === 'meta' || met === 'exacto' ? tiempo : Math.min(tiempo, 20), semilla: +$('vrpSem').value || 1, cota: $('vrpCota').checked, tiempoCota: Math.max(2, +$('vrpTc').value || 8), tiempoMeta: Math.max(1, Math.min(10, tiempo / 12)), brecha: 1e-6, metodo: ds.metodo };
+    const opt = { metodoSol: met, algo, tiempo: met === 'meta' || met === 'exacto' ? tiempo : Math.min(tiempo, 20), semilla: Math.round(App.num($('vrpSem').value, 1, 1, 1e9)), cota: $('vrpCota').checked, tiempoCota: App.num($('vrpTc').value, 8, 2, 3600), tiempoMeta: Math.max(1, Math.min(10, tiempo / 12)), brecha: 1e-6, metodo: ds.metodo };
     const tit = v.nombre + ' · ' + (met === 'heur' || met === 'meta' ? H.ALGORITMOS[algo].nombre : nombreMet);
     if (c.notas.length) { $('log').classList.remove('oculto'); $('log').textContent = c.notas.map((x) => 'ℹ ' + x).join('\n') + '\n'; }
     return { kind: 'vrp', opt, datos: { I }, extra: { I, variante: v.id, notas: c.notas }, titulo: tit, keepLog: true };
+  }
+  function extraParams(p) { p.tmax = App.num($('vrpT') && $('vrpT').value, 0, 0, 1e4); p.pen = App.num($('vrpPen') && $('vrpPen').value, 0, 0, 1e9); return p; }
+  /* datos base de la variante elegida (para el análisis de sensibilidad) */
+  function base() {
+    const ds = S.ds; if (!$('vrpVar') || ds.nodos.length < 3) { App.aviso('Agregue nodos primero.'); return null; } const v = Va.porId[$('vrpVar').value];
+    if (v.id === 'sdvrp' || (v.f && v.f.minVeh)) { /* también se puede: se resuelve con el modelo matemático */ }
+    const p = { origen: +$('origen').value, m: Math.round(App.num($('vrpM').value, 0, 0, 30)), Lmax: App.num($('vrpL').value, 0, 0, 1e12), lstops: Math.round(App.num($('vrpP').value, 0, 0, 1e4)), xy: proyeccion() };
+    extraParams(p);
+    return { v, p, S: { D: ds.D, nodos: ds.nodos, flota: ds.flota, vt: ds.vt } };
   }
   const svgConv = (hist, u) => {
     if (!hist || hist.length < 2) return ''; const W = 330, Hh = 90, xs = hist.map((p) => p[0]), ys = hist.map((p) => p[1]), x0 = 0, x1 = Math.max(...xs, 0.01), y0 = Math.min(...ys), y1 = Math.max(...ys);
@@ -57,22 +68,25 @@
     return `<div class="conv"><div class="nota">Convergencia: mejor costo en el tiempo (de ${fmt(y1, 1)} a ${fmt(y0, 1)} ${u})</div><svg viewBox="0 0 ${W} ${Hh}" width="100%"><path d="${d}" fill="none" stroke="var(--sys-blue)" stroke-width="2.2" stroke-linejoin="round"/><text x="8" y="${Hh - 4}" font-size="9" fill="currentColor" opacity=".6">0 s</text><text x="${W - 8}" y="${Hh - 4}" font-size="9" text-anchor="end" fill="currentColor" opacity=".6">${fmt(x1, 1)} s</text></svg></div>`;
   };
   function resultado(r, x, u, kpis, estadoKpi) {
-    const I = r.extra.I, f = I.f || {}, pc = (g) => (g == null || !isFinite(g) ? 'n/d' : (x.estado && String(x.estado).startsWith('óptimo') ? '0 %' : (g * 100).toFixed(2) + ' %'));
-    const items = [estadoKpi(x), [fmt(x.objetivo, 2) + (f.obj === 'profit' || f.obj === 'top' ? '' : ' ' + u), f.obj === 'profit' ? 'Función objetivo (costo − premio)' : f.obj === 'top' ? 'Función objetivo (−premio)' : f.objetivo === 'maximo' ? 'Ruta más larga (+ε·costo)' : 'Función objetivo (costo)'], [pc(x.gap), 'Brecha (gap)']];
+    const I = r.extra.I, f = I.f || {}, pc = (g) => (g == null || !isFinite(g) ? 'n/d' : (x.estado && String(x.estado).startsWith('óptimo') ? '0 %' : fmt(g * 100, 2) + ' %'));
+    const items = [estadoKpi(x), [fmt(x.objetivo, 2) + (f.obj === 'profit' || f.obj === 'top' ? '' : ' ' + u), f.obj === 'profit' ? 'Función objetivo (costo − premio)' : f.obj === 'top' ? 'Función objetivo (−premio)' : f.obj === 'latencia' ? 'Función objetivo (Σ llegadas en h + 0,001·costo)' : f.objetivo === 'maximo' ? 'Ruta más larga (+ε·costo)' : f.blandas ? 'Función objetivo (costo + retrasos)' : 'Función objetivo (costo)'], [pc(x.gap), 'Brecha (gap)']];
+    if (x.latencia != null && isFinite(x.latencia)) items.push([fmt(x.latencia, 2) + ' h', 'Suma de las horas de llegada']);
+    if (x.retraso != null && isFinite(x.retraso)) items.push([fmt(x.retraso * 60, 0) + ' min', 'Retraso total' + (x.tarde && x.tarde.length ? ' (' + x.tarde.length + ' cliente' + (x.tarde.length > 1 ? 's' : '') + ')' : '')]);
     if (x.cota != null && isFinite(x.cota)) items.push([fmt(x.cota, 2), 'Mejor cota (óptimo ≥)']);
     if (x.flota) items.push([x.flota + ' vehículos', 'Flota mínima (fase 1)']);
-    items.push([x.metodoSol || '', 'Método'], [fmt(x.seg || 0, 2) + ' s', 'Tiempo de cálculo']);
+    items.push([x.metodoSol || '', 'Método', 'texto'], [fmt(x.seg || 0, 2) + ' s', 'Tiempo de cálculo']);
     let h = kpis(items);
     if (x.avisos && x.avisos.length) h += x.avisos.map((a) => `<p class="nota">ℹ ${esc(a)}</p>`).join('');
-    if (x.informe) { const q = x.informe; h += `<details class="nota" open><summary><b>Informe de la corrida</b></summary><table><tr><th>Concepto</th><th>Valor</th></tr>` + [['Modelo', q.modelo], ['Estado', q.estado], ['Objetivo', q.objetivo != null ? fmt(q.objetivo, 4) : '—'], ['Mejor cota inferior', q.cota != null && isFinite(q.cota) ? fmt(q.cota, 4) : '—'], ['Brecha (gap)', q.gap != null && isFinite(q.gap) ? (q.gap * 100).toFixed(3) + ' %' : '—'], ['Variables (binarias)', q.variables + ' (' + q.binarias + ')'], ['Restricciones', q.restricciones], ['Cortes de subtours', q.cortes], ['Rutas', q.rutas], ...(q.vehiculos != null ? [['Vehículos', q.vehiculos]] : []), ['Tiempo', fmt(q.tiempo, 2) + ' s (límite ' + q.tiempoLimite + ' s)']].map(([a, b]) => `<tr><td>${esc(a)}</td><td class="tabular">${esc(String(b))}</td></tr>`).join('') + `</table></details>`; }
+    if (x.informe) { const q = x.informe; h += `<details class="nota" open><summary><b>Informe de la corrida</b></summary><table><tr><th>Concepto</th><th>Valor</th></tr>` + [['Modelo', q.modelo], ['Estado', q.estado], ['Objetivo', q.objetivo != null ? fmt(q.objetivo, 4) : '—'], ['Mejor cota inferior', q.cota != null && isFinite(q.cota) ? fmt(q.cota, 4) : '—'], ['Brecha (gap)', q.gap != null && isFinite(q.gap) ? fmt(q.gap * 100, 3) + ' %' : '—'], ['Variables (binarias)', q.variables + ' (' + q.binarias + ')'], ['Restricciones', q.restricciones], ['Cortes de subtours', q.cortes], ['Rutas', q.rutas], ...(q.vehiculos != null ? [['Vehículos', q.vehiculos]] : []), ['Tiempo', fmt(q.tiempo, 2) + ' s (límite ' + q.tiempoLimite + ' s)']].map(([a, b]) => `<tr><td>${esc(a)}</td><td class="tabular">${esc(String(b))}</td></tr>`).join('') + `</table></details>`; }
     if (x.exactoRef != null && isFinite(x.exactoRef)) h += `<p class="nota">El modelo matemático (cota, ${r.opt.tiempoCota || 8} s) halló una solución de ${fmt(x.exactoRef, 2)}.</p>`;
     if (x.mejorExacto) h += `<div class="aviso">El modelo matemático encontró una solución mejor (${fmt(x.mejorExacto.objetivo, 2)}). Use «Modelo matemático» para verla.</div>`;
     if (I.optional && x.noVisitados && x.noVisitados.length) h += `<p class="nota"><b>Clientes no visitados</b> (no rentables o fuera del alcance): ${x.noVisitados.map((i) => esc(corto(i))).join(', ')}. Premio recogido: ${fmt(x.premio, 2)}.</p>`;
+    if (x.tarde && x.tarde.length) h += `<p class="nota"><b>Llegan tarde</b> (pagan penalización): ${x.tarde.map((i) => esc(corto(i))).join(', ')}.</p>`;
     if (x.abiertos) h += `<p class="nota"><b>Depósitos abiertos:</b> ${x.abiertos.map((d) => esc(corto(d) + ' ' + nodo(d).nombre)).join(', ')}</p>`;
     if (x.estado && String(x.estado).startsWith('sin solución')) h += `<div class="aviso error">No se halló una solución factible con este método. Pruebe otro algoritmo, más tiempo o el modelo matemático.</div>`;
     if (x.comparacion) {
       const mejor = Math.min(...x.comparacion.filter((c) => c.factible).map((c) => c.obj));
-      h += `<h3 style="font-size:15px;margin:10px 0 6px">Comparación de métodos</h3><table><tr><th>Método</th><th>Tipo</th><th>Objetivo</th><th>Gap</th><th>s</th></tr>` + x.comparacion.map((c) => `<tr class="${c.factible && Math.abs(c.obj - mejor) < 1e-9 ? 'activa' : ''}"><td>${esc(c.metodo)}</td><td>${c.tipo === 'exacto' ? 'Exacto' : c.tipo === 'meta' ? 'Meta' : 'Heur.'}</td><td class="tabular">${c.factible ? fmt(c.obj, 2) : '—'}</td><td class="tabular">${c.gap == null ? (c.gapProp != null ? (c.gapProp * 100).toFixed(2) + ' %' : 'n/d') : (c.gap * 100).toFixed(2) + ' %'}</td><td class="tabular">${fmt(c.seg, 1)}</td></tr>`).join('') + `</table><p class="nota">Gap = (objetivo − mejor cota) / objetivo. Resaltado: la mejor solución, que es la que se dibuja.</p>`;
+      h += `<h3 style="font-size:15px;margin:10px 0 6px">Comparación de métodos</h3><table><tr><th>Método</th><th>Tipo</th><th>Objetivo</th><th>Gap</th><th>s</th></tr>` + x.comparacion.map((c) => `<tr class="${c.factible && Math.abs(c.obj - mejor) < 1e-9 ? 'activa' : ''}"><td>${esc(c.metodo)}</td><td>${c.tipo === 'exacto' ? 'Exacto' : c.tipo === 'meta' ? 'Meta' : 'Heur.'}</td><td class="tabular">${c.factible ? fmt(c.obj, 2) : '—'}</td><td class="tabular">${c.gap == null ? (c.gapProp != null ? fmt(c.gapProp * 100, 2) + ' %' : 'n/d') : fmt(c.gap * 100, 2) + ' %'}</td><td class="tabular">${fmt(c.seg, 1)}</td></tr>`).join('') + `</table><p class="nota">Gap = (objetivo − mejor cota) / objetivo. Resaltado: la mejor solución, que es la que se dibuja.</p>`;
     }
     h += svgConv(x.historial, u);
     const multi = x.info && x.info.some((q) => q.depot !== x.info[0].depot);
@@ -90,5 +104,5 @@
       const m = new window.Solver.Model(); void m; descargar('vrp_' + id + '.txt', '* El modelo LP exacto se genera dentro del solver; use el código GAMS para ver las ecuaciones.\n' + window.Gams.generar(I, Va.porId[id].nombre));
     } else return false; return true;
   };
-  window.VrpUi = { montar, refrescar, parametros, resultado };
+  window.VrpUi = { montar, refrescar, parametros, resultado, base };
 })();

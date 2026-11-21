@@ -1,6 +1,6 @@
 PARCIAL DE TEORIA DE GRAFOS - OPTIMIZACION DE RUTAS Y REDES
 ==============================================================================
-Autor: Juan Sebastian Salas Lugo - Distribucion y Transporte (UTB)
+Autores: Juan Sebastian Salas Lugo y Alejandro Alvarez Torres - Distribucion y Transporte (UTB)
 
 COMO EJECUTARLO (UN SOLO CLIC)
   - Windows:  doble clic en  Ejecutar_App.bat
@@ -92,25 +92,53 @@ VERIFICACION (valores esperados)
 
 NOVEDADES
 - Modelos rápidos: TSP, m-TSP, m-TSP balanceado, Open m-TSP y Open m-TSP balanceado (botones en la tarjeta «Problema»).
-- «Sin límite»: el solver sigue hasta PROBAR el óptimo. Mientras corre se ve la mejor solución, la mejor cota y la brecha (gap).
-- «Parar y ver lo mejor»: detiene al cerrar la fase de cálculo en curso y muestra la mejor solución con su brecha.
-- Simulación: los vehículos (camión, tractocamión, camioneta, cartero) recorren las calles; reproducir, pausar, velocidad, barra de posición.
-- Pestaña «Gantt»: tiempo de cada tramo de cada vehículo.
+- «Sin límite»: el solver sigue hasta PROBAR el óptimo. Mientras corre se ve la mejor solución, la mejor cota, la brecha (gap)
+  y una pequeña gráfica en vivo de ambas.
+- «Parar y ver lo mejor»: detiene (en pocos segundos) y muestra la mejor solución con su brecha. «Cancelar» corta de inmediato.
 
-VRP · 27 VARIANTES (nuevo)
-- En «Tipo de problema» elija «VRP · 27 variantes». Variantes: TSP, TSP abierto, m-TSP (+balanceado, abierto, min-max), CVRP, OVRP, DCVRP,
-  máx. paradas, mínima flota, CVRP balanceado, VRPTW, OVRPTW, HFVRP, FSMVRP, HFVRPTW, MDVRP, MDVRPTW, LRP, VRPB (backhaul),
-  VRPSPD, VRPPD, SDVRP (entrega dividida), VRP con beneficios y Orienteering/TOP.
+SIMULACIÓN DE LOS VEHÍCULOS
+- Al resolver un problema de rutas, los vehículos recorren las calles con la VELOCIDAD de su tipo, con RELOJ del día (hora de
+  salida configurable), se detienen en cada cliente el TIEMPO DE SERVICIO y ESPERAN si llegan antes de que abra la ventana.
+- Panel «Flota en vivo»: qué hace cada vehículo (hacia dónde va, atendiendo, esperando), avance de la jornada y CARGA a bordo,
+  que baja con cada entrega. Clic en un vehículo para seguirlo con el mapa.
+- Controles: reproducir/pausar (también con la barra espaciadora), volver al inicio, velocidad 0,5× a 16×, barra para ir a
+  cualquier hora del día. Cada cliente atendido se marca con una animación.
+- Pestaña «Gantt»: la misma agenda por vehículo (viaje, espera por ventana y servicio) en horas del día.
+
+GRÁFICAS Y UTILIDADES (pestaña «Gráficas»)
+- Distancia por ruta, uso de la capacidad de cada vehículo y composición de la jornada (viaje / espera / servicio).
+- Convergencia del modelo matemático: mejor solución y cota en el tiempo (la brecha es el espacio entre ambas).
+- Comparación de métodos (con «Comparar con heurísticas»): objetivo de cada método y gráfica calidad frente a tiempo.
+- Historial de corridas del proyecto: compara escenarios (cambie flota, capacidad o variante y vuelva a resolver).
+- Análisis de sensibilidad: resuelve el modelo exacto para varios valores de un dato (número de vehículos, capacidad,
+  distancia máxima, tiempo de servicio o velocidad) y grafica cómo cambia el óptimo.
+- Cada gráfica tiene información al pasar el cursor y botón CSV con sus datos.
+- «Copiar resumen» (pestaña Resultado): copia el resultado en texto para pegarlo en un informe.
+- Atajos: Ctrl+Enter resolver · Espacio reproducir/pausar la simulación · Esc cerrar · ? ver los atajos.
+- Tema claro/oscuro: los colores de las rutas se ajustan al fondo (paleta verificada para daltonismo).
+
+VRP · 34 VARIANTES
+- En «Tipo de problema» elija «VRP · 34 variantes». Variantes: TSP, TSP abierto, m-TSP (+balanceado, abierto, min-max), CVRP, OVRP,
+  DCVRP, máx. paradas, mínima flota, CVRP balanceado, CVRP min-max, VRPTW, OVRPTW, VRP con ventanas suaves, VRP con jornada máxima,
+  CCVRP (latencia mínima), HFVRP, FSMVRP, HFVRPTW, MDVRP, MDVRPTW, MDVRP abierto, LRP, VRPB (backhaul), VRPSPD, VRPPD,
+  SDVRP (entrega dividida), VRP con beneficios, TOP, Orienteering (un vehículo) y Tour rentable.
 - Cómo resolver: modelo matemático (MILP con HiGHS). Es la única solución que se entrega como resultado.
-- «Comparar con heurísticas (referencia)»: ejecuta vecino más cercano, ahorros, barrido, inserción, VND, recocido, tabú, genético,
-  hormigas, GRASP y VNS, y muestra la brecha de cada uno frente al óptimo. Son solo referencia: no reemplazan al modelo.
+- «Comparar con heurísticas (referencia)»: vecino más cercano, ahorros, barrido, inserción, VND (relocate, swap, 2-opt, Or-opt,
+  2-opt*), recocido, tabú, genético, hormigas, GRASP, VNS, ILS y LNS; muestra la brecha de cada uno frente al óptimo.
 - MinVeh: primero se minimiza la flota y luego la distancia con esa flota (dos fases). Se informa el número de vehículos.
-- Datos extra por variante (Recoge, Par, Premio, Abrir) en la pestaña Nodos. El resultado se exporta a código GAMS (.gms).
+- Datos extra por variante (Recoge, Par, Premio, Abrir) en la pestaña Nodos; jornada máxima y penalización por retraso en la
+  tarjeta Problema. La pestaña «Modelo» muestra la función objetivo y las restricciones de la variante elegida.
+- «Código GAMS (.gms)»: exporta el MISMO modelo con los datos del proyecto, listo para correr en GAMS Studio (F9).
 
 VALIDACION Y PRUEBAS (para el profesor o para revisar la app)
-  - Las 27 variantes se validaron contra los modelos GAMS sobre la misma instancia CVRP-10 (óptimo 425,05):
-    node pruebas/validar_gams.js          (sale con código 1 si alguna no coincide)
-  - Pruebas de interfaz (navegador):  node pruebas/e2e_vrp.js  y  node pruebas/e2e_parar.js
+  - Las 27 variantes base coinciden con los modelos GAMS escritos a mano (GAMS_modelos) en la instancia CVRP-10 (óptimo 425,05):
+      node pruebas/validar_gams.js
+  - El código GAMS que exporta la app se ejecuta completo y da el mismo óptimo que la app en las 34 variantes:
+      node pruebas/validar_export_gams.js
+  - Las heurísticas nunca superan el óptimo probado y sus rutas cumplen todas las restricciones:  node pruebas/prueba_heur.js
+  - Interfaz: node pruebas/e2e_vrp.js, e2e_parar.js, e2e_graficas.js (simulación, gráficas, sensibilidad, variantes nuevas)
+  - Prueba de caos (miles de clics y datos absurdos; busca errores, textos inválidos y congelamientos):
+      node pruebas/caos.js http://127.0.0.1:8765/ 400 7
   - Prueba del doble clic (ventana abierta / cerrada):  node pruebas/e2e_un_clic.js  (con la app abierta con LATIDO_SEG=12)
   - Todas juntas: node pruebas/correr_todo.js   (informa PASA o FALLA por cada prueba)
   - Pruebas de modelos: node pruebas/prueba_solver.js, prueba_flota.js, prueba_mtz.js, prueba_nuevos.js

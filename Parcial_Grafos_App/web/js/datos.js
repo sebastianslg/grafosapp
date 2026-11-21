@@ -12,6 +12,8 @@
 
   /* ---------- modelo ---------- */
   function normalizar(ds) {
+    if (!Array.isArray(ds.nodos)) ds.nodos = [];
+    const n = ds.nodos.length; if (!Array.isArray(ds.D) || ds.D.length !== n || ds.D.some((f) => !Array.isArray(f) || f.length !== n)) ds.D = ds.nodos.map(() => ds.nodos.map(() => INF));
     ds.nodos.forEach((n) => { n.extra = n.extra || 0; n.balance = n.balance || 0; n.fijo = n.fijo || 0; n.tipo = n.tipo === 'dc' ? 'dc' : 'cliente'; n.peso = n.peso > 0 ? n.peso : 1; n.vtOn = !!n.vtOn; n.vtA = n.vtA ?? 8; n.vtB = n.vtB ?? 18; });
     ds.pesoArista = ds.pesoArista ? capInf(ds.pesoArista) : null;
     ds.vt = Object.assign({ usar: false, inicio: 8, servicio: 10 }, ds.vt || {});
@@ -19,7 +21,7 @@
     ds.balanceado = !!ds.balanceado; ds.metodo = ds.metodo === 'dfj' ? 'dfj' : 'mtz';
     ds.candidatos = ds.candidatos || []; ds.area = ds.area || null; ds.fondo = ds.fondo || null; ds.base = ds.base || 'calles';
     ds.dirigido = !!ds.dirigido; ds.factor = ds.factor || 1; ds.modoDist = (!ds.modoDist || ds.modoDist === 'recta') ? 'euclidiana' : ds.modoDist; ds.cap = ds.cap ? capInf(ds.cap) : null;
-    ds.unidad = ds.unidad || 'km'; ds.centro = ds.centro || [ds.nodos[0].lat, ds.nodos[0].lon]; ds.zoom = ds.zoom || 12;
+    ds.unidad = ds.unidad || 'km'; ds.centro = Array.isArray(ds.centro) && ds.centro.length === 2 && ds.centro.every(Number.isFinite) ? ds.centro : (ds.nodos[0] ? [ds.nodos[0].lat, ds.nodos[0].lon] : [4.65, -74.08]); ds.zoom = ds.zoom || 12;
     return ds;
   }
   const dcIdx = (ds) => ds.nodos.findIndex((n) => n.tipo === 'dc');
@@ -158,14 +160,16 @@
     if (conEtq) { ids = rows[0].slice(rows[0].length - n); body = rows.slice(1).map((r) => r.slice(r.length - n)); }
     else { ids = Array.from({ length: rows.length }, (_, i) => String(i + 1)); body = rows; }
     if (body.some((r) => r.length !== body.length)) throw new Error('La matriz no es cuadrada (' + body.length + ' filas, ' + body[0].length + ' columnas).');
-    return { ids: ids.map((x) => (esNum(x) ? Number(x) : x)), D: body.map((r, i) => r.map((c, j) => (i === j ? INF : num(c)))) };
+    const D = body.map((r, i) => r.map((c, j) => (i === j ? INF : num(c))));
+    if (D.some((f) => f.some((v) => v < 0))) throw new Error('La matriz tiene distancias negativas.');
+    return { ids: ids.map((x) => (esNum(x) ? Number(x) : x)), D };
   }
   function filasAAristas(rows) {
     const cab = rows[0].map((h) => String(h).toLowerCase().trim());
     const cO = buscar(cab, 'origen', 'desde', 'from', 'source'), cD = buscar(cab, 'destino', 'hasta', 'to', 'target');
     const cC = buscar(cab, 'costo', 'coste', 'cost', 'peso', 'distancia', 'distance', 'weight', 'km', 'valor'), cK = buscar(cab, 'capacidad', 'capacity', 'cap');
     if (cC < 0) throw new Error('Falta la columna de costo (costo, distancia, peso…).');
-    return rows.slice(1).map((r) => [esNum(r[cO]) ? Number(r[cO]) : r[cO], esNum(r[cD]) ? Number(r[cD]) : r[cD], num(r[cC]), cK >= 0 ? num(r[cK]) : INF]).filter((e) => isFinite(e[2]));
+    return rows.slice(1).map((r) => [esNum(r[cO]) ? Number(r[cO]) : r[cO], esNum(r[cD]) ? Number(r[cD]) : r[cD], num(r[cC]), cK >= 0 ? num(r[cK]) : INF]).filter((e) => isFinite(e[2]) && e[2] >= 0 && e[0] !== undefined && e[1] !== undefined && String(e[0]) !== String(e[1]));
   }
 
   /* ---------- exportación ---------- */

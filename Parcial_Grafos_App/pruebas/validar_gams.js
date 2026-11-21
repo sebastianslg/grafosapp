@@ -18,11 +18,11 @@ const VT = (k) => G.VT['c' + k];
 
 /* Instancia para cada variante: nodos (depósitos primero, luego clientes), flota y parámetros del usuario */
 function instancia(id) {
-  const multi = ['mdvrp', 'mdvrptw', 'lrp'].includes(id);
+  const multi = ['mdvrp', 'mdvrptw', 'lrp', 'omdvrp'].includes(id);
   const nDep = multi ? (id === 'lrp' ? 3 : 2) : 1;
   const depNames = multi ? ['d1', 'd2', 'd3'].slice(0, nDep) : ['d'];
   const depXY = (nm) => (nm === 'd' ? G.coord[0] : DEP3[nm]);
-  const cs = id === 'sdvrp' ? [1, 2, 3, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const cs = id === 'sdvrp' || id === 'ccvrp' ? [1, 2, 3, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];   // latencia: modelo más difícil, instancia de 8 clientes
   const xy = depNames.map(depXY).concat(cs.map(cli));
   const nodos = depNames.map((nm) => ({ tipo: 'dc', peso: 0, rec: 0, premio: 0, par: null, costoApertura: id === 'lrp' ? { d1: 100, d2: 100, d3: 160 }[nm] : 0, capDep: id === 'lrp' ? { d1: 25, d2: 25, d3: 40 }[nm] : 0 }));
   cs.forEach((k) => {
@@ -30,7 +30,7 @@ function instancia(id) {
     if (id === 'vrpb' && k >= 7) x.rec = dem(k);
     if (id === 'vrpspd') x.rec = G.PK['c' + k];
     if (id === 'vrppd') { const par = G.PARES.find(([a, b]) => a === 'c' + k || b === 'c' + k); if (par) x.par = G.PARES.indexOf(par); }
-    if (['pcvrp', 'top'].includes(id)) x.premio = G.PREMIO['c' + k];
+    if (['pcvrp', 'top', 'op', 'ptp'].includes(id)) x.premio = G.PREMIO['c' + k];
     nodos.push(x);
   });
   const D = xy.map((a) => xy.map((b) => dist(a, b)));
@@ -39,8 +39,8 @@ function instancia(id) {
     hfvrptw: [{ tipo: 'grande', n: 2, cap: 20, costoKm: 1.3, vel: 1, fijo: 0 }, { tipo: 'pequeno', n: 2, cap: 10, costoKm: 0.8, vel: 1, fijo: 0 }],
     fsmvrp: [{ tipo: 'grande', n: 2, cap: 20, costoKm: 1, vel: 1, fijo: 80 }, { tipo: 'mediano', n: 2, cap: 15, costoKm: 1, vel: 1, fijo: 60 }, { tipo: 'pequeno', n: 2, cap: 10, costoKm: 1, vel: 1, fijo: 45 }] }[id]
     || [{ tipo: 'camión', n: 5, cap, costoKm: 1, vel: 1, fijo: 0 }];
-  const p = { m: { tsp: 1, otsp: 1, mtsp: 3, mtspb: 3, omtsp: 3, omtspb: 4, mtspmm: 3, cvrp: 5, ovrp: 5, dcvrp: 5, vrpl: 5, minveh: 5, cvrpb: 4, vrptw: 5, ovrptw: 5, mdvrp: 3, mdvrptw: 3, lrp: 3, vrpb: 5, vrpspd: 5, vrppd: 3, sdvrp: 4, pcvrp: 2, top: 2 }[id] };
-  if (id === 'dcvrp') p.Lmax = 150; if (id === 'top') p.Lmax = 160; if (id === 'vrpl') p.lstops = 3;
+  const p = { m: { tsp: 1, otsp: 1, mtsp: 3, mtspb: 3, omtsp: 3, omtspb: 4, mtspmm: 3, cvrp: 5, ovrp: 5, dcvrp: 5, vrpl: 5, minveh: 5, cvrpb: 4, vrptw: 5, ovrptw: 5, mdvrp: 3, mdvrptw: 3, lrp: 3, vrpb: 5, vrpspd: 5, vrppd: 3, sdvrp: 4, pcvrp: 2, top: 2, cvrpmm: 5, vrpstw: 5, dvrpt: 5, ccvrp: 3, omdvrp: 3 }[id] };
+  if (id === 'dcvrp') p.Lmax = 150; if (id === 'top' || id === 'op') p.Lmax = 160; if (id === 'dvrpt') p.tmax = 150; if (id === 'vrpstw') p.pen = 2; if (id === 'vrpl') p.lstops = 3;
   if (id === 'mtspb' || id === 'omtspb' || id === 'cvrpb') p.balanced = true;
   const S0 = { D, nodos, flota, vt: { inicio: 0, servicio: 600, cierre: 480 } };
   return { S: S0, p };

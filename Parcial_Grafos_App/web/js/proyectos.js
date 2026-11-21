@@ -140,5 +140,34 @@ xᵢⱼ ∈ {0,1}    cᵢⱼ = distancia euclidiana (o por carretera)</pre>
       <p class="nota">Flota heterogénea: cada vehículo k tiene su capacidad K₀ₖ, costo por km y velocidad (tᵢⱼ = cᵢⱼ / velocidad). Las ventanas son estrictas: se puede esperar si se llega antes, no llegar tarde.</p>`,
     otro: '<h3>Modelo</h3><p class="nota">Elija TSP o m-TSP en «Problema» para ver las fórmulas del curso que se resuelven. Los demás problemas (caminos, árbol, flujos, localización) usan sus modelos lineales estándar.</p>',
   };
-  App.paneles.push({ id: 'modelo', titulo: 'Modelo', render: (el) => { const p = $('problema').value; el.innerHTML = (F[p] || F.otro) + `<p class="nota">Solver: HiGHS (programación lineal entera mixta). Método de sub-tours: <b>${S.ds.metodo === 'mtz' ? 'MTZ (fórmulas del curso)' : 'cortes DFJ'}</b>.</p>`; } });
+  /* modelo matemático de la variante de VRP elegida: objetivo y restricciones que se agregan al modelo base */
+  function modeloVrp() {
+    const info = App.vrpInfo && App.vrpInfo(); if (!info) return F.otro; const v = info.v, f = v.f || {}, esc = App.esc;
+    const fo = f.obj === 'profit' ? 'Min Z = Σₖ Σᵢⱼ cₖ·dᵢⱼ·xᵢⱼₖ − Σᵢ premioᵢ·Σₖ yᵢₖ      (beneficio neto = −Z)'
+      : f.obj === 'top' ? 'Max Σᵢ premioᵢ·Σₖ yᵢₖ   (en la app: Min −premio + 0,0001·costo)'
+      : v.latencia ? 'Min Z = Σᵢ (tᵢ − t₀) + 0,001·Σₖ Σᵢⱼ cₖ·dᵢⱼ·xᵢⱼₖ      (suma de las horas de llegada)'
+      : f.objetivo === 'maximo' ? 'Min Z = zmax + 0,001·Σ costos,    zmax ≥ Σᵢⱼ cₖ·dᵢⱼ·xᵢⱼₖ  ∀ k'
+      : v.minVeh ? 'Fase 1: Min Σₖ vₖ      Fase 2: Min Σₖ Σᵢⱼ dᵢⱼ·xᵢⱼₖ  con  Σₖ vₖ = flota de la fase 1'
+      : 'Min Z = Σₖ Σᵢⱼ cₖ·dᵢⱼ·xᵢⱼₖ' + (v.fijos ? ' + Σₖ Fₖ·vₖ' : '') + (f.locDepot ? ' + Σ_d fa_d·o_d' : '') + (v.blandas ? ' + pen·Σᵢ eᵢ' : '');
+    const R = [['Visita', v.opcional ? 'Σₖ yᵢₖ ≤ 1   (el cliente es opcional)' : f.mode === 'split' ? 'Σₖ yᵢₖ ≥ 1   (puede atenderlo más de un vehículo)' : 'Σₖ yᵢₖ = 1   ∀ cliente i'],
+      ['Flujo', 'Σⱼ xⱼᵢₖ = yᵢₖ = Σⱼ xᵢⱼₖ   ∀ i, k'], ['Depósito', 'Σⱼ x₀ⱼₖ = vₖ = Σᵢ xᵢ₀ₖ' + (f.open ? '   (regresar cuesta 0: ruta abierta)' : '')], ['Uso', 'yᵢₖ ≤ vₖ'],
+      ['Subtours (MTZ)', 'uᵢ − uⱼ + n·Σₖ xᵢⱼₖ ≤ n − 1']];
+    if (v.cap || v.mixta) R.push(f.mode === 'split' ? ['Entrega dividida', 'qᵢₖ ≤ wᵢ·yᵢₖ,  Σₖ qᵢₖ = wᵢ,  Σᵢ qᵢₖ ≤ Qₖ·vₖ'] : ['Capacidad', 'Σᵢ wᵢ·yᵢₖ ≤ Qₖ·vₖ']);
+    if (f.balanced) R.push(['Balance', '⌊n/m⌋ ≤ Σᵢ yᵢₖ ≤ ⌈n/m⌉']); else if (f.lmin) R.push(['Mínimo por ruta', 'Σᵢ yᵢₖ ≥ ' + f.lmin + '·vₖ']);
+    if (v.paradas) R.push(['Máx. paradas', 'Σᵢ yᵢₖ ≤ P·vₖ']);
+    if (v.lmaxDist) R.push(['Distancia máx.', 'Σᵢⱼ dᵢⱼ·xᵢⱼₖ ≤ L·vₖ']);
+    if (v.jornada) R.push(['Jornada máx.', 'Σᵢⱼ (dᵢⱼ/velₖ)·xᵢⱼₖ + s·Σᵢ yᵢₖ ≤ T·vₖ']);
+    if (v.vt || v.latencia) R.push(['Hora de llegada', 'tⱼ ≥ tᵢ + s + dᵢⱼ/velₖ − Mᵢⱼ·(1 − xᵢⱼₖ)   (Mᵢⱼ ajustada por arco)']);
+    if (v.vt && !v.blandas) R.push(['Ventana', 'aᵢ ≤ tᵢ ≤ bᵢ' + (v.f && v.f.open ? '' : ';  regreso antes del cierre del depósito')]);
+    if (v.blandas) R.push(['Ventana suave', 'tᵢ ≥ aᵢ,  eᵢ ≥ tᵢ − bᵢ,  eᵢ ≥ 0   (retraso penalizado)']);
+    if (f.mode === 'backhaul') R.push(['Backhaul', 'primero entregas y luego recogidas; Σ rᵢ·yᵢₖ ≤ Qₖ']);
+    if (f.mode === 'spd' || f.mode === 'pd') R.push(['Carga en ruta', 'lⱼ ≥ lᵢ + rⱼ − wⱼ − M·(1 − Σₖ xᵢⱼₖ),  lᵢ ≤ Qₖ']);
+    if (f.mode === 'pd') R.push(['Pares', 'y_pk = y_dk,  u_d ≥ u_p + 1   (recoger antes de entregar, mismo vehículo)']);
+    if (f.locDepot) R.push(['Localización', 'vₖ ≤ o_d(k);  Σ demanda del depósito ≤ capD·o_d']);
+    if (v.multi) R.push(['Varios depósitos', 'cada vehículo k sale y vuelve a su depósito d(k)']);
+    return `<h3>${esc(v.nombre)}</h3><p class="nota">${esc(v.desc)} <i>(${esc(v.en)})</i></p><p class="nota"><b>Variables:</b> xᵢⱼₖ = 1 si el vehículo k va de i a j; yᵢₖ = 1 si k atiende a i; vₖ = 1 si k se usa; uᵢ orden de visita${v.vt || v.latencia ? '; tᵢ hora de llegada' : ''}${v.blandas ? '; eᵢ retraso' : ''}${f.locDepot ? '; o_d = 1 si se abre el depósito d' : ''}.</p>
+      <pre class="formula">${esc(fo)}</pre><table><tr><th>Restricción</th><th>Expresión</th></tr>${R.map(([a, b]) => `<tr><td>${esc(a)}</td><td style="font-family:var(--mono);font-size:12px">${esc(b)}</td></tr>`).join('')}</table>
+      <p class="nota">Es el mismo modelo que se exporta con «Código GAMS (.gms)» en el resultado; se verificó que el código exportado da el mismo óptimo en las ${window.Variantes.VARIANTES.length} variantes.</p>`;
+  }
+  App.paneles.push({ id: 'modelo', titulo: 'Modelo', render: (el) => { const p = $('problema').value; el.innerHTML = (p === 'vrp' ? modeloVrp() : (F[p] || F.otro)) + `<p class="nota">Solver: HiGHS (programación lineal entera mixta). Método de sub-tours: <b>${S.ds.metodo === 'mtz' ? 'MTZ (fórmulas del curso)' : 'cortes DFJ'}</b>.</p>`; } });
 })();

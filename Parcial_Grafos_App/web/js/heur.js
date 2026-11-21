@@ -1,7 +1,7 @@
 /* Heurísticas y metaheurísticas para las variantes de VRP.
    Constructivas: vecino más cercano, ahorros (Clarke-Wright), barrido, inserción más barata.
-   Mejora local: VND (relocate, swap, 2-opt, quitar/agregar clientes opcionales).
-   Metaheurísticas: recocido simulado, búsqueda tabú, algoritmo genético, colonia de hormigas, GRASP, VNS.
+   Mejora local: VND (relocate, swap, 2-opt, Or-opt, 2-opt* entre rutas, quitar/agregar clientes opcionales).
+   Metaheurísticas: recocido simulado, búsqueda tabú, algoritmo genético, colonia de hormigas, GRASP, VNS, ILS y LNS.
    Misma instancia I que Vrp.vrp. Las restricciones se tratan con penalización; se devuelve la mejor solución factible. */
 (function (root) {
   'use strict';
@@ -15,7 +15,9 @@
     const opt = (i) => !!(I.optional && I.optional[i]);
     let lmin = 0, lmax = nc; if (f.balanced) { lmin = Math.max(1, Math.floor(nc / m)); lmax = Math.ceil(nc / m); } else { lmin = f.lmin || 0; lmax = f.lmax || nc; }
     const todas = !!f.balanced || lmin >= 1;
-    const maxD = Math.max(...D.flat().filter(isFinite)), P = 50 * maxD * (1 + Math.max(...veh.map((v) => v.costoKm || 1))) + 2 * veh.reduce((a, v) => a + (v.fijo || 0), 0) + 2 * Object.values(f.openCost || {}).reduce((a, b) => a + b, 0) + 2 * (I.prize || []).reduce((a, b) => a + (b || 0), 0);
+    const lat = obj === 'latencia', blandas = !!(vt && f.blandas), pRet = f.penRetraso || 0, tmax = f.tmax > 0 ? f.tmax : null, servJ = f.servicio || (vt ? vt.servicio || 0 : 0);
+    const Hh = vt ? Math.max(...vt.b.filter(isFinite), vt.H || 0, 1) : 24;
+    const maxD = Math.max(...D.flat().filter(isFinite)), P = (lat || blandas ? 10 * nc * Hh * (1 + pRet) : 0) + 50 * maxD * (1 + Math.max(...veh.map((v) => v.costoKm || 1))) + 2 * veh.reduce((a, v) => a + (v.fijo || 0), 0) + 2 * Object.values(f.openCost || {}).reduce((a, b) => a + b, 0) + 2 * (I.prize || []).reduce((a, b) => a + (b || 0), 0);
     const pairOf = new Map(); (I.pairs || []).forEach(([p, d]) => { pairOf.set(p, [p, d]); pairOf.set(d, [p, d]); });
     const cap = (k) => (isFinite(veh[k].cap) ? veh[k].cap : INF);
     const bh = (x) => r[x] > 0 && !(w[x] > 0);
@@ -36,16 +38,23 @@
       if (isFinite(V.Lmax) && d > V.Lmax + 1e-9) pen += 1 + (d - V.Lmax) / V.Lmax;
       if (n > (V.lstops || lmax)) pen += 1 + (n - (V.lstops || lmax)) / nc; if (n < lmin) pen += 1 + (lmin - n) / nc;
       if (pairOf.size) { const pos = new Map(s.map((x, q) => [x, q])); for (const x of s) { const pr = pairOf.get(x); if (!pr) continue; if (x === pr[1]) { if (!pos.has(pr[0]) || pos.get(pr[0]) > pos.get(x)) pen += 1; } else if (!pos.has(pr[1])) pen += 1; } }
-      if (vt) { let t = vt.inicio || 0, prev = h; for (const x of s) { t += D[prev][x] / V.vel; const a = vt.a[x] ?? 0, b = vt.b[x] ?? 48; if (t < a) t = a; if (t > b + 1e-9) pen += 1 + (t - b) / 24; t += vt.servicio || 0; prev = x; } }
+      let extra = 0;
+      if (vt) {
+        let t = vt.inicio || 0, prev = h;
+        for (const x of s) { t += D[prev][x] / V.vel; const a = vt.a[x] ?? 0, b = vt.b[x] ?? 48; if (t < a) t = a; if (t > b + 1e-9) { if (blandas) extra += pRet * (t - b); else pen += 1 + (t - b) / 24; } if (lat) extra += t - (vt.inicio || 0); t += vt.servicio || 0; prev = x; }
+        if (!open && vt.cierre > 0) { const tf = t + D[prev][h] / V.vel; if (tf > vt.cierre + 1e-9) pen += 1 + (tf - vt.cierre) / 24; }   // regreso antes del cierre del depósito
+      }
+      if (tmax) { const dur = d / V.vel + servJ * n; if (dur > tmax + 1e-9) pen += 1 + (dur - tmax) / tmax; }   // jornada máxima
       let dc = D[h][s[0]]; for (let q = 1; q < n; q++) dc += D[s[q - 1]][s[q]]; if (!open) dc += D[s[n - 1]][h];
-      const cost = V.costoKm * dc * tinyTop + (V.fijo || 0);
-      return detalle ? { c: V.costoKm * dc + (V.fijo || 0), d, pen, cost: cost + P * pen } : cost + P * pen;
+      const cost = (lat ? 1e-3 : tinyTop) * V.costoKm * dc + (V.fijo || 0) + extra;
+      return detalle ? { c: V.costoKm * dc + (V.fijo || 0), d, pen, extra, cost: cost + P * pen } : cost + P * pen;
     }
     const nCustVisited = (R) => { const seen = new Set(); R.forEach((s) => s.forEach((x) => seen.add(x))); return seen; };
     /* costo total de una solución R (arreglo de rutas) con costos por ruta rc */
     function total(R, rc) {
       let t = 0; const maxo = f.objetivo === 'maximo'; if (maxo) { let mx = 0; for (let k = 0; k < m; k++) { t += 1e-3 * rc[k]; if (rc[k] > mx) mx = rc[k]; } t += mx; } else for (let k = 0; k < m; k++) t += rc[k];
-      if (f.locDepot) { const used = new Set(); R.forEach((s, k) => { if (s.length) used.add(veh[k].depot); }); used.forEach((d) => { t += (f.openCost && f.openCost[d]) || 0; }); }
+      if (f.locDepot) { const used = new Set(), carga = {}; R.forEach((s, k) => { if (s.length) { const d = veh[k].depot; used.add(d); carga[d] = (carga[d] || 0) + s.reduce((a, x) => a + w[x], 0); } });
+        used.forEach((d) => { t += (f.openCost && f.openCost[d]) || 0; const cd = f.capD && f.capD[d]; if (cd > 0 && carga[d] > cd + 1e-9) t += P * (1 + (carga[d] - cd) / cd); }); }   // capacidad del depósito abierto
       const seen = nCustVisited(R);
       for (const i of cl) { if (!seen.has(i)) { if (opt(i)) t += (obj === 'costo' || obj === 'maximo' ? 0 : 0); else t += P; } else if (obj === 'profit' || obj === 'top') t -= prize[i] || 0; }
       if (pairOf.size) for (const [p, d] of I.pairs) { let kp = -1, kd = -1; R.forEach((s, k) => { if (s.includes(p)) kp = k; if (s.includes(d)) kd = k; }); if (kp !== kd) t += P; }
@@ -172,11 +181,26 @@
         if (!pairOf.size) for (let k1 = 0; k1 < m && !cambio; k1++) for (let k2 = k1 + 1; k2 < m && !cambio; k2++) for (let i = 0; i < mejor.R[k1].length && !cambio; i++) for (let j = 0; j < mejor.R[k2].length && !cambio; j++) {   // swap
           const T = clon(mejor), t = T.R[k1][i]; T.R[k1][i] = T.R[k2][j]; T.R[k2][j] = t; reeval(T, new Set([k1, k2])); if (T.f < mejor.f - 1e-9) { mejor = T; cambio = true; } }
         if (cambio) continue;
+        if (!pairOf.size) for (let k = 0; k < m && !cambio; k++) for (const L of [2, 3]) for (let i = 0; i + L <= mejor.R[k].length && !cambio; i++) {   // Or-opt: mover 2 o 3 clientes seguidos
+          const seg = mejor.R[k].slice(i, i + L), resto = [...mejor.R[k].slice(0, i), ...mejor.R[k].slice(i + L)], cRes = ruta(k, resto);
+          for (let k2 = 0; k2 < m && !cambio; k2++) { const b2 = k2 === k ? resto : mejor.R[k2];
+            for (let q = 0; q <= b2.length && !cambio; q++) { if (k2 === k && q === i) continue;
+              for (const sg of [seg, seg.slice().reverse()]) { const nv = [...b2.slice(0, q), ...sg, ...b2.slice(q)], dl = k2 === k ? ruta(k, nv) - mejor.rc[k] : cRes + ruta(k2, nv) - mejor.rc[k] - mejor.rc[k2];
+                if (dl < -1e-9) { const T = clon(mejor); if (k2 === k) T.R[k] = nv; else { T.R[k] = resto; T.R[k2] = nv; } reeval(T, new Set([k, k2])); if (T.f < mejor.f - 1e-9) { mejor = T; cambio = true; break; } } } } }
+        }
+        if (cambio) continue;
+        if (!pairOf.size) for (let k1 = 0; k1 < m && !cambio; k1++) for (let k2 = k1 + 1; k2 < m && !cambio; k2++) {   // 2-opt*: intercambiar las colas de dos rutas
+          const A = mejor.R[k1], B = mejor.R[k2]; if (!A.length && !B.length) continue;
+          for (let i = 0; i <= A.length && !cambio; i++) for (let j = 0; j <= B.length && !cambio; j++) { if ((i === 0 && j === 0) || (i === A.length && j === B.length)) continue;
+            const n1 = [...A.slice(0, i), ...B.slice(j)], n2 = [...B.slice(0, j), ...A.slice(i)], dl = ruta(k1, n1) + ruta(k2, n2) - mejor.rc[k1] - mejor.rc[k2];
+            if (dl < -1e-9) { const T = clon(mejor); T.R[k1] = n1; T.R[k2] = n2; reeval(T, new Set([k1, k2])); if (T.f < mejor.f - 1e-9) { mejor = T; cambio = true; } } }
+        }
+        if (cambio) continue;
         for (const un of UN.filter((u) => opt(u[0]))) { const T = clon(mejor), seen = nCustVisited(T.R); if (seen.has(un[0])) { const ks = quitarUnidad(T, un); reeval(T, ks); } else { const b = mejorInsercion(T, un); T.R[b.k] = b.ns; reeval(T, new Set([b.k])); } if (T.f < mejor.f - 1e-9) { mejor = T; cambio = true; break; } }
       }
       return mejor;
     }
-    return { sol, clon, reeval, ruta, total, insercion, vecino, barrido, ahorros, mover, opcional, vnd, UN, m, P, veh, cl, mejorInsercion, quitarUnidad, unitOf, cap, D, pairOf, w, r, opt };
+    return { sol, clon, reeval, ruta, total, insercion, vecino, barrido, ahorros, mover, opcional, vnd, UN, m, P, veh, cl, mejorInsercion, quitarUnidad, unitOf, cap, D, pairOf, w, r, opt, obj };
   }
 
   /* ---------- resultado legible ---------- */
@@ -188,7 +212,13 @@
       rutas.push(ru); info.push({ tipo: veh[k].tipo, depot: h, dist: det.d, costo: det.c, carga: s.reduce((a, x) => a + w[x], 0), cap: veh[k].cap, llegadas: lleg }); total += det.d; });
     const ord = rutas.map((_, q) => q).sort((a, b) => rutas[b].length - rutas[a].length);
     const R = ord.map((q) => rutas[q]), In = ord.map((q) => info[q]), seen = new Set(R.flat()), noVis = I.cust.filter((i) => !seen.has(i));
-    const obj = S.f, factible = pen < 1e-9 && noVis.every((i) => I.optional && I.optional[i]);
+    const cargaDep = {}; S.R.forEach((s, k) => { if (s.length) cargaDep[veh[k].depot] = (cargaDep[veh[k].depot] || 0) + s.reduce((a, x) => a + w[x], 0); });
+    const depOk = !f.locDepot || !f.capD || Object.entries(cargaDep).every(([d, c]) => !(f.capD[d] > 0) || c <= f.capD[d] + 1e-9);
+    const obj = S.f, factible = pen < 1e-9 && depOk && noVis.every((i) => I.optional && I.optional[i]);
+    const lat = f.obj === 'latencia', blandas = !!(vt && f.blandas), lleg = (s, k) => { let t = vt.inicio || 0, prev = veh[k].depot; return s.map((x) => { t += D[prev][x] / veh[k].vel; t = Math.max(t, vt.a[x] ?? 0); const r0 = t; t += vt.servicio || 0; prev = x; return [x, r0]; }); };
+    const todas = vt ? S.R.flatMap((s, k) => lleg(s, k)) : [];
+    const latencia = lat ? todas.reduce((a, [, t]) => a + t - (vt.inicio || 0), 0) : null, tardeL = blandas ? todas.filter(([x, t]) => t > (vt.b[x] ?? Infinity) + 1e-6) : [];
+    if (extra == null) extra = {}; if (lat) extra.latencia = latencia; if (blandas) { extra.retraso = tardeL.reduce((a, [x, t]) => a + t - vt.b[x], 0); extra.tarde = tardeL.map(([x]) => x); }
     const premio = I.cust.filter((i) => seen.has(i)).reduce((a, i) => a + ((I.prize || [])[i] || 0), 0);
     return Object.assign({ estado: factible ? 'heurístico: solución factible' : 'sin solución factible (restricciones violadas)', objetivo: obj, total, totalCosto: In.reduce((a, x) => a + x.costo, 0), rutas: R, dists: In.map((x) => x.dist), info: In, noVisitados: noVis, premio, gap: null, seg, metodoSol: nombre, historial: hist || [], factible }, extra || {});
   }
@@ -206,6 +236,8 @@
     aco: { tipo: 'meta', nombre: 'Colonia de hormigas' },
     grasp: { tipo: 'meta', nombre: 'GRASP' },
     vns: { tipo: 'meta', nombre: 'VNS (búsqueda de vecindario variable)' },
+    ils: { tipo: 'meta', nombre: 'ILS (búsqueda local iterada)' },
+    lns: { tipo: 'meta', nombre: 'LNS (destruir y reparar)' },
   };
 
   function resolver(I, algo, o) {
@@ -238,6 +270,28 @@
       case 'vns': {
         let S = E.vnd(inicial(), tmax / 5); mejorQue(S); const kmax = par.kmax || 5;
         while (vivo()) { let k = 1; while (k <= kmax && vivo()) { let N = S; for (let q = 0; q < k * 2; q++) { const M = rand() < 0.08 ? E.opcional(N, rand) : E.mover(N, rand); if (M) N = M; } N = E.vnd(N, Math.max(50, tmax / 20)); if (N.f < S.f - 1e-9) { S = N; if (S.f < mejor.f - 1e-9) mejorQue(S); k = 1; } else k++; } }
+        break; }
+      case 'ils': {   // búsqueda local iterada: perturbar (k movimientos al azar) + VND; acepta si mejora, a veces vuelve a la mejor
+        let cur = E.vnd(inicial(), tmax / 5); mejorQue(cur); const kp = par.perturbacion || Math.max(2, Math.round(E.cl.length / 8));
+        while (vivo()) { let N = cur; for (let q = 0; q < kp; q++) { const M = rand() < 0.1 ? E.opcional(N, rand) : E.mover(N, rand); if (M) N = M; } N = E.vnd(N, Math.max(50, tmax / 15));
+          if (N.f < cur.f - 1e-9 || rand() < 0.03) cur = N; if (N.f < mejor.f - 1e-9) mejorQue(N); if (rand() < 0.05) cur = mejor; }
+        break; }
+      case 'lns': {   // destruir (al azar o clientes cercanos a una semilla) y reparar con la inserción más barata; acepta como recocido
+        let cur = E.vnd(inicial(), tmax / 5); mejorQue(cur); const frac = par.destruir || 0.3; let T = Math.max(1e-6, Math.abs(cur.f) * 0.01);
+        const fo = (I.f && I.f.obj) || 'costo';
+        while (vivo()) {
+          const N = E.clon(cur), vis = []; N.R.forEach((s) => s.forEach((x) => { const u = E.unitOf.get(x); if (!vis.includes(u)) vis.push(u); }));
+          const libres = E.UN.map((_, u) => u).filter((u) => !vis.includes(u) && E.opt(E.UN[u][0]));
+          if (!vis.length && !libres.length) break;
+          const q = Math.max(1, Math.round(vis.length * (0.1 + rand() * frac))); let quitar;
+          if (rand() < 0.5) { for (let i = vis.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [vis[i], vis[j]] = [vis[j], vis[i]]; } quitar = vis.slice(0, q); }
+          else { const sem = vis.length ? E.UN[vis[Math.floor(rand() * vis.length)]][0] : 0; quitar = vis.slice().sort((a, b) => E.D[sem][E.UN[a][0]] - E.D[sem][E.UN[b][0]]).slice(0, q); }
+          const ks = new Set(); quitar.forEach((u) => E.quitarUnidad(N, E.UN[u]).forEach((k) => ks.add(k))); E.reeval(N, ks);
+          const orden = quitar.concat(libres).sort(() => rand() - 0.5);
+          for (const u of orden) { const un = E.UN[u], b = E.mejorInsercion(N, un); if (!b) continue; if (E.opt(un[0])) { const gan = un.reduce((a, x) => a + ((I.prize || [])[x] || 0), 0); if (fo === 'profit' && b.c >= gan) continue; if (fo === 'top' && b.c >= E.P * 0.5) continue; } N.R[b.k] = b.ns; E.reeval(N, new Set([b.k])); }
+          const M = rand() < 0.3 ? E.vnd(N, 30) : N, dl = M.f - cur.f;
+          if (dl < 0 || rand() < Math.exp(-dl / T)) cur = M; if (M.f < mejor.f - 1e-9) mejorQue(M); T = Math.max(1e-9, T * 0.998);
+        }
         break; }
       case 'grasp': {
         while (vivo()) { const S = E.vnd(E.insercion(rand, true), Math.max(100, tmax / 10)); consideraciones(S); }

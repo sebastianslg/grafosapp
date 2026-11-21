@@ -1,4 +1,4 @@
-/* Catálogo de variantes de VRP (27) y constructor de la instancia a partir de los datos del proyecto. */
+/* Catálogo de variantes de VRP (34) y constructor de la instancia a partir de los datos del proyecto. */
 (function (root) {
   'use strict';
   const INF = Infinity;
@@ -17,13 +17,18 @@
     { id: 'vrpl', nombre: 'CVRP-L · CVRP con máximo de paradas', fam: 'Capacidad', desc: 'CVRP con máximo de clientes por ruta.', cap: true, paradas: true },
     { id: 'minveh', nombre: 'MinVeh · CVRP con mínima flota', fam: 'Capacidad', desc: 'Minimiza primero la cantidad de vehículos usados.', cap: true, minVeh: true },
     { id: 'cvrpb', nombre: 'BCVRP · CVRP balanceado', fam: 'Capacidad', desc: 'CVRP con rutas de igual número de clientes.', cap: true, f: { balanced: true } },
+    { id: 'cvrpmm', nombre: 'CVRP min-max (ruta más larga mínima)', fam: 'Capacidad', desc: 'CVRP que minimiza el costo de la ruta más costosa: reparte la jornada entre los vehículos.', cap: true, f: { objetivo: 'maximo' } },
     { id: 'vrptw', nombre: 'VRPTW (ventanas de tiempo)', fam: 'Tiempo', desc: 'CVRP con ventana horaria en cada cliente.', cap: true, vt: true },
     { id: 'ovrptw', nombre: 'OVRPTW', fam: 'Tiempo', desc: 'VRPTW con rutas abiertas.', cap: true, vt: true, f: { open: true } },
+    { id: 'vrpstw', nombre: 'VRPSTW (ventanas suaves)', fam: 'Tiempo', desc: 'Se puede llegar después del cierre de la ventana pagando una penalización por hora de retraso.', cap: true, vt: true, blandas: true },
+    { id: 'dvrpt', nombre: 'VRP con jornada máxima (duración)', fam: 'Tiempo', desc: 'CVRP en el que la duración de cada ruta (viaje + servicio) no supera la jornada T.', cap: true, jornada: true },
+    { id: 'ccvrp', nombre: 'CCVRP (latencia mínima, VRP acumulativo)', fam: 'Tiempo', desc: 'Minimiza la suma de las horas de llegada a los clientes: reparto urgente o humanitario.', cap: true, latencia: true },
     { id: 'hfvrp', nombre: 'HFVRP (flota heterogénea)', fam: 'Flota', desc: 'Tipos de vehículo con capacidad y costo por km distintos.', mixta: true },
     { id: 'fsmvrp', nombre: 'FSMVRP (tamaño y mezcla de flota)', fam: 'Flota', desc: 'Flota mixta con costo fijo por vehículo usado.', mixta: true, fijos: true },
     { id: 'hfvrptw', nombre: 'HFVRPTW', fam: 'Flota', desc: 'Flota heterogénea con ventanas de tiempo.', mixta: true, vt: true },
     { id: 'mdvrp', nombre: 'MDVRP (varios depósitos)', fam: 'Depósitos', desc: 'Cada ruta sale y vuelve al mismo depósito.', cap: true, multi: true },
     { id: 'mdvrptw', nombre: 'MDVRPTW', fam: 'Depósitos', desc: 'Varios depósitos con ventanas de tiempo.', cap: true, multi: true, vt: true },
+    { id: 'omdvrp', nombre: 'OMDVRP (varios depósitos, rutas abiertas)', fam: 'Depósitos', desc: 'Cada vehículo sale de su depósito y termina en su último cliente.', cap: true, multi: true, f: { open: true } },
     { id: 'lrp', nombre: 'LRP (localización y ruteo)', fam: 'Depósitos', desc: 'Decide qué depósitos abrir y las rutas.', cap: true, multi: true, f: { locDepot: true } },
     { id: 'vrpb', nombre: 'VRPB (backhauls)', fam: 'Cargas', desc: 'Entregas primero, luego recogidas en el camino de regreso.', cap: true, f: { mode: 'backhaul' } },
     { id: 'vrpspd', nombre: 'VRPSPD (recoge y entrega a la vez)', fam: 'Cargas', desc: 'Cada cliente recibe y entrega mercancía en la misma visita.', cap: true, f: { mode: 'spd' } },
@@ -31,8 +36,10 @@
     { id: 'sdvrp', nombre: 'SDVRP (entrega dividida)', fam: 'Cargas', desc: 'La demanda de un cliente puede atenderse entre varios vehículos.', cap: true, f: { mode: 'split' } },
     { id: 'pcvrp', nombre: 'PCVRP · VRP con beneficios', fam: 'Selectivos', desc: 'Visita solo los clientes rentables: maximiza premio − costo.', cap: true, f: { obj: 'profit' }, opcional: true },
     { id: 'top', nombre: 'TOP · Orienteering por equipos', fam: 'Selectivos', desc: 'Maximiza el premio recogido con distancia máxima por ruta.', cap: false, f: { obj: 'top' }, opcional: true, lmaxDist: true },
+    { id: 'op', nombre: 'OP · Orienteering (un vehículo)', fam: 'Selectivos', desc: 'Un solo vehículo con distancia máxima L recoge el mayor premio posible.', m: 1, f: { obj: 'top' }, opcional: true, lmaxDist: true },
+    { id: 'ptp', nombre: 'PTP · Tour rentable (TSP con beneficios)', fam: 'Selectivos', desc: 'Un viajante visita solo los clientes que convienen: maximiza premio − costo.', m: 1, f: { obj: 'profit' }, opcional: true },
   ];
-  const EN = {"tsp": "Traveling Salesman Problem", "otsp": "Open Traveling Salesman Problem (Hamiltonian path)", "mtsp": "Multiple Traveling Salesman Problem", "mtspb": "Balanced Multiple TSP", "omtsp": "Open Multiple TSP", "omtspb": "Open Balanced Multiple TSP", "mtspmm": "Min-Max Multiple TSP", "cvrp": "Capacitated Vehicle Routing Problem", "ovrp": "Open Vehicle Routing Problem", "dcvrp": "Distance-Constrained CVRP", "vrpl": "CVRP with route-length (max. stops) limit", "minveh": "Fleet-size minimization VRP", "cvrpb": "Balanced (workload-balanced) CVRP", "vrptw": "Vehicle Routing Problem with Time Windows", "ovrptw": "Open VRP with Time Windows", "hfvrp": "Heterogeneous Fleet VRP", "fsmvrp": "Fleet Size and Mix VRP", "hfvrptw": "Heterogeneous Fleet VRP with Time Windows", "mdvrp": "Multi-Depot VRP", "mdvrptw": "Multi-Depot VRP with Time Windows", "lrp": "Location-Routing Problem", "vrpb": "VRP with Backhauls", "vrpspd": "VRP with Simultaneous Pickup and Delivery", "vrppd": "VRP with Pickup and Delivery", "sdvrp": "Split Delivery VRP", "pcvrp": "Prize-Collecting / Profitable Tour VRP", "top": "Team Orienteering Problem"};
+  const EN = {"tsp": "Traveling Salesman Problem", "otsp": "Open Traveling Salesman Problem (Hamiltonian path)", "mtsp": "Multiple Traveling Salesman Problem", "mtspb": "Balanced Multiple TSP", "omtsp": "Open Multiple TSP", "omtspb": "Open Balanced Multiple TSP", "mtspmm": "Min-Max Multiple TSP", "cvrp": "Capacitated Vehicle Routing Problem", "ovrp": "Open Vehicle Routing Problem", "dcvrp": "Distance-Constrained CVRP", "vrpl": "CVRP with route-length (max. stops) limit", "minveh": "Fleet-size minimization VRP", "cvrpb": "Balanced (workload-balanced) CVRP", "vrptw": "Vehicle Routing Problem with Time Windows", "ovrptw": "Open VRP with Time Windows", "hfvrp": "Heterogeneous Fleet VRP", "fsmvrp": "Fleet Size and Mix VRP", "hfvrptw": "Heterogeneous Fleet VRP with Time Windows", "mdvrp": "Multi-Depot VRP", "mdvrptw": "Multi-Depot VRP with Time Windows", "lrp": "Location-Routing Problem", "vrpb": "VRP with Backhauls", "vrpspd": "VRP with Simultaneous Pickup and Delivery", "vrppd": "VRP with Pickup and Delivery", "sdvrp": "Split Delivery VRP", "pcvrp": "Prize-Collecting / Profitable Tour VRP", "top": "Team Orienteering Problem", "cvrpmm": "Min-Max Capacitated VRP", "vrpstw": "VRP with Soft Time Windows", "dvrpt": "Duration-Constrained VRP", "ccvrp": "Cumulative Capacitated VRP (minimum latency)", "omdvrp": "Open Multi-Depot VRP", "op": "Orienteering Problem", "ptp": "Profitable Tour Problem"};
   V.forEach((v) => { v.en = EN[v.id]; });
   const porId = Object.fromEntries(V.map((v) => [v.id, v]));
   const ANOTA = {};
@@ -86,10 +93,35 @@
       if (!hay) notas.push('Sin premios definidos: se asignaron premios automáticos (≈ 1,4–2,2 × distancia media al depósito). Defina «Premio» en Nodos.');
     }
     if (f.locDepot) { const base = (cust.reduce((a, i) => a + (D[depots[0]][i] || 0), 0) / Math.max(1, cust.length)) * 3; f.openCost = {}; f.capD = {}; depots.forEach((d) => { f.openCost[d] = +nodos[d].costoApertura > 0 ? +nodos[d].costoApertura : Math.round(base * 100) / 100; if (+nodos[d].capDep > 0) f.capD[d] = +nodos[d].capDep; }); }
+    const servH = ((S.vt ? +S.vt.servicio : 10) || 0) / 60, ini = S.vt && Number.isFinite(+S.vt.inicio) ? +S.vt.inicio : 8;
+    if (v.jornada) { const vmin = Math.min(...veh.map((x) => x.vel)), lejos = Math.max(...cust.map((i) => D[depots[0]][i] || 0)); const T = +p.tmax > 0 ? +p.tmax : Math.round((2 * lejos / vmin + Math.ceil(cust.length / Math.max(1, veh.length)) * 1.5 * servH + 0.5) * 100) / 100; f.tmax = T; f.servicio = servH; notas.push('Jornada máxima por ruta T = ' + T + ' h (viaje + ' + Math.round(servH * 60) + ' min de servicio por cliente)' + (+p.tmax > 0 ? '' : ' (calculada; cámbiela en «Jornada máx.»)') + '.'); }
+    if (v.latencia) { f.obj = 'latencia'; const vmin = Math.min(...veh.map((x) => x.vel)), maxd = Math.max(...D.flat().filter(isFinite)), H = Math.ceil((ini + (cust.length + 1) * (servH + maxd / vmin)) * 100) / 100; f.vt = { usar: true, inicio: ini, servicio: servH, a: new Array(n).fill(0), b: new Array(n).fill(H), H, cierre: null }; notas.push('Se minimiza la suma de las horas de llegada (latencia); salida ' + ini + ' h, servicio ' + Math.round(servH * 60) + ' min.'); }
     if (v.vt) { const H = S.vt && +S.vt.cierre > 0 ? +S.vt.cierre : 48; const a = new Array(n).fill(0), b = new Array(n).fill(H); nodos.forEach((x, i) => { if (x.vtOn) { a[i] = x.vtA; b[i] = x.vtB; } }); f.vt = { usar: true, inicio: S.vt ? S.vt.inicio : 8, servicio: ((S.vt ? +S.vt.servicio : 10) || 0) / 60, a, b, H, cierre: S.vt && +S.vt.cierre > 0 ? +S.vt.cierre : null }; }
+    if (v.blandas && f.vt) { f.blandas = true; const cmed = veh.reduce((a, x) => a + x.costoKm * x.vel, 0) / Math.max(1, veh.length); f.penRetraso = +p.pen > 0 ? +p.pen : Math.round(cmed * 2 * 100) / 100; notas.push('Ventanas suaves: cada hora de retraso cuesta ' + f.penRetraso + (+p.pen > 0 ? '' : ' (2 × el costo de una hora de viaje; cámbiela en «Penalización»)') + '.'); }
     f.balanced = !!f.balanced; if (p.lmin) f.lmin = p.lmin; if (p.lmax) f.lmax = p.lmax;
     return { I: { D, depots, cust, w, r, prize, optional, pairs, veh, f, xy: p.xy || null }, notas };
   }
-  root.Variantes = { VARIANTES: V, porId, construir };
+  /* Datos de tiempo del modelo (compartidos por vrp.js y gams.js): para cada cliente la hora más temprana posible
+     (salida + camino más corto desde un depósito; válida aunque la matriz no cumpla la desigualdad triangular) y la más
+     tardía (fin de ventana, u horizonte si las ventanas son suaves), y una M grande ajustada por arco. */
+  function tiempos(I) {
+    const f = I.f || {}, vt = f.vt && f.vt.usar ? f.vt : null; if (!vt) return null;
+    const D = I.D, veh = I.veh, cl = I.cust, nc = cl.length, n = D.length, s = vt.servicio || 0, t0 = vt.inicio || 0;
+    const maxd = Math.max(...D.flat().filter(isFinite)), minv = Math.min(...veh.map((v) => v.vel)), blandas = !!f.blandas;
+    const H0 = Math.max(vt.H || 48, ...vt.b.filter(isFinite)), H = blandas ? H0 + t0 + (nc + 1) * (s + maxd / minv) : H0;
+    const sp = {};
+    for (const d of new Set(veh.map((v) => v.depot))) {
+      const dist = new Array(n).fill(INF), hecho = new Array(n).fill(false); dist[d] = 0;
+      for (let it = 0; it < n; it++) { let u = -1; for (let i = 0; i < n; i++) if (!hecho[i] && (u < 0 || dist[i] < dist[u])) u = i; if (u < 0 || !isFinite(dist[u])) break; hecho[u] = true; for (let j = 0; j < n; j++) if (!hecho[j] && isFinite(D[u][j]) && dist[u] + D[u][j] < dist[j]) dist[j] = dist[u] + D[u][j]; }
+      sp[d] = dist;
+    }
+    const lo = {}, up = {};
+    for (const i of cl) { let mn = INF; veh.forEach((v) => { const x = sp[v.depot][i] / v.vel; if (x < mn) mn = x; }); up[i] = blandas ? H : (vt.b[i] ?? H); lo[i] = Math.min(up[i], Math.max(vt.a[i] ?? 0, t0 + (isFinite(mn) ? mn : 0))); lo[i] = Math.floor(lo[i] * 1e6) / 1e6; up[i] = Math.ceil(up[i] * 1e6) / 1e6; }
+    const Mdep = (k, j) => Math.max(0, t0 + D[veh[k].depot][j] / veh[k].vel - lo[j]);
+    const Mij = (k, i, j) => Math.max(0, up[i] + s + D[i][j] / veh[k].vel - lo[j]);
+    const Mfin = (k, i) => Math.max(0, up[i] + s + D[i][veh[k].depot] / veh[k].vel - (vt.cierre || 0));
+    return { s, t0, H, H0, lo, up, Mdep, Mij, Mfin };
+  }
+  root.Variantes = { VARIANTES: V, porId, construir, tiempos };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.Variantes;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

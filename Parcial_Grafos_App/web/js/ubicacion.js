@@ -63,10 +63,10 @@
     if (nc && nc <= 40) h += `<div class="sep"></div><details><summary class="nota" style="cursor:pointer">Candidatos (${nc}) · nombre y costo fijo</summary><table><tr><th>#</th><th>Nombre</th><th>Costo fijo</th><th></th></tr>${ds.candidatos.map((c, q) => `<tr><td>${q + 1}</td><td><input data-q="${q}" data-f="nombre" value="${esc(c.nombre)}"></td><td><input data-q="${q}" data-f="fijo" value="${c.fijo || 0}" inputmode="decimal" style="width:70px"></td><td><button class="btn mini peligro" data-qd="${q}">✕</button></td></tr>`).join('')}</table></details>`;
     el.innerHTML = h;
     visibles(); $('uObj').onchange = (e) => { S.objCd = e.target.value; visibles(); };
-    if ($('dAplicar')) { $('dAplicar').onclick = () => { const la = +$('dLat').value, lo = +$('dLon').value; if (isFinite(la) && isFinite(lo)) App.colocarDc(la, lo); }; $('dQuitar').onclick = () => { nodo(k).tipo = 'cliente'; Mapa.montar(ds, App.callbacksMapa); App.llenarSelects(); App.huboCambio(); }; }
+    if ($('dAplicar')) { $('dAplicar').onclick = () => { const la = App.num($('dLat').value, NaN), lo = App.num($('dLon').value, NaN); if (Math.abs(la) <= 90 && Math.abs(lo) <= 180) App.colocarDc(la, lo); else chip('Coordenadas inválidas: latitud entre −90 y 90, longitud entre −180 y 180'); }; $('dQuitar').onclick = () => { nodo(k).tipo = 'cliente'; Mapa.montar(ds, App.callbacksMapa); App.llenarSelects(); App.huboCambio(); }; }
     $('dClic').onclick = () => App.modoActivar('dc');
     if ($('dCentro')) $('dCentro').onclick = () => { const c = Mapa.map.getCenter(); App.colocarDc(c.lat, c.lng); };
-    $('gGen').onclick = () => { const n = generarCuadricula(Math.max(1, +$('gF').value | 0), Math.max(1, +$('gC').value | 0)); chip(n ? `${n} candidatos generados` : 'No se generó ninguno (agregue clientes o ajuste el área)'); };
+    $('gGen').onclick = () => { const n = generarCuadricula(Math.round(App.num($('gF').value, 6, 1, 15)), Math.round(App.num($('gC').value, 6, 1, 15))); chip(n ? `${n} candidatos generados` : 'No se generó ninguno (agregue clientes o ajuste el área)'); };
     $('gClic').onclick = () => App.modoActivar('cand');
     $('gCli').onclick = () => { Datos.clientes(ds).forEach((i) => ds.candidatos.push({ nombre: 'En ' + nodo(i).nombre, lat: nodo(i).lat, lon: nodo(i).lon, fijo: 0 })); cambiaronCand(); };
     if ($('gBorrar')) $('gBorrar').onclick = () => { ds.candidatos = []; S.ubic = null; cambiaronCand(); Mapa.dibujarLineas([]); };
@@ -95,14 +95,14 @@
     if (obj === 'ruta1' || obj === 'rutam') {
       const Dcl = cl.map((i) => cl.map((j) => (i === j ? INF : ds.D[i][j]))), ida = dist.map((f) => f.slice());
       let actual = -1; if (dc >= 0) { ida.push(cl.map((j) => (ds.D[dc][j] + ds.D[j][dc]) / 2)); actual = ida.length - 1; }
-      const m = +$('uM').value || 2;
+      const m = Math.round(App.num($('uM').value, 2, 1, 20));
       if (obj === 'rutam' && !(m >= 2 && m < cl.length)) return msg(`Supervisores entre 2 y ${cl.length - 1}.`);
-      App.lanzar('ubicarruta', { Dcl, ida, modo: obj === 'ruta1' ? 'tsp' : 'mtsp', m, lmin: +$('uLmin').value || 1, lmax: +$('uLmax').value || 0, objetivo: 'suma', top: Math.max(1, +$('uTop').value || 12), tiempoCand: obj === 'ruta1' ? 30 : 60, actual },
+      App.lanzar('ubicarruta', { Dcl, ida, modo: obj === 'ruta1' ? 'tsp' : 'mtsp', m, lmin: Math.round(App.num($('uLmin').value, 1, 0, 1e4)), lmax: Math.round(App.num($('uLmax').value, 0, 0, 1e4)), objetivo: 'suma', top: Math.round(App.num($('uTop').value, 12, 1, 500)), tiempoCand: obj === 'ruta1' ? 30 : 60, actual },
         'Ubicación óptima del CD · ' + (obj === 'ruta1' ? 'TSP' : `${m}-TSP`), Object.assign(base, { actual, tieneActual: dc >= 0 }), {});
     } else {
-      const tipo = { mediana: 'mediana', centro: 'centro', pmed: 'mediana', pcen: 'centro', fijo: 'fijo', cob: 'cobertura' }[obj], p = { mediana: 1, centro: 1, pmed: +$('uP').value || 2, pcen: +$('uP').value || 2, fijo: +$('uP0').value || 0, cob: 0 }[obj];
-      const tc = +$('uTc').value || 1, w = (pesos || cl.map(() => 1)).map((x) => x * (obj === 'fijo' ? tc : 1));
-      App.lanzar('ubicar', { tipo, p, pesos: obj === 'fijo' || pesos ? w : null, fijos: cand.map((c) => c.fijo || 0), radio: +$('uRadio').value, tiempo: 120 }, 'Ubicación óptima · ' + OBJETIVOS.find((o) => o[0] === obj)[1], base, { dist });
+      const tipo = { mediana: 'mediana', centro: 'centro', pmed: 'mediana', pcen: 'centro', fijo: 'fijo', cob: 'cobertura' }[obj], p = { mediana: 1, centro: 1, pmed: Math.round(App.num($('uP').value, 2, 1, 1e4)), pcen: Math.round(App.num($('uP').value, 2, 1, 1e4)), fijo: Math.round(App.num($('uP0').value, 0, 0, 1e4)), cob: 0 }[obj];
+      const tc = App.num($('uTc').value, 1, 0, 1e6), w = (pesos || cl.map(() => 1)).map((x) => x * (obj === 'fijo' ? tc : 1));
+      App.lanzar('ubicar', { tipo, p, pesos: obj === 'fijo' || pesos ? w : null, fijos: cand.map((c) => c.fijo || 0), radio: App.num($('uRadio').value, 5, 0, 1e12), tiempo: 120 }, 'Ubicación óptima · ' + OBJETIVOS.find((o) => o[0] === obj)[1], base, { dist });
     }
   }
 
