@@ -1,4 +1,4 @@
-# Modelos del VRP en GAMS (27 variantes)
+# Modelos del VRP en GAMS (34 variantes)
 
 Cada archivo es autocontenido: datos del ejemplo, modelo MILP, `solve` y reporte de rutas (`ruta`, `largo`, `cargaR`).
 Todos usan la instancia común CVRP-10 (depósito d en (48, 52) y clientes c1…c10) o una variante de sus datos (ventanas,
@@ -41,10 +41,21 @@ depósitos, tipos de vehículo, recogidas, pares, premios).
 | `25_sdvrp.gms` | SDVRP | VRP con entrega dividida | 472,01 | 4 | 353 / 288 | 51,61 s |
 | `26_pcvrp.gms` | PCVRP | VRP con beneficios (prize-collecting) | 635,66 | 2 | 131 / 120 | 1,73 s |
 | `27_top.gms` | TOP | Orienteering por equipos | 885,00 | 2 | 131 / 120 | 18,18 s |
+| `28_cvrp_mm.gms` | CVRP-MM | CVRP min-max (ruta más larga mínima) | 117,93 | 5 | 617 / 605 | 1,73 s |
+| `29_vrpstw.gms` | VRPSTW | VRP con ventanas de tiempo suaves | 468,72 | 3 | 636 / 605 | 3,89 s |
+| `30_dvrpt.gms` | DVRP-T | VRP con jornada máxima (duración) | 534,05 | 5 | 616 / 605 | 0,06 s |
+| `31_ccvrp.gms` | CCVRP | VRP acumulativo (latencia mínima), 8 clientes | 565,24 | 3 | 260 / 243 | 27,62 s |
+| `32_omdvrp.gms` | OMDVRP | Múltiples depósitos con rutas abiertas | 226,89 | 4 | 737 / 726 | 0,11 s |
+| `33_op.gms` | OP | Orienteering de un vehículo | 464,99 | 1 | 132 / 121 | 0,11 s |
+| `34_ptp.gms` | PTP | Tour rentable (TSP con beneficios) | 812,22 | 1 | 132 / 121 | 0,01 s |
 
-PCVRP y TOP maximizan; MinVeh, OBmTSP y SDVRP resuelven además una versión de comparación en el mismo archivo.
+PCVRP, TOP, OP y PTP maximizan (en 33 y 34 se informa el premio o beneficio; el archivo minimiza su negativo); MinVeh, OBmTSP y SDVRP resuelven además una versión de comparación en el mismo archivo.
 
 ## Cómo se probaron
+
+* Los modelos **28 a 34** los genera el exportador de la app (botón «Código GAMS (.gms)»), con la misma instancia; son el mismo
+  modelo que la app resuelve con HiGHS. `node Parcial_Grafos_App/pruebas/validar_export_gams.js` ejecuta el `.gms` de las 34
+  variantes y comprueba que dan el mismo óptimo que la app.
 
 * **Corrección:** `26_pcvrp.gms` tenía una restricción de carga que se aplicaba también a clientes no visitados y hacía infactible
   el óptimo; el valor correcto es 635,66 (antes 450,55). Lo detectó la validación contra la app.

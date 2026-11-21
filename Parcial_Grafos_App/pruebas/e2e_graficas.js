@@ -59,9 +59,11 @@ const { chromium } = require('playwright');
 
   // 5) variantes nuevas, cada una resuelta con el modelo matemático
   for (const [id, re] of [['ccvrp', /Suma de las horas de llegada/], ['vrpstw', /Retraso total/], ['dvrpt', /Función objetivo/], ['op', /Función objetivo/], ['ptp', /Función objetivo/], ['cvrpmm', /Ruta más larga/], ['omdvrp', /Función objetivo/]]) {
-    await p.selectOption('#vrpVar', id); await p.fill('#tiempo', '12'); await p.click('#bResolver'); await listo(); await p.waitForTimeout(400);
+    // jornada y latencia son modelos más difíciles: más tiempo para hallar la primera solución
+    await p.selectOption('#vrpVar', id); await p.fill('#tiempo', id === 'dvrpt' || id === 'ccvrp' ? '30' : '12'); await p.click('#bResolver'); await listo(); await p.waitForTimeout(400);
     const t = await p.innerText('#contenido');
-    chk('variante nueva ' + id + ' resuelve y muestra su resultado', re.test(t) && /Ruta|ruta/.test(t) && !/No se halló/.test(t));
+    const okv = re.test(t) && /Ruta|ruta/.test(t) && !/No se halló/.test(t);
+    chk('variante nueva ' + id + ' resuelve y muestra su resultado', okv, okv ? '' : t.slice(0, 160).replace(/\s+/g, ' ') + ' | log: ' + (await p.innerText('#log').catch(() => '')).slice(0, 160).replace(/\s+/g, ' '));
   }
 
   // 6) copiar resumen

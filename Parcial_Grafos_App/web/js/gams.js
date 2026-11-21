@@ -3,9 +3,9 @@
    comprueba que da el mismo óptimo. Resolver en GAMS Studio con F9 (por ejemplo con  option mip = highs;). */
 (function (root) {
   'use strict';
-  const nm = (i) => 'n' + i, num = (x) => (Number.isInteger(+x) ? String(+x) : String(+(+x).toFixed(6)));
+  const num = (x) => (Number.isInteger(+x) ? String(+x) : String(+(+x).toFixed(6)));
   const lista = (xs) => (xs.length ? xs.join(', ') : '');
-  function tabla(D, idx, nombre, tit) {
+  function tabla(D, idx, nombre, tit, nm) {
     const L = ['Table ' + nombre + "(i,j) '" + tit + "'", '        ' + idx.map((j) => nm(j).padStart(10)).join('')];
     idx.forEach((i) => L.push(nm(i).padEnd(8) + idx.map((j) => (i === j || !isFinite(D[i][j]) ? '0' : num(D[i][j])).padStart(10)).join('')));
     return L.join('\n') + ';';
@@ -14,7 +14,8 @@
   const par = (nombre, dom, texto, pares) => `  ${nombre}(${dom}) '${texto}' / ${lista(pares)} /`;
 
   function generar(I, id, o) {
-    o = o || {}; const f = I.f || {}, mode = f.mode || 'entrega', D = I.D, n = D.length, all = Array.from({ length: n }, (_, i) => i), veh = I.veh, m = veh.length, cl = I.cust, nc = cl.length;
+    o = o || {}; const nm = (i) => (o.nombres && o.nombres[i]) || 'n' + i;   // etiquetas de los nodos (por defecto n0, n1, …)
+    const f = I.f || {}, mode = f.mode || 'entrega', D = I.D, n = D.length, all = Array.from({ length: n }, (_, i) => i), veh = I.veh, m = veh.length, cl = I.cust, nc = cl.length;
     const obj = f.obj || 'costo', w = I.w || D.map(() => 0), r = I.r || D.map(() => 0), prize = I.prize || D.map(() => 0);
     const cap = veh.some((v) => isFinite(v.cap)), vt = f.vt && f.vt.usar ? f.vt : null, fijos = veh.some((v) => v.fijo), limD = veh.some((v) => isFinite(v.Lmax));
     const maxo = f.objetivo === 'maximo', abierto = !!f.open, pairs = I.pairs || [], loc = !!f.locDepot, opc = obj === 'profit' || obj === 'top';
@@ -28,7 +29,7 @@
       'Ejecutar en GAMS Studio (F9) o con:  gams archivo.gms', '$offText', '');
     L.push('Sets', "  i      'nodos'      / " + lista(all.map(nm)) + ' /', "  c(i)   'clientes'   / " + lista(cl.map(nm)) + ' /', "  dep(i) 'depositos'  / " + lista(I.depots.map(nm)) + ' /',
       "  k      'vehiculos'  / " + lista(veh.map((_, q) => 'v' + (q + 1))) + ' /', "  kd(k,i) 'deposito de cada vehiculo' / " + lista(veh.map((v, q) => 'v' + (q + 1) + '.' + nm(v.depot))) + ' /;', 'Alias (i,j);', '');
-    L.push(tabla(D, all, 'dist', 'distancia entre nodos'), '');
+    L.push(tabla(D, all, 'dist', 'distancia entre nodos', nm), '');
     L.push('Parameters', par('cu', 'k', 'costo por unidad de distancia', veh.map((v, q) => 'v' + (q + 1) + ' ' + num(v.costoKm))));
     if (cap) L.push(par('Q', 'k', 'capacidad', veh.map((v, q) => 'v' + (q + 1) + ' ' + (isFinite(v.cap) ? num(v.cap) : '999999'))));
     if (fijos) L.push(par('fx', 'k', 'costo fijo por vehiculo usado', veh.map((v, q) => 'v' + (q + 1) + ' ' + num(v.fijo || 0))));
@@ -138,7 +139,8 @@
         'Model fase1 / ' + E.filter((x) => x !== 'fo').concat(['defNv']).join(', ') + ' /;', 'Model fase2 / ' + E.concat(['fijaNv']).join(', ') + ' /;',
         'solve fase1 using mip minimizing nv;', 'vehMin = round(nv.l);', 'solve fase2 using mip minimizing z;');
     } else L.push('solve vrp using mip minimizing z;');
-    L.push('', "Parameter distRuta(k) 'distancia recorrida por cada vehiculo';", 'distRuta(k) = sum((i,j)$arco(i,j,k), dr(i,j,k)*x.l(i,j,k));', 'Display z.l, v.l, distRuta;');
+    L.push('', "Parameter distRuta(k) 'distancia recorrida por cada vehiculo', usado(k,i,j) 'arcos de cada ruta (1 = se recorre)';", 'distRuta(k) = sum((i,j)$arco(i,j,k), dr(i,j,k)*x.l(i,j,k));',
+      'usado(k,i,j)$(arco(i,j,k) and x.l(i,j,k) > 0.5) = 1;', 'Display z.l, v.l, distRuta, usado;');
     return L.join('\n') + '\n';
   }
   root.Gams = { generar };
