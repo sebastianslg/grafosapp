@@ -167,7 +167,7 @@
     ['Otros', [['libre', 'Modelo propio (formato LP)']]],
   ];
   const CAMPOS = {
-    vrp: ['origen', 'flota', 'vrpvar', 'vrpmetodo', 'vrpparams', 'tiempo'],
+    vrp: ['origen', 'flota', 'vrpvar', 'vrpmetodo', 'vrpparams', 'metodo', 'tiempo'],
     tsp: ['modo', 'origen', 'destino', 'metodo', 'tiempo'], mtsp: ['origen', 'flota', 'balanceado', 'abierto', 'lminmax', 'objetivo', 'vt', 'metodo', 'tiempo'],
     camino: ['origen', 'destino'], desde: ['origen'], arbol: ['origen', 'tiempo'], flujomax: ['origen', 'destino'], flujocosto: [], cartero: [],
     pmediana: ['p', 'ponderar', 'tiempo'], pcentro: ['p', 'tiempo'], cobertura: ['radio', 'tiempo'], libre: ['lp', 'tiempo'],

@@ -34,6 +34,8 @@
     $('vrpAlgoDesc').textContent = met === 'exacto' ? 'Resuelve las fórmulas del curso (MILP) con HiGHS; si llega al límite de tiempo informa la brecha.' : met === 'comparar' ? 'El modelo matemático da la solución óptima. Las heurísticas y metaheurísticas se ejecutan solo para comparar: cada una muestra su brecha frente al óptimo.' : (DESC_ALGO[sel.value] || '');
     document.querySelectorAll('#cProblema [data-v]').forEach((el) => { const k = el.dataset.v; const mostrar = k === 'm' ? !v.mixta && !v.m : k === 'L' ? !!v.lmaxDist : k === 'P' ? !!v.paradas : k === 'sem' ? met === 'meta' || met === 'comparar' : k === 'cota' ? met === 'heur' || met === 'meta' : k === 'T' ? !!v.jornada : k === 'pen' ? !!v.blandas : true; el.classList.toggle('oculto', !mostrar); });
     const tl = $('tiempo'); if (tl) tl.closest('.fila').classList.toggle('oculto', met === 'heur' && false);
+    /* la eliminación de subtours (MTZ / DFJ) solo afecta al modelo matemático */
+    const fm = document.querySelector('#cProblema [data-c="metodo"]'); if (fm) fm.classList.toggle('oculto', met !== 'exacto');
   }
   App.vrpInfo = () => { if (!$('problema') || $('problema').value !== 'vrp' || !$('vrpVar')) return null; const v = Va.porId[$('vrpVar').value]; return { vt: !!v.vt, cols: [v.f && (v.f.mode === 'backhaul' || v.f.mode === 'spd') ? 'rec' : null, v.f && v.f.mode === 'pd' ? 'par' : null, v.opcional ? 'premio' : null, v.f && v.f.locDepot ? 'costoApertura' : null].filter(Boolean), v }; };
 
