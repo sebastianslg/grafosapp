@@ -101,7 +101,25 @@
     const gap = v.mejor != null && v.cota != null ? Math.max(0, (v.mejor - v.cota) / Math.max(Math.abs(v.mejor), 1e-9)) : null, el = $('vivo'); if (!el) return;
     const pct = gap == null ? 0 : Math.max(2, Math.min(100, (1 - gap) * 100)), u = S.ds ? S.ds.unidad : '';
     el.innerHTML = `<div class="vivo-g"><div><b class="tabular">${v.mejor == null ? '—' : fmt(v.mejor, 1) + ' ' + u}</b><span>mejor solución</span></div><div><b class="tabular">${v.cota == null ? '—' : fmt(v.cota, 1) + ' ' + u}</b><span>mejor cota (límite teórico)</span></div><div><b class="tabular">${gap == null ? '—' : fmt(gap * 100, 2) + ' %'}</b><span>brecha al óptimo</span></div><div><b class="tabular">${fmt(d.t || 0, 0)} s</b><span>transcurrido</span></div></div>
-      <div class="gapbar" title="Qué tan cerca está la mejor solución del óptimo"><i style="width:${pct}%"></i></div>${miniConv(v.hist)}<div class="nota">${v.mejor == null ? 'Buscando una primera solución…' : gap != null && gap < 1e-4 ? 'Óptimo alcanzado' : 'Cuando la brecha llega a 0 % la solución es óptima probada. Puede parar cuando quiera.'}</div>`;
+      <div class="gapbar" title="Qué tan cerca está la mejor solución del óptimo"><i style="width:${pct}%"></i></div>${miniConv(v.hist)}<div class="nota"><b>Tiempo:</b> ${estimacion(v.hist, S.pendiente && S.pendiente.opt && S.pendiente.opt.tiempo < 1e8 ? S.pendiente.opt.tiempo : 0)}</div><div class="nota">${v.mejor == null ? 'Buscando una primera solución…' : gap != null && gap < 1e-4 ? 'Óptimo alcanzado' : 'Cuando la brecha llega a 0 % la solución es óptima probada. Puede parar cuando quiera.'}</div>`;
+  }
+  /* estimación del tiempo que falta para una brecha de 1 %: recta de la brecha frente al logaritmo del tiempo
+     (es una tendencia, no una garantía; se muestra como estimación) */
+  const fmtT = (sec) => { sec = Math.max(0, sec); if (sec >= 3600) return Math.floor(sec / 3600) + ' h ' + Math.round((sec % 3600) / 60) + ' min'; if (sec >= 90) return Math.round(sec / 60) + ' min'; return Math.round(sec) + ' s'; };
+  function estimacion(hist, limite) {
+    const ult = hist && hist.length ? hist[hist.length - 1] : null;
+    if (!ult || ult.mejor == null || ult.cota == null) return 'Esperando la primera cota del modelo para estimar el tiempo…';
+    const gap = Math.max(0, (ult.mejor - ult.cota) / Math.max(Math.abs(ult.mejor), 1e-9)) * 100;
+    if (gap <= 1) return 'La brecha ya es de ' + fmt(gap, 2) + ' % (menor que 1 %).';
+    const q = hist.filter((p) => p.mejor != null && p.cota != null && p.t > 0).slice(-25).map((p) => [Math.log(p.t), Math.max(0, (p.mejor - p.cota) / Math.max(Math.abs(p.mejor), 1e-9)) * 100]);
+    if (q.length < 3) return (ult.t || 0) > 30 ? 'La cota del modelo casi no ha mejorado: aún no hay tendencia para estimar el tiempo. Puede parar cuando la solución le sirva.' : 'Calculando la tendencia de la brecha…';
+    const n = q.length, sx = q.reduce((a, b) => a + b[0], 0), sy = q.reduce((a, b) => a + b[1], 0), sxx = q.reduce((a, b) => a + b[0] * b[0], 0), sxy = q.reduce((a, b) => a + b[0] * b[1], 0);
+    const den = n * sxx - sx * sx, bb = den ? (n * sxy - sx * sy) / den : 0, aa = (sy - bb * sx) / n;
+    if (!(bb < -1e-9)) return 'La brecha todavía no baja: no se puede estimar cuánto falta para 1 %.';
+    const t1 = Math.exp((1 - aa) / bb), falta = t1 - (ult.t || 0);
+    if (!isFinite(t1) || falta <= 0) return 'Según la tendencia, la brecha está cerca de 1 %.';
+    if (limite && t1 > limite) return 'Según la tendencia, 1 % tardaría unos ' + fmtT(t1) + ', más que el límite de ' + fmtT(limite) + '. Puede parar cuando la solución le sirva.';
+    return 'Estimado: brecha de 1 % en unos ' + fmtT(falta) + ' más (aprox. ' + fmtT(t1) + ' desde el inicio). Es una tendencia, no una garantía; puede parar cuando quiera.';
   }
   /* mini gráfica en vivo: mejor solución (azul) y cota (naranja) en el tiempo */
   function miniConv(hist) {

@@ -56,7 +56,13 @@ async function etapa(lp, tl, gap, cota) {
 
 /* Resolución «en cualquier momento»: etapas de duración creciente (6 s, ×1,7, …) hasta probar el óptimo,
    agotar el tiempo o recibir la orden de parar. Tras cada etapa se informa el mejor valor, la cota y la brecha. */
+/* la mejor cota de todas las etapas se conserva aunque la última etapa no la informe */
 async function resolverLP(lp, o) {
+  const st = { cota: -Infinity }; const r = await resolverLPnucleo(lp, o, st);
+  if (r && isFinite(st.cota) && (r.cota == null || !isFinite(r.cota) || r.cota < st.cota)) r.cota = st.cota;
+  return r;
+}
+async function resolverLPnucleo(lp, o, st) {
   const largo = o.timeLimit > 7 && /^\s*minimi[sz]e/i.test(lp);
   if (!largo) { const r = await etapa(lp, Math.max(1, o.timeLimit), o.gap, null); if (r.st === 'Time limit reached' && r.dual != null && r.ok) r.gap = Math.max(0, (r.obj - r.dual) / Math.max(Math.abs(r.obj), 1e-9)); return r; }
   if (!corrida.t0) corrida.t0 = performance.now();
@@ -65,11 +71,12 @@ async function resolverLP(lp, o) {
     const lim = Math.min(tl, o.timeLimit - usado);
     const r = await etapa(lp, Math.max(1, lim), o.gap, mejor ? mejor.obj + 1e-7 * Math.max(1, Math.abs(mejor.obj)) : null);
     usado += r.seg;
+    if (r.dual != null && isFinite(r.dual)) st.cota = Math.max(st.cota, r.dual);   // antes de cualquier retorno
     if (r.ok && (!mejor || r.obj < mejor.obj - 1e-9)) mejor = r;
     if (r.st === 'Optimal') { if (r.ok && mejor && r !== mejor && mejor.obj < r.obj) return mejor; r.gap = 0; return r; }
     if (r.st === 'Infeasible' && mejor) { mejor.gap = 0; mejor.status = 'óptimo'; return mejor; }   // nada mejor que lo ya hallado
     if (!r.ok && r.st !== 'Time limit reached' && !mejor) return r;
-    if (r.dual != null && isFinite(r.dual)) cota = Math.max(cota, r.dual);
+    if (r.dual != null && isFinite(r.dual)) { cota = Math.max(cota, r.dual); st.cota = Math.max(st.cota, r.dual); }
     if (mejor) {
       mejor.gap = cota > -Infinity ? Math.max(0, (mejor.obj - cota) / Math.max(Math.abs(mejor.obj), 1e-9)) : null; mejor.cota = cota;
       postMessage({ tipo: 'progreso', cota: isFinite(cota) ? cota : null, mejor: mejor.obj, gap: mejor.gap, t: (performance.now() - corrida.t0) / 1000, etapa: true });
@@ -91,7 +98,7 @@ async function correrVrp(d, ctx) {
   const I = d.I, o = d.opt, t0 = performance.now(), prog = (h, f) => postMessage({ tipo: 'progreso', mejor: f, cota: null, t: (performance.now() - corrida.t0) / 1000 });
   let ultimoParar = 0, parado = false; const parar = () => { const t = performance.now(); if (t - ultimoParar > 300) { ultimoParar = t; parado = hayParar() || parado; } return parado; };
   const conGap = (r, cota, exactoRef) => { if (cota != null && isFinite(cota) && isFinite(r.objetivo)) { r.cota = cota; r.gap = Math.max(0, (r.objetivo - cota) / Math.max(Math.abs(r.objetivo), 1e-9)); } if (exactoRef) r.exactoRef = exactoRef; return r; };
-  const cotaExacta = async (tiempo) => { const b = await Vrp.vrp(I, ctx, { tiempo, brecha: 1e-6, metodo: o.metodo }); return b; };
+  const cotaExacta = async (tiempo) => { const b = await Vrp.vrp(I, ctx, { tiempo, brecha: 1e-6, metodo: o.metodo, heurInicial: false }); return b; };   // referencia pura del modelo (sin solución inicial)
   if (o.metodoSol === 'exacto') { const r = await Vrp.vrp(I, ctx, Object.assign({}, o, { tiempo: o.tiempo })); r.metodoSol = 'Modelo matemático (MILP · HiGHS)'; return r; }
   if (o.metodoSol === 'comparar') {
     const filas = []; let cota = null, mejor = null; const tm = Math.max(1, o.tiempoMeta || 3); const avisos = [];

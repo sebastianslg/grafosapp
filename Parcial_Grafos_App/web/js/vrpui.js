@@ -45,6 +45,7 @@
     extraParams(p);
     let c; try { c = Va.construir(v.id, { D: ds.D, nodos: ds.nodos, flota: ds.flota, vt: ds.vt }, p); } catch (e) { return App.aviso(e.message); }
     const I = c.I; if (I.veh.length > 10 && met === 'exacto') c.notas.push('Muchos vehículos (' + I.veh.length + '): el modelo exacto puede tardar; use «Vehículos» para reducirlos.');
+    if (met === 'exacto' && I.cust.length >= 40) { const bin = I.veh.length * (I.cust.length + I.depots.length) ** 2; c.notas.push('Modelo grande: ' + I.cust.length + ' clientes y unas ' + Math.round(bin).toLocaleString('es-CO') + ' variables binarias. Primero se muestra una solución heurística con su brecha; el modelo la mejora en etapas. Para muchos clientes, la eliminación de subtours por cortes DFJ (en la tarjeta Problema) suele cerrar mejor la brecha. Puede parar en cualquier momento («Parar y ver lo mejor») y verá el tiempo estimado y la brecha.'); }
     const algo = $('vrpAlgo').value, nombreMet = METODOS.find((x) => x[0] === met)[1];
     const opt = { metodoSol: met, algo, tiempo: met === 'meta' || met === 'exacto' ? tiempo : Math.min(tiempo, 20), semilla: Math.round(App.num($('vrpSem').value, 1, 1, 1e9)), cota: $('vrpCota').checked, tiempoCota: App.num($('vrpTc').value, 8, 2, 3600), tiempoMeta: Math.max(1, Math.min(10, tiempo / 12)), brecha: 1e-6, metodo: ds.metodo };
     const tit = v.nombre + ' · ' + (met === 'heur' || met === 'meta' ? H.ALGORITMOS[algo].nombre : nombreMet);

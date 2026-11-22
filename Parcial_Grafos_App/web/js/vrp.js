@@ -8,7 +8,7 @@
   const INF = Infinity, now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   const Model = () => root.Solver.Model;
 
-  async function vrp(I, ctx, o) {
+  async function vrpExacto(I, ctx, o) {
     o = o || {}; const t0 = now(), f = I.f || {}, D = I.D, veh = I.veh, m = veh.length, cl = I.cust, nc = cl.length, depots = I.depots;
     /* mínima flota (MinVeh): fase 1 minimiza el número de vehículos; fase 2 fija ese número y minimiza la distancia */
     if (f.minVeh && !o.fase && !o.fijarVeh) {
@@ -147,9 +147,9 @@
     let cortes = 0, gapIt = metodo === 'dfj' ? Math.max(o.brecha || 1e-6, 0.05) : (o.brecha || 1e-6), valida = null, sol;
     for (;;) {
       const left = (o.tiempo || 120) - (now() - t0) / 1000;
-      if (left <= 0.5 || (ctx.detenido && ctx.detenido())) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      if (left <= 0.5 || (ctx.detenido && ctx.detenido())) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [], cota: sol && sol.dual != null && isFinite(sol.dual) ? sol.dual : null }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
-      if (!sol.ok) { if (!valida) return { estado: sol.status === 'infactible' ? 'infactible: con estos datos no existe solución' : sol.status, rutas: [] }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
+      if (!sol.ok) { if (!valida) return { estado: sol.status === 'infactible' ? 'infactible: con estos datos no existe solución' : sol.status, rutas: [], cota: sol.dual != null && isFinite(sol.dual) ? sol.dual : null }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       if (metodo === 'mtz') break;
       const cs = [];
       for (let k = 0; k < m; k++) {
@@ -190,6 +190,64 @@
       variables: M.vars.length, binarias: M.vars.filter((v) => v.int).length, restricciones: M.cons.length, cortes, rutas: R.length, vehiculos: null, tiempoLimite: o.tiempo || 120, nodos: sol.nodos };
     return { estado: sol.status, objetivo: sol.obj, total, totalCosto, rutas: R, dists: In.map((x) => x.dist), info: In, noVisitados: noVis, premio, abiertos: aper, latencia, retraso, tarde, gap: sol.gap, cota, cortes, seg, metodoSol: 'exacto', informe };
   }
-  root.Vrp = { vrp };
+  /* Solución inicial: con muchos clientes el MILP puede tardar en hallar la primera solución factible. Si se puede,
+     la heurística da una solución factible en segundos; se muestra de inmediato y el MILP intenta mejorarla. */
+  /* costo simple: la función objetivo es exactamente la suma de costoKm × distancia (así se puede verificar una solución) */
+  function esSimple(I, o) {
+    const f = I.f || {};
+    return !(o && (o.fase || o.fijarVeh)) && !f.minVeh && f.mode !== 'split' && !f.locDepot && (!f.obj || f.obj === 'costo') && f.objetivo !== 'maximo' && !(I.optional && I.optional.some(Boolean)) && !(I.pairs && I.pairs.length) && !f.blandas;
+  }
+  function incumbente(I, o) {
+    const nc = I.cust.length;
+    if (nc < 20 || !esSimple(I, o) || o.heurInicial === false || typeof Heur === 'undefined') return null;
+    let mejor = null;
+    for (const a of ['ahorros', 'vnd']) {
+      try { const r = Heur.resolver(I, a, { tiempo: 3, semilla: 1 }); if (r.factible && r.rutas && r.rutas.length && (!mejor || r.objetivo < mejor.objetivo - 1e-9)) mejor = r; } catch (e) { /* sigue con la otra */ }
+    }
+    return mejor;
+  }
+  /* Verificación independiente de una solución del MILP (sobre todo si se detuvo a mitad): cada cliente una vez,
+     capacidad respetada y costo recalculado igual al que informa el modelo. Si no cuadra, no se entrega. */
+  function solucionValida(I, r) {
+    if (!r || !r.rutas || !r.rutas.length || !isFinite(r.objetivo)) return false;
+    const f = I.f || {}, open = !!f.open, w = I.w || I.D.map(() => 0), cnt = new Map(), cl = new Set(I.cust);
+    let costo = 0;
+    for (let k = 0; k < r.rutas.length; k++) {
+      const ru = r.rutas[k]; if (ru.length < 2) return false;
+      const h = ru[0], vis = ru.slice(1).filter((v, q, a) => !(q === a.length - 1 && v === h));
+      let carga = 0; for (const v of vis) { if (!cl.has(v)) return false; cnt.set(v, (cnt.get(v) || 0) + 1); carga += w[v] || 0; }
+      const kv = (r.info && r.info[k]) || {}; const cap = isFinite(kv.cap) && kv.cap > 0 ? kv.cap : Infinity;
+      if (carga > cap + 1e-6) return false;
+      let d = 0; for (let q = 1; q < ru.length; q++) { if (open && q === ru.length - 1 && ru[q] === h) break; d += I.D[ru[q - 1]][ru[q]]; }
+      if (!isFinite(d)) return false;
+      const vk = I.veh.find((v) => v.depot === h && (!kv.tipo || v.tipo === kv.tipo)) || I.veh[0];
+      costo += vk.costoKm * d + (vk.fijo || 0);
+    }
+    if (I.cust.some((i) => cnt.get(i) !== 1)) return false;
+    return Math.abs(costo - r.objetivo) <= 1e-6 * Math.max(1, Math.abs(costo));
+  }
+  /* Elige entre la solución del MILP y la de la heurística inicial: nunca se entrega una peor ni una no verificada */
+  function elegir(inc, r, I, parado) {
+    if (!inc) return r;
+    if (r && solucionValida(I, r) && r.objetivo <= inc.objetivo + 1e-9) return r;
+    const cota = r && r.cota != null && isFinite(r.cota) ? r.cota : null;
+    const gap = cota != null ? Math.max(0, (inc.objetivo - cota) / Math.max(Math.abs(inc.objetivo), 1e-9)) : null;
+    const estado = parado ? 'detenido por el usuario (solución heurística; el modelo matemático no la mejoró antes de parar)' : 'límite de tiempo (solución heurística; el modelo matemático no la mejoró en el tiempo dado)';
+    const guion = (v) => (v === undefined || v === null ? '—' : v);
+    const informe = Object.assign({}, (r && r.informe) || {}, { modelo: 'Heurística inicial (ahorros / VND) + MILP', estado, objetivo: inc.objetivo, cota, gap, tiempo: r && r.seg, tiempoLimite: r && r.informe ? r.informe.tiempoLimite : null, rutas: inc.rutas.length, variables: guion(r && r.informe && r.informe.variables), binarias: guion(r && r.informe && r.informe.binarias), restricciones: guion(r && r.informe && r.informe.restricciones), cortes: guion(r && r.informe && r.informe.cortes), vehiculos: null });
+    return Object.assign({}, inc, { estado, gap, cota, metodoSol: 'Heurística inicial mejorada por el modelo (sin mejora)', informe, seg: r ? r.seg : inc.seg });
+  }
+  async function vrp(I, ctx, o) {
+    o = o || {};
+    const inc = incumbente(I, o);
+    if (inc && typeof postMessage === 'function') postMessage({ tipo: 'progreso', mejor: inc.objetivo, cota: null, t: 0, heuristica: true });
+    if (inc && ctx.log) ctx.log('Solución inicial por heurística: ' + inc.objetivo.toFixed(2) + '. El modelo matemático intenta mejorarla.');
+    let r;
+    try { r = await vrpExacto(I, ctx, o); } catch (e) { if (inc) return elegir(inc, null, I, false); throw e; }
+    const parado = !!(ctx.detenido && ctx.detenido());
+    if (esSimple(I, o) && r && r.rutas && r.rutas.length && !solucionValida(I, r)) r = Object.assign({}, r, { rutas: [], estado: 'solución no verificada (se descarta; revise el tiempo o los datos)' });
+    return elegir(inc, r, I, parado);
+  }
+  root.Vrp = { vrp, vrpExacto };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.Vrp;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

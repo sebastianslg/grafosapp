@@ -95,6 +95,15 @@ NOVEDADES
 - «Sin límite»: el solver sigue hasta PROBAR el óptimo. Mientras corre se ve la mejor solución, la mejor cota, la brecha (gap)
   y una pequeña gráfica en vivo de ambas.
 - «Parar y ver lo mejor»: detiene (en pocos segundos) y muestra la mejor solución con su brecha. «Cancelar» corta de inmediato.
+MUCHOS CLIENTES (100 o más)
+- Antes del modelo, la app calcula una solución por heurística (ahorros y VND), que suele tomar menos de un segundo. Se muestra
+  de inmediato, con su brecha frente a la cota del modelo. El modelo matemático la mejora en etapas si puede.
+- La solución del modelo solo se entrega si se verifica (cada cliente una vez, capacidad y costo recalculado); si no, se usa la
+  heurística. Nunca se entrega una solución peor que la heurística.
+- Panel «Tiempo»: estimación de cuánto falta para una brecha de 1 %, a partir de cómo baja la brecha. Es una tendencia, no una garantía.
+- Para muchos clientes conviene la eliminación de subtours por cortes DFJ (tarjeta Problema): en las pruebas cierra mejor la brecha
+  que MTZ, que tiene una cota más débil.
+- Parar en cualquier momento: la parada espera a que termine la etapa en curso (a lo sumo 20 s) y muestra la mejor solución.
 
 SIMULACIÓN DE LOS VEHÍCULOS
 - Al resolver un problema de rutas, los vehículos recorren las calles con la VELOCIDAD de su tipo, con RELOJ del día (hora de
