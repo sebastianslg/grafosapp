@@ -3,7 +3,7 @@
    Uso: node pruebas/e2e_100.js [url] [archivo.csv] [segundos_antes_de_parar]
    Sale con código 1 si la solución mostrada no es válida o si la parada tarda más de 30 s. */
 const { chromium } = require('playwright');
-const url = (process.argv[2] || 'http://127.0.0.1:8765').replace(/\/$/, ''), csv = process.argv[3], parar = +(process.argv[4] || 80);
+const url = (process.argv[2] || 'http://127.0.0.1:8765').replace(/\/$/, ''), csv = process.argv[3] || require('path').join(__dirname, 'datos', 'c100.csv'), parar = +(process.argv[4] || 80);
 (async () => {
   const b = await chromium.launch(); const p = await (await b.newContext({ viewport: { width: 1500, height: 920 } })).newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error' && !/net::|Failed to load/.test(m.text())) errs.push(m.text()); });

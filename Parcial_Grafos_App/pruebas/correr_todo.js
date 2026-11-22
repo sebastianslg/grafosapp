@@ -12,11 +12,14 @@ const PRUEBAS = [
   ['flota (balanceada, ventanas, mixta)', ['prueba_flota.js']],
   ['m-TSP con MTZ (ecuaciones del curso)', ['prueba_mtz.js']],
   ['modelo libre y nuevos problemas', ['prueba_nuevos.js']],
+  ['formulación de dos índices: mismo óptimo que MTZ', ['validar_arco.js']],
+  ['regresión de escala (20, 50 y 100 clientes)', ['regresion_escala.js']],
   ['interfaz: métodos, MinVeh, SDVRP, comparación', ['e2e_vrp.js', URL]],
   ['interfaz: parar y progreso en vivo', ['e2e_parar.js', URL]],
   ['interfaz: simulación, gráficas, sensibilidad, variantes nuevas', ['e2e_graficas.js', URL]],
   ['caos: 300 acciones al azar (semilla 11)', ['caos.js', URL, '300', '11']],
   ['caos: 300 acciones al azar (semilla 12)', ['caos.js', URL, '300', '12']],
+  ['interfaz: 100 clientes en el navegador (dos índices, parar a los 80 s)', ['e2e_100.js', URL]],
 ];
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const arriba = async () => { try { return (await fetch(URL + 'api/identidad')).ok; } catch (e) { return false; } };
