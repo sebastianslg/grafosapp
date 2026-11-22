@@ -112,7 +112,7 @@ GRÁFICAS Y UTILIDADES (pestaña «Gráficas»)
 - Historial de corridas del proyecto: compara escenarios (cambie flota, capacidad o variante y vuelva a resolver).
 - Análisis de sensibilidad: resuelve el modelo exacto para varios valores de un dato (número de vehículos, capacidad,
   distancia máxima, tiempo de servicio o velocidad) y grafica cómo cambia el óptimo.
-- Cada gráfica tiene información al pasar el cursor y botón CSV con sus datos.
+- Cada gráfica tiene información al pasar el cursor, botón CSV con sus datos y, en las de línea y dispersión, botón PNG para el informe.
 - «Copiar resumen» (pestaña Resultado): copia el resultado en texto para pegarlo en un informe.
 - Atajos: Ctrl+Enter resolver · Espacio reproducir/pausar la simulación · Esc cerrar · ? ver los atajos.
 - Tema claro/oscuro: los colores de las rutas se ajustan al fondo (paleta verificada para daltonismo).

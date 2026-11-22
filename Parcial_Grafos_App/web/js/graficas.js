@@ -192,9 +192,42 @@
     }
     h += sensHtml();
     el.innerHTML = `<div class="graficas">${h}</div>`;
-    enlazarTips(el); enlazarLineas(el); enlazarSens(el);
+    enlazarTips(el); enlazarLineas(el); enlazarSens(el); pngs(el);
     el.querySelectorAll('[data-csv]').forEach((b) => (b.onclick = () => { const d = DATOS[b.dataset.csv]; if (d) Datos.descargar(`${S.ds.clave}_${b.dataset.csv}.csv`, '﻿' + csv(d), 'text/csv'); }));
     const bh = el.querySelector('#gBorrarH'); if (bh) bh.onclick = () => App.hoja('<h3>¿Borrar el historial de corridas?</h3><p class="nota">Solo se borra la lista de corridas de este proyecto; los datos no cambian.</p><div class="acc"><button class="btn gris" data-x="c">Cancelar</button><button class="btn peligro" data-x="ok">Borrar</button></div>', (x) => { App.cerrarHoja(); if (x === 'ok') { guardarH([]); App.renderPanel(); } });
+  }
+
+  /* ---------- exportar gráficas de línea y dispersión como PNG (para un informe) ---------- */
+  function pngs(raiz) {
+    raiz.querySelectorAll('.graf').forEach((sec) => {
+      const sv = sec.querySelector('svg.ln'); const cab = sec.querySelector('.graf-cab'); if (!sv || !cab) return;
+      const b = document.createElement('button'); b.className = 'btn gris mini'; b.textContent = 'PNG'; b.title = 'Guardar esta gráfica como imagen PNG';
+      b.onclick = () => exportarPng(sv, (sec.querySelector('h3') || {}).textContent || 'grafica');
+      const dl = cab.querySelector('[data-csv]'); cab.insertBefore(b, dl || null);
+    });
+  }
+  function exportarPng(sv, nombre) {
+    const cs = getComputedStyle(document.documentElement), c = (v) => cs.getPropertyValue(v).trim() || '#000';
+    const surf = c('--card'), ink = c('--foreground'), mute = c('--viz-muted'), grid = c('--viz-grid'), axis = c('--viz-axis'), s1 = c('--viz-s1');
+    /* la imagen no hereda la hoja de estilos de la página: sus reglas van dentro del propio SVG */
+    const css = `text{font-family:Arial,Helvetica,sans-serif}.grid{stroke:${grid};stroke-width:1}.eje{stroke:${axis};stroke-width:1}.tk{fill:${mute};font-size:11px}` +
+      `.fin{fill:${ink};font-size:11.5px;font-weight:600;stroke:${surf};stroke-width:3;paint-order:stroke}.serie{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}` +
+      `.serie.punteada{stroke-dasharray:5 4}.pto{stroke:${surf};stroke-width:2}.banda{fill:${s1};opacity:.1}.hit,.hit-pt,.cruz{display:none}`;
+    const copia = sv.cloneNode(true);
+    copia.querySelectorAll('.hit,.cruz').forEach((e) => e.remove());
+    copia.querySelectorAll('[style]').forEach((e) => e.setAttribute('style', (e.getAttribute('style') || '').replace(/var\((--[\w-]+)\)/g, (m, v) => c(v)).replace(/display:\s*none;?/g, '')));
+    const vb = sv.viewBox.baseVal, F = 2, W = vb.width * F, H = vb.height * F;
+    copia.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); copia.setAttribute('width', W); copia.setAttribute('height', H);
+    const st = document.createElementNS('http://www.w3.org/2000/svg', 'style'); st.textContent = css; copia.insertBefore(st, copia.firstChild);
+    let txt = new XMLSerializer().serializeToString(copia).replace(/var\((--[\w-]+)\)/g, (m, v) => c(v));
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas'); cv.width = W + 40; cv.height = H + 40; const g = cv.getContext('2d');
+      g.fillStyle = surf; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 20, 20, W, H);
+      cv.toBlob((blob) => { if (!blob) return App.chip('No se pudo crear la imagen'); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${S.ds.clave}_${String(nombre).replace(/[^\wáéíóúñÁÉÍÓÚÑ]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'grafica'}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }, 'image/png');
+    };
+    img.onerror = () => App.chip('No se pudo exportar la gráfica como imagen');
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(txt);
   }
 
   /* ---------- análisis de sensibilidad (VRP) ---------- */

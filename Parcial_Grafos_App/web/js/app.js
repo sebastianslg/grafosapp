@@ -95,7 +95,9 @@
   function progresoVivo(d) {
     const v = S.vivo || (S.vivo = {}); if (d.mejor != null && isFinite(d.mejor)) v.mejor = v.mejor == null ? d.mejor : Math.min(v.mejor, d.mejor); if (d.cota != null && isFinite(d.cota)) v.cota = Math.max(v.cota ?? -Infinity, d.cota);
     if (v.cota != null && v.mejor != null && v.cota > v.mejor) v.cota = v.mejor;
-    if (!v.hist) v.hist = []; const ht = +(d.t || 0); if (v.hist.length < 4000 && (v.mejor != null || v.cota != null)) { const u = v.hist[v.hist.length - 1]; if (!u || u.mejor !== v.mejor || u.cota !== v.cota) v.hist.push({ t: ht, mejor: v.mejor ?? null, cota: v.cota ?? null }); }
+    if (!v.hist) v.hist = [];
+    /* la cota 0 que llega al inicio no se grafica: no informa nada */
+    const ht = +(d.t || 0); if (v.hist.length < 4000 && (v.mejor != null || v.cota != null)) { const u = v.hist[v.hist.length - 1]; if (!u || u.mejor !== v.mejor || u.cota !== v.cota) v.hist.push({ t: ht, mejor: v.mejor ?? null, cota: v.cota > 0 ? v.cota : null }); }
     const gap = v.mejor != null && v.cota != null ? Math.max(0, (v.mejor - v.cota) / Math.max(Math.abs(v.mejor), 1e-9)) : null, el = $('vivo'); if (!el) return;
     const pct = gap == null ? 0 : Math.max(2, Math.min(100, (1 - gap) * 100)), u = S.ds ? S.ds.unidad : '';
     el.innerHTML = `<div class="vivo-g"><div><b class="tabular">${v.mejor == null ? '—' : fmt(v.mejor, 1) + ' ' + u}</b><span>mejor solución</span></div><div><b class="tabular">${v.cota == null ? '—' : fmt(v.cota, 1) + ' ' + u}</b><span>mejor cota (límite teórico)</span></div><div><b class="tabular">${gap == null ? '—' : fmt(gap * 100, 2) + ' %'}</b><span>brecha al óptimo</span></div><div><b class="tabular">${fmt(d.t || 0, 0)} s</b><span>transcurrido</span></div></div>
