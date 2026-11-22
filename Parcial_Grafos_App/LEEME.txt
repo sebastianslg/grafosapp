@@ -101,8 +101,9 @@ MUCHOS CLIENTES (100 o más)
 - La solución del modelo solo se entrega si se verifica (cada cliente una vez, capacidad y costo recalculado); si no, se usa la
   heurística. Nunca se entrega una solución peor que la heurística.
 - Panel «Tiempo»: estimación de cuánto falta para una brecha de 1 %, a partir de cómo baja la brecha. Es una tendencia, no una garantía.
-- Para muchos clientes conviene la eliminación de subtours por cortes DFJ (tarjeta Problema): en las pruebas cierra mejor la brecha
-  que MTZ, que tiene una cota más débil.
+- Medido en el navegador con 100 clientes (CVRP, 5 vehículos): la solución inicial aparece en ~1 s y es válida; el modelo
+  (MTZ o DFJ) no la mejoró en 80 s ni en 400 s, así que la brecha de ~12 % se mantiene. Para cerrarla hace falta una
+  formulación más ajustada o más tiempo; la app lo muestra como brecha, sin ocultarlo.
 - Parar en cualquier momento: la parada espera a que termine la etapa en curso (a lo sumo 20 s) y muestra la mejor solución.
 
 SIMULACIÓN DE LOS VEHÍCULOS
