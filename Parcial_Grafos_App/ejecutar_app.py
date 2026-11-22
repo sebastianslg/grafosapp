@@ -40,6 +40,7 @@ CACHE_ARCHIVO = AQUI / "datos" / "cache_rutas.json"
 OSRM = os.environ.get("OSRM_URL", "https://router.project-osrm.org")
 mimetypes.add_type("application/wasm", ".wasm")
 mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 # ----------------------------------------------------------------------------------------------
 # Caché de trazados por calles

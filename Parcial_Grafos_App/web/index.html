@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Parcial de Grafos · TSP, m-TSP, caminos y árboles</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#007aff">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
@@ -68,5 +72,6 @@
 <script src="js/ubicacion.js"></script>
 <script src="js/proyectos.js"></script>
 <script>App.arrancar();</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>
 </html>

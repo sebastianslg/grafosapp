@@ -95,16 +95,29 @@ async function correrVrp(d, ctx) {
   if (o.metodoSol === 'exacto') { const r = await Vrp.vrp(I, ctx, Object.assign({}, o, { tiempo: o.tiempo })); r.metodoSol = 'Modelo matemático (MILP · HiGHS)'; return r; }
   if (o.metodoSol === 'comparar') {
     const filas = []; let cota = null, mejor = null; const tm = Math.max(1, o.tiempoMeta || 3); const avisos = [];
-    if (I.f && I.f.mode === 'split') avisos.push('Las heurísticas no manejan la entrega dividida: solo se muestra el modelo matemático.');
-    if (I.f && I.f.minVeh) avisos.push('Las heurísticas no minimizan la flota: no se comparan con MinVeh (use el modelo matemático).');
+    const minV = !!(I.f && I.f.minVeh), split = !!(I.f && I.f.mode === 'split');
     ctx.log('Calculando el modelo matemático (' + (o.tiempoCota || 10) + ' s)…'); const ex = await cotaExacta(o.tiempoCota || 10);
-    if (ex.rutas && ex.rutas.length) { filas.push({ metodo: 'Modelo matemático (MILP)', tipo: 'exacto', obj: ex.objetivo, seg: ex.seg, factible: true, gapProp: ex.gap }); mejor = ex; cota = ex.cota; }
-    for (const a of Object.keys(Heur.ALGORITMOS)) { if (hayParar()) break; if (I.f && (I.f.mode === 'split' || I.f.minVeh)) break; ctx.log(Heur.ALGORITMOS[a].nombre + '…');
+    const flotaEx = ex.flota || (ex.rutas ? ex.rutas.length : null);   // MinVeh: la flota mínima exacta
+    if (ex.rutas && ex.rutas.length) { filas.push({ metodo: 'Modelo matemático (MILP)', tipo: 'exacto', obj: ex.objetivo, seg: ex.seg, factible: true, gapProp: ex.gap, veh: minV ? flotaEx : null }); mejor = ex; cota = ex.cota; }
+    /* qué se compara con qué: entrega dividida → su heurística; flota mínima → distancia solo con la misma flota */
+    const usar = (r, veh) => !r.factible || (!minV || veh <= flotaEx) || (cota == null);
+    if (split) {
+      ctx.log('Entrega dividida: heurística de reparto…');
+      const r = Heur.entregaDividida(I, { semilla: o.semilla || 1 });
+      filas.push({ metodo: 'Entrega dividida (heurística de reparto)', tipo: 'heuristica', obj: r.objetivo, seg: r.seg, factible: r.factible });
+      if (r.factible && (!mejor || r.objetivo < mejor.objetivo - 1e-9)) mejor = r;
+      avisos.push('La entrega dividida compara una heurística de reparto (un orden de visita, la demanda se reparte entre vehículos). Un cliente puede visitarse en dos rutas.');
+    } else for (const a of Object.keys(Heur.ALGORITMOS)) {
+      if (hayParar()) break; ctx.log(Heur.ALGORITMOS[a].nombre + '…');
       const r = Heur.resolver(I, a, { tiempo: Heur.ALGORITMOS[a].tipo === 'meta' ? tm : 1, semilla: o.semilla || 1, parar });
-      filas.push({ metodo: Heur.ALGORITMOS[a].nombre, tipo: Heur.ALGORITMOS[a].tipo, obj: r.objetivo, seg: r.seg, factible: r.factible }); if (r.factible && (!mejor || r.objetivo < mejor.objetivo - 1e-9)) mejor = r; }
+      const veh = r.rutas ? r.rutas.length : null;
+      filas.push({ metodo: Heur.ALGORITMOS[a].nombre, tipo: Heur.ALGORITMOS[a].tipo, obj: r.objetivo, seg: r.seg, factible: r.factible, veh: minV ? veh : null });
+      if (r.factible && usar(r, veh) && (!mejor || r.objetivo < mejor.objetivo - 1e-9)) mejor = r;
+    }
+    if (minV) avisos.push('MinVeh: la columna Vehículos compara la flota. La distancia de una heurística solo se compara con la del modelo cuando usa la misma cantidad de vehículos que la flota mínima exacta (' + flotaEx + ').');
     if (!mejor) return { estado: 'sin solución factible', rutas: [] };
-    filas.forEach((x) => { x.gap = cota != null && x.factible ? Math.max(0, (x.obj - cota) / Math.max(Math.abs(x.obj), 1e-9)) : null; });
-    const res = Object.assign({}, mejor); res.comparacion = filas; res.cota = cota; res.gap = cota != null ? Math.max(0, (res.objetivo - cota) / Math.max(Math.abs(res.objetivo), 1e-9)) : null; res.metodoSol = 'Comparación de métodos'; res.avisos = avisos; res.estado = res.gap != null && res.gap < 1e-6 ? 'óptimo' : (mejor.estado || 'mejor solución encontrada'); res.seg = (performance.now() - t0) / 1000; return res;
+    filas.forEach((x) => { x.gap = cota != null && x.factible && (!minV || x.veh <= flotaEx) ? Math.max(0, (x.obj - cota) / Math.max(Math.abs(x.obj), 1e-9)) : null; });
+    const res = Object.assign({}, mejor); res.comparacion = filas; res.cota = cota; res.gap = cota != null ? Math.max(0, (res.objetivo - cota) / Math.max(Math.abs(res.objetivo), 1e-9)) : null; res.metodoSol = 'Comparación de métodos'; res.avisos = avisos; res.estado = res.gap != null && res.gap < 1e-6 ? 'óptimo' : (mejor.estado || 'mejor solución encontrada'); res.seg = (performance.now() - t0) / 1000; res.flota = minV ? flotaEx : res.flota; return res;
   }
   const r = Heur.resolver(I, o.algo, { tiempo: o.tiempo, semilla: o.semilla, params: o.params, inicial: o.inicial, progreso: prog, parar });
   if (parado) r.estado = 'detenido por el usuario (' + (r.factible ? 'mejor solución encontrada' : 'sin solución factible') + ')';

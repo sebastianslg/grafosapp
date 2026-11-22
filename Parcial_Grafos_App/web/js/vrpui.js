@@ -28,7 +28,7 @@
   }
   function refrescar() {
     if (!$('vrpVar')) return; const v = Va.porId[$('vrpVar').value], met = $('vrpMetodo').value;
-    $('vrpDesc').innerHTML = `<b>${esc(v.fam)}</b> · ${esc(v.desc)} <i>(en inglés: ${esc(v.en)})</i>${v.id === 'sdvrp' ? ' <span style="color:var(--warning)">Solo con modelo matemático.</span>' : ''}`;
+    $('vrpDesc').innerHTML = `<b>${esc(v.fam)}</b> · ${esc(v.desc)} <i>(en inglés: ${esc(v.en)})</i>`;
     const sel = $('vrpAlgo'), lista = ALGO[met] || [], prev = sel.value; sel.innerHTML = lista.map(([k, a]) => `<option value="${k}">${esc(a.nombre)}</option>`).join(''); if (lista.some(([k]) => k === prev)) sel.value = prev;
     $('vrpAlgoF').classList.toggle('oculto', !lista.length);
     $('vrpAlgoDesc').textContent = met === 'exacto' ? 'Resuelve las fórmulas del curso (MILP) con HiGHS; si llega al límite de tiempo informa la brecha.' : met === 'comparar' ? 'El modelo matemático da la solución óptima. Las heurísticas y metaheurísticas se ejecutan solo para comparar: cada una muestra su brecha frente al óptimo.' : (DESC_ALGO[sel.value] || '');
@@ -41,7 +41,6 @@
   function parametros() {
     const ds = S.ds, v = Va.porId[$('vrpVar').value], met = $('vrpMetodo').value, tiempo = $('sinLimite') && $('sinLimite').checked ? 1e9 : App.num($('tiempo').value, 120, 5, 1e7);
     if (ds.nodos.length < 3) return App.aviso('Agregue nodos primero.');
-    if (v.id === 'sdvrp' && met !== 'exacto') return App.aviso('La entrega dividida (SDVRP) solo se resuelve con el modelo matemático.');
     const p = { origen: +$('origen').value, m: Math.round(App.num($('vrpM').value, 0, 0, 30)), Lmax: App.num($('vrpL').value, 0, 0, 1e12), lstops: Math.round(App.num($('vrpP').value, 0, 0, 1e4)), xy: proyeccion() };
     extraParams(p);
     let c; try { c = Va.construir(v.id, { D: ds.D, nodos: ds.nodos, flota: ds.flota, vt: ds.vt }, p); } catch (e) { return App.aviso(e.message); }
@@ -86,7 +85,8 @@
     if (x.estado && String(x.estado).startsWith('sin solución')) h += `<div class="aviso error">No se halló una solución factible con este método. Pruebe otro algoritmo, más tiempo o el modelo matemático.</div>`;
     if (x.comparacion) {
       const mejor = Math.min(...x.comparacion.filter((c) => c.factible).map((c) => c.obj));
-      h += `<h3 style="font-size:15px;margin:10px 0 6px">Comparación de métodos</h3><table><tr><th>Método</th><th>Tipo</th><th>Objetivo</th><th>Gap</th><th>s</th></tr>` + x.comparacion.map((c) => `<tr class="${c.factible && Math.abs(c.obj - mejor) < 1e-9 ? 'activa' : ''}"><td>${esc(c.metodo)}</td><td>${c.tipo === 'exacto' ? 'Exacto' : c.tipo === 'meta' ? 'Meta' : 'Heur.'}</td><td class="tabular">${c.factible ? fmt(c.obj, 2) : '—'}</td><td class="tabular">${c.gap == null ? (c.gapProp != null ? fmt(c.gapProp * 100, 2) + ' %' : 'n/d') : fmt(c.gap * 100, 2) + ' %'}</td><td class="tabular">${fmt(c.seg, 1)}</td></tr>`).join('') + `</table><p class="nota">Gap = (objetivo − mejor cota) / objetivo. Resaltado: la mejor solución, que es la que se dibuja.</p>`;
+      const conVeh = x.comparacion.some((c) => c.veh != null);
+      h += `<h3 style="font-size:15px;margin:10px 0 6px">Comparación de métodos</h3><table><tr><th>Método</th><th>Tipo</th><th>Objetivo</th>${conVeh ? '<th>Vehículos</th>' : ''}<th>Gap</th><th>s</th></tr>` + x.comparacion.map((c) => `<tr class="${c.factible && Math.abs(c.obj - mejor) < 1e-9 ? 'activa' : ''}"><td>${esc(c.metodo)}</td><td>${c.tipo === 'exacto' ? 'Exacto' : c.tipo === 'meta' ? 'Meta' : 'Heur.'}</td><td class="tabular">${c.factible ? fmt(c.obj, 2) : '—'}</td>${conVeh ? `<td class="tabular">${c.veh == null ? '—' : c.veh}</td>` : ''}<td class="tabular">${c.gap == null ? (c.gapProp != null ? fmt(c.gapProp * 100, 2) + ' %' : 'n/d') : fmt(c.gap * 100, 2) + ' %'}</td><td class="tabular">${fmt(c.seg, 1)}</td></tr>`).join('') + `</table><p class="nota">Gap = (objetivo − mejor cota) / objetivo. Resaltado: la mejor solución, que es la que se dibuja.</p>`;
     }
     h += svgConv(x.historial, u);
     const multi = x.info && x.info.some((q) => q.depot !== x.info[0].depot);

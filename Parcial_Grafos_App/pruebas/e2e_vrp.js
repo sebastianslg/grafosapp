@@ -1,4 +1,4 @@
-/* Prueba de interfaz del VRP: métodos disponibles, informe por corrida, MinVeh en dos fases, avisos de SDVRP y comparación.
+/* Prueba de interfaz del VRP: métodos disponibles, informe por corrida, MinVeh en dos fases, SDVRP y comparación.
    Uso: node pruebas/e2e_vrp.js http://127.0.0.1:8765   (con ejecutar_app.py en marcha). Sale con código 1 si algo falla. */
 const { chromium } = require('playwright');
 (async () => {
@@ -19,11 +19,12 @@ const { chromium } = require('playwright');
   chk('MinVeh muestra flota mínima', /Flota mínima \(fase 1\)/.test(txt));
   chk('MinVeh muestra el informe de la corrida', /Informe de la corrida/.test(txt));
   chk('la función objetivo de MinVeh es distancia (no un costo fijo gigante)', !/\b\d{5,}[.,]\d+/.test((txt.match(/Función objetivo[^\n]*\n?[^\n]*/) || [''])[0]));
-  // 2) SDVRP: el comparar avisa que no hay heurísticas
+  // 2) SDVRP: la comparación incluye la heurística de reparto (entrega dividida)
   await p.selectOption('#vrpVar', 'sdvrp'); await p.selectOption('#vrpMetodo', 'comparar'); await p.waitForTimeout(400);
-  await p.click('#bResolver'); await p.waitForTimeout(3000);
+  await p.click('#bResolver');
+  await p.waitForFunction(() => /Comparación de métodos/.test(document.body.innerText), null, { timeout: 240000 }).catch(() => {});
   txt = await p.innerText('body');
-  chk('SDVRP en comparar avisa que solo tiene modelo matemático', /entrega dividida \(SDVRP\) solo se resuelve con el modelo matemático/.test(txt));
+  chk('SDVRP en comparar incluye la heurística de reparto', /Entrega dividida \(heurística de reparto\)/.test(txt));
   // 3) CVRP comparado: tabla con brecha de cada método
   await p.selectOption('#vrpVar', 'cvrp'); await p.selectOption('#vrpMetodo', 'comparar'); await p.waitForTimeout(400);
   await p.click('#bResolver');

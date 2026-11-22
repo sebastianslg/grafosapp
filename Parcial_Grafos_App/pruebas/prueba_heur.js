@@ -28,13 +28,24 @@ function verificar(I, r) {   // verificación independiente de las rutas que ent
   for (const id of ids) {
     const { S: S0, p } = instancia(id); const { I } = Va.construir(id, S0, p);
     const ex = await Vrp.vrp(I, ctx, { tiempo: 120, brecha: 1e-6, metodo: 'mtz' }), optimo = String(ex.estado).startsWith('óptimo') ? ex.objetivo : null;
-    if (I.f && I.f.mode === 'split') { console.log(`--    ${id.padEnd(8)} (las heurísticas no aplican a la entrega dividida)`); continue; }
+    if (I.f && I.f.mode === 'split') {   // heurística de reparto: cada cliente recibe toda su demanda y ninguna ruta excede la capacidad
+      const r = Heur.entregaDividida(I, { semilla: 3 }); const fallas = [];
+      if (!r.factible) fallas.push('no halla solución'); else {
+        const tot = {}; r.info.forEach((q, k) => { q.entregas.forEach((e, pos) => { const v = r.rutas[k][pos]; if (v !== I.depots[0] && e) tot[v] = (tot[v] || 0) + e; }); if (isFinite(q.cap) && q.carga > q.cap + 1e-9) fallas.push(`ruta ${k + 1} excede la capacidad`); });
+        I.cust.forEach((i) => { if (Math.abs((tot[i] || 0) - I.w[i]) > 1e-6) fallas.push(`cliente ${i} recibe ${(tot[i] || 0).toFixed(2)} de ${I.w[i]}`); });
+        if (optimo != null && r.objetivo < optimo - 1e-6 * Math.max(1, Math.abs(optimo))) fallas.push(`mejora el óptimo (${r.objetivo.toFixed(4)} < ${optimo.toFixed(4)})`);
+      }
+      if (fallas.length) malos++;
+      console.log(`${fallas.length ? 'FALLA' : 'OK   '} ${id.padEnd(8)} óptimo=${optimo == null ? '—' : optimo.toFixed(4)}  heurística=${r.factible ? r.objetivo.toFixed(4) : '—'}  ${fallas.slice(0, 3).join(' | ')}`);
+      continue;
+    }
     const fallas = [];
     for (const a of Object.keys(Heur.ALGORITMOS)) {
       try {
         const r = Heur.resolver(I, a, { tiempo: Heur.ALGORITMOS[a].tipo === 'meta' ? 0.6 : 1, semilla: 3 });
         if (!r.factible) continue;
-        if (optimo != null && !(I.f && I.f.minVeh) && r.objetivo < optimo - 1e-6 * Math.max(1, Math.abs(optimo))) fallas.push(`${a} mejora el óptimo (${r.objetivo.toFixed(4)} < ${optimo.toFixed(4)})`);
+        const flotaOpt = I.f && I.f.minVeh && ex.flota; if (I.f && I.f.minVeh && flotaOpt != null && r.rutas.length < flotaOpt) fallas.push(`${a} usa ${r.rutas.length} vehículos, menos que la flota mínima ${flotaOpt}`);
+        if (optimo != null && !(I.f && I.f.minVeh && (r.rutas.length > (flotaOpt ?? 0))) && r.objetivo < optimo - 1e-6 * Math.max(1, Math.abs(optimo))) fallas.push(`${a} mejora el óptimo (${r.objetivo.toFixed(4)} < ${optimo.toFixed(4)})`);
         const e = verificar(I, r); if (e.length) fallas.push(`${a}: ${e.slice(0, 2).join('; ')}`);
       } catch (err) { fallas.push(`${a}: error ${err.message}`); }
     }

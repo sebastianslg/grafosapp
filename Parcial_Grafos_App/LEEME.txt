@@ -114,6 +114,16 @@ GRÁFICAS Y UTILIDADES (pestaña «Gráficas»)
   distancia máxima, tiempo de servicio o velocidad) y grafica cómo cambia el óptimo.
 - Cada gráfica tiene información al pasar el cursor, botón CSV con sus datos y, en las de línea y dispersión, botón PNG para el informe.
 - «Copiar resumen» (pestaña Resultado): copia el resultado en texto para pegarlo en un informe.
+- Comparación de métodos: incluye las variantes de entrega dividida (SDVRP, con una heurística de reparto) y de flota mínima
+  (MinVeh: la columna «Vehículos»; la distancia de una heurística se compara solo con la misma flota).
+- Análisis de sensibilidad también para la penalización por retraso (ventanas suaves), la amplitud de las franjas horarias y la
+  hora de cierre del depósito (ventanas de tiempo). Para conclusiones firmes use 30 a 60 s por valor.
+
+INSTALAR COMO APLICACIÓN (opcional)
+- Con la app abierta en el navegador (Chrome o Edge): menú → «Instalar Parcial de Grafos» (o el icono de instalar en la barra de
+  direcciones). Queda como una ventana propia, con su icono. La app se guarda en el equipo para abrirse más rápido.
+- Sin conexión a internet la app sigue resolviendo los problemas. Lo que necesita internet: el mapa base (teselas), buscar
+  lugares y trazar calles para puntos nuevos.
 - Atajos: Ctrl+Enter resolver · Espacio reproducir/pausar la simulación · Esc cerrar · ? ver los atajos.
 - Tema claro/oscuro: los colores de las rutas se ajustan al fondo (paleta verificada para daltonismo).
 

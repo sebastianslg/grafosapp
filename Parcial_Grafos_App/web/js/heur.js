@@ -10,7 +10,7 @@
 
   function crear(I, o) {
     o = o || {}; const f = I.f || {}, D = I.D, veh = I.veh, m = veh.length, cl = I.cust, nc = cl.length, mode = f.mode || 'entrega';
-    if (mode === 'split') throw new Error('La entrega dividida (SDVRP) solo se resuelve con el modelo matemático.');
+    if (mode === 'split') throw new Error('La entrega dividida usa su propia heurística (entregaDividida).');
     const w = I.w || D.map(() => 0), r = I.r || D.map(() => 0), prize = I.prize || D.map(() => 0), obj = f.obj || 'costo', open = !!f.open, vt = f.vt && f.vt.usar ? f.vt : null;
     const opt = (i) => !!(I.optional && I.optional[i]);
     let lmin = 0, lmax = nc; if (f.balanced) { lmin = Math.max(1, Math.floor(nc / m)); lmax = Math.ceil(nc / m); } else { lmin = f.lmin || 0; lmax = f.lmax || nc; }
@@ -333,6 +333,42 @@
     void factibleMejor;
     return resultado(I, E, mejor, (now() - t0) / 1000, ALGORITMOS[algo].nombre, hist);
   }
-  root.Heur = { resolver, ALGORITMOS, crear };
+  /* ---------- entrega dividida (SDVRP): heurística de reparto ----------
+     Orden de visita por vecino más cercano (sin capacidad); la demanda de cada cliente se reparte en el orden
+     en que se llena cada vehículo. Un cliente puede quedar en dos rutas. Se repite con órdenes perturbados y
+     se queda con el de menor costo. Es referencia: el modelo exacto (SDVRP) es el óptimo. */
+  function entregaDividida(I, o) {
+    o = o || {}; const t0 = now(), D = I.D, veh = I.veh, cl = I.cust, w = I.w || D.map(() => 0), m = veh.length, f = I.f || {}, abierto = !!f.open;
+    const h = veh[0].depot, rand = rng(o.semilla || 7), cap = veh.map((v) => (isFinite(v.cap) ? v.cap : Infinity));
+    const vecino = () => { const pend = cl.slice(), ord = []; let cur = h; while (pend.length) { let b = 0; for (let q = 1; q < pend.length; q++) if (D[cur][pend[q]] < D[cur][pend[b]]) b = q; cur = pend[b]; ord.push(cur); pend.splice(b, 1); } return ord; };
+    const repartir = (ord) => {
+      const ent = veh.map(() => new Map()); let k = 0, libre = cap[0];
+      for (const i of ord) { let d = w[i]; while (d > 1e-9) { if (k >= m) return null; const q = Math.min(d, libre); if (q > 1e-9) { ent[k].set(i, (ent[k].get(i) || 0) + q); d -= q; libre -= q; } if (d > 1e-9 && libre <= 1e-9) { k++; libre = k < m ? cap[k] : 0; } } }
+      return ent;
+    };
+    const costo = (ent, ord) => {
+      let total = 0; const R = [], info = [];
+      for (let k = 0; k < m; k++) {
+        if (!ent[k].size) continue;
+        const vis = ord.filter((i) => ent[k].has(i)), ru = [h, ...vis]; if (!abierto) ru.push(h);
+        const dist = ru.slice(1).reduce((a, v, q) => a + D[ru[q]][v], 0), c = veh[k].costoKm * dist + (veh[k].fijo || 0);
+        total += c; R.push(ru); info.push({ tipo: veh[k].tipo, depot: h, dist, costo: c, carga: vis.reduce((a, i) => a + ent[k].get(i), 0), cap: veh[k].cap, llegadas: null, entregas: ru.map((v, q) => (v === h && (q === 0 || q === ru.length - 1) ? null : ent[k].get(v) ?? null)) });
+      }
+      return { total, R, info };
+    };
+    let mejor = null; const base = vecino(), tries = 60;
+    for (let t = 0; t < tries; t++) {
+      let ord = base.slice();
+      if (t > 0) for (let s = 0; s < 3 && ord.length > 1; s++) { const a = Math.floor(rand() * ord.length), b = Math.floor(rand() * ord.length); [ord[a], ord[b]] = [ord[b], ord[a]]; }
+      const ent = repartir(ord); if (!ent) continue;
+      const c = costo(ent, ord); if (!mejor || c.total < mejor.total - 1e-9) mejor = Object.assign(c, { ord });
+    }
+    const seg = (now() - t0) / 1000;
+    if (!mejor) return { estado: 'sin solución factible (la flota no alcanza para la demanda)', objetivo: null, rutas: [], dists: [], info: [], noVisitados: [], premio: 0, gap: null, seg, metodoSol: 'Entrega dividida (heurística)', historial: [], factible: false };
+    const dists = mejor.info.map((x) => x.dist), ord = mejor.R.map((_, q) => q).sort((a, b) => mejor.R[b].length - mejor.R[a].length);
+    return { estado: 'heurístico: solución factible', objetivo: mejor.total, total: dists.reduce((a, b) => a + b, 0), totalCosto: mejor.total, rutas: ord.map((q) => mejor.R[q]), dists: ord.map((q) => dists[q]), info: ord.map((q) => mejor.info[q]), noVisitados: [], premio: 0, gap: null, seg, metodoSol: 'Entrega dividida (heurística)', historial: [], factible: true };
+  }
+
+  root.Heur = { resolver, ALGORITMOS, crear, entregaDividida };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.Heur;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
