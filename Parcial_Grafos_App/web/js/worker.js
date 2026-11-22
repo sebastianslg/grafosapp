@@ -35,14 +35,14 @@ let idCorrida = '';
 const hayParar = () => { try { const r = xhr('/api/parar_estado', { id: idCorrida }); return r.codigo === 200 && !!JSON.parse(r.texto).on; } catch (e) { return false; } };
 
 /* Una etapa de HiGHS con tope de tiempo `tl`. `cota` (opcional) = valor de la mejor solución ya conocida: poda lo peor. */
-async function etapa(lp, tl, gap, cota) {
+async function etapa(lp, tl, gap, cota, soloCota) {
   let dual = null;
   if (motor === 'wasm') {
     const h = await highsP; const t0 = performance.now();
     lineaLog = (t) => {
       let m = t.match(/Dual bound\s+(\S+)/); if (m) dual = parseFloat(m[1]);
       m = t.match(/^\s*[A-Za-z]?\s+\d+\s+\d+\s+\d+\s+[\d.]+%\s+(\S+)\s+(\S+)\s+(\S+)\s+\d+\s+\d+\s+\d+\s+\d+\s+([\d.]+)s/);
-      if (m) postMessage({ tipo: 'progreso', cota: parseFloat(m[1]), mejor: m[2] === 'inf' ? null : parseFloat(m[2]), t: (performance.now() - corrida.t0) / 1000 });
+      if (m) postMessage({ tipo: 'progreso', cota: parseFloat(m[1]), mejor: soloCota || m[2] === 'inf' ? null : parseFloat(m[2]), t: (performance.now() - corrida.t0) / 1000 });
     };
     const op = { time_limit: tl, mip_rel_gap: gap, output_flag: true, log_to_console: true };
     if (cota != null) op.objective_bound = cota;
@@ -64,12 +64,12 @@ async function resolverLP(lp, o) {
 }
 async function resolverLPnucleo(lp, o, st) {
   const largo = o.timeLimit > 7 && /^\s*minimi[sz]e/i.test(lp);
-  if (!largo) { const r = await etapa(lp, Math.max(1, o.timeLimit), o.gap, null); if (r.st === 'Time limit reached' && r.dual != null && r.ok) r.gap = Math.max(0, (r.obj - r.dual) / Math.max(Math.abs(r.obj), 1e-9)); return r; }
+  if (!largo) { const r = await etapa(lp, Math.max(1, o.timeLimit), o.gap, null, o.soloCota); if (r.st === 'Time limit reached' && r.dual != null && r.ok) r.gap = Math.max(0, (r.obj - r.dual) / Math.max(Math.abs(r.obj), 1e-9)); return r; }
   if (!corrida.t0) corrida.t0 = performance.now();
   let tl = 6, usado = 0, mejor = null, cota = -Infinity;
   for (;;) {
     const lim = Math.min(tl, o.timeLimit - usado);
-    const r = await etapa(lp, Math.max(1, lim), o.gap, mejor ? mejor.obj + 1e-7 * Math.max(1, Math.abs(mejor.obj)) : null);
+    const r = await etapa(lp, Math.max(1, lim), o.gap, mejor ? mejor.obj + 1e-7 * Math.max(1, Math.abs(mejor.obj)) : null, o.soloCota);
     usado += r.seg;
     if (r.dual != null && isFinite(r.dual)) st.cota = Math.max(st.cota, r.dual);   // antes de cualquier retorno
     if (r.ok && (!mejor || r.obj < mejor.obj - 1e-9)) mejor = r;
@@ -79,7 +79,7 @@ async function resolverLPnucleo(lp, o, st) {
     if (r.dual != null && isFinite(r.dual)) { cota = Math.max(cota, r.dual); st.cota = Math.max(st.cota, r.dual); }
     if (mejor) {
       mejor.gap = cota > -Infinity ? Math.max(0, (mejor.obj - cota) / Math.max(Math.abs(mejor.obj), 1e-9)) : null; mejor.cota = cota;
-      postMessage({ tipo: 'progreso', cota: isFinite(cota) ? cota : null, mejor: mejor.obj, gap: mejor.gap, t: (performance.now() - corrida.t0) / 1000, etapa: true });
+      postMessage({ tipo: 'progreso', cota: isFinite(cota) ? cota : null, mejor: o.soloCota ? null : mejor.obj, gap: o.soloCota ? null : mejor.gap, t: (performance.now() - corrida.t0) / 1000, etapa: true });
       if (mejor.gap != null && mejor.gap <= o.gap) { mejor.gap = 0; mejor.status = 'óptimo'; return mejor; }
     }
     const parar = hayParar();

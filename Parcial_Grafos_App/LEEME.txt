@@ -95,6 +95,13 @@ NOVEDADES
 - «Sin límite»: el solver sigue hasta PROBAR el óptimo. Mientras corre se ve la mejor solución, la mejor cota, la brecha (gap)
   y una pequeña gráfica en vivo de ambas.
 - «Parar y ver lo mejor»: detiene (en pocos segundos) y muestra la mejor solución con su brecha. «Cancelar» corta de inmediato.
+FORMULACIÓN DE DOS ÍNDICES (nuevo, recomendado con 40 o más clientes)
+- En «Eliminación de subtours» elija «Dos índices + cortes de capacidad». Con 40 o más clientes se usa automáticamente, salvo que
+  haya elegido otro método. Aplica a flota homogénea sin ventanas de tiempo, sin varios depósitos y sin recogidas.
+- Probado: CVRP-10 coincide con GAMS (425,05). 20 clientes se prueban óptimos en ~12 s; con MTZ no se probaban en 30 s.
+- Con 50 clientes, la cota sube de 236 (MTZ) a 294 en la misma instancia y en 90 s.
+- Informe de la corrida: botón «Informe (imprimir o PDF)» en el resultado de VRP.
+
 MUCHOS CLIENTES (100 o más)
 - Antes del modelo, la app calcula una solución por heurística (ahorros y VND), que suele tomar menos de un segundo. Se muestra
   de inmediato, con su brecha frente a la cota del modelo. El modelo matemático la mejora en etapas si puede.

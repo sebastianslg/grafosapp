@@ -10,6 +10,7 @@
 
   async function vrpExacto(I, ctx, o) {
     o = o || {}; const t0 = now(), f = I.f || {}, D = I.D, veh = I.veh, m = veh.length, cl = I.cust, nc = cl.length, depots = I.depots;
+    if (o.metodo === 'arco' && arcoAplica(I)) return vrpArco(I, ctx, o);
     /* mínima flota (MinVeh): fase 1 minimiza el número de vehículos; fase 2 fija ese número y minimiza la distancia */
     if (f.minVeh && !o.fase && !o.fijarVeh) {
       const T = o.tiempo || 120, r1 = await vrp(I, ctx, Object.assign({}, o, { fase: 'veh', tiempo: T * 0.4 }));
@@ -148,7 +149,7 @@
     for (;;) {
       const left = (o.tiempo || 120) - (now() - t0) / 1000;
       if (left <= 0.5 || (ctx.detenido && ctx.detenido())) { if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [], cota: sol && sol.dual != null && isFinite(sol.dual) ? sol.dual : null }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
-      sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt });
+      sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt, soloCota: metodo === 'dfj' });   // DFJ: cada iteración es una relajación con cortes
       if (!sol.ok) { if (!valida) return { estado: sol.status === 'infactible' ? 'infactible: con estos datos no existe solución' : sol.status, rutas: [], cota: sol.dual != null && isFinite(sol.dual) ? sol.dual : null }; sol = valida; sol.status = 'límite de tiempo (mejor solución encontrada, no probada óptima)'; break; }
       if (metodo === 'mtz') break;
       const cs = [];
@@ -192,6 +193,65 @@
   }
   /* Solución inicial: con muchos clientes el MILP puede tardar en hallar la primera solución factible. Si se puede,
      la heurística da una solución factible en segundos; se muestra de inmediato y el MILP intenta mejorarla. */
+  /* Formulación de dos índices (flota homogénea): x_ij binaria por arco, sin índice de vehículo. Es mucho más ajustada que
+     la de vehículo-arco. Cortes de capacidad redondeada y de subtours se agregan por separación iterativa. */
+  function arcoAplica(I) {
+    const f = I.f || {}, veh = I.veh || [];
+    if (!veh.length || (I.depots || []).length !== 1 || f.open || f.locDepot || f.vt || f.blandas || f.balanced || f.minVeh) return false;
+    if (f.mode && f.mode !== 'entrega') return false;
+    if ((f.obj && f.obj !== 'costo') || f.objetivo === 'maximo' || (I.optional && I.optional.some(Boolean)) || (I.pairs && I.pairs.length)) return false;
+    const v0 = veh[0]; return veh.every((v) => v.cap === v0.cap && v.costoKm === v0.costoKm && v.depot === v0.depot && !(v.fijo > 0) && !isFinite(v.Lmax) && !v.lstops);
+  }
+  async function vrpArco(I, ctx, o) {
+    o = o || {}; const t0 = now(), D = I.D, veh = I.veh, h = I.depots[0], cl = I.cust, m = veh.length, v0 = veh[0];
+    const Q = isFinite(v0.cap) ? v0.cap : Infinity, cu = v0.costoKm, w = I.w || D.map(() => 0);
+    const nodos = [h, ...cl], dem = (S) => S.reduce((a, i) => a + (w[i] || 0), 0);
+    const M = new (Model())(), X = (i, j) => 'x_' + i + '_' + j;
+    for (const i of nodos) for (const j of nodos) if (i !== j && isFinite(D[i][j]) && !(cl.indexOf(i) < 0 && cl.indexOf(j) < 0)) M.addVar(X(i, j), cu * D[i][j], 0, 1, true);
+    const arcs = (A, B) => { const out = []; for (const i of A) for (const j of B) if (i !== j && isFinite(D[i][j])) out.push(X(i, j)); return out; };
+    for (const i of cl) { const sal = arcs([i], nodos), ent = arcs(nodos, [i]); M.addCon(sal, sal.map(() => 1), 1, 1); M.addCon(ent, ent.map(() => 1), 1, 1); }
+    const salD = arcs([h], cl), entD = arcs(cl, [h]);
+    M.addCon(salD, salD.map(() => 1), -Infinity, m);                    // a lo sumo m vehículos
+    M.addCon(salD.concat(entD), salD.map(() => 1).concat(entD.map(() => -1)), 0, 0);   // regresan los que salen
+    if (isFinite(Q)) { const kmin = Math.ceil(dem(cl) / Q - 1e-9); if (kmin > 0) M.addCon(salD, salD.map(() => 1), kmin, Infinity); }   // cota de flota
+    let cortes = 0, sol = null, valida = null, gapIt = Math.max(o.brecha || 1e-6, 1e-6);
+    const cortar = (S) => {   // cortes válidos sobre el conjunto S de clientes
+      const dS = dem(S), inS = new Set(S), fuera = nodos.filter((j) => !inS.has(j));
+      if (isFinite(Q) && dS > Q + 1e-9) { const lb = Math.ceil(dS / Q - 1e-9), out = arcs(S, fuera); M.addCon(out, out.map(() => 1), lb, Infinity); cortes++; return true; }
+      return false;
+    };
+    const subtour = (S) => { const dentro = arcs(S, S); M.addCon(dentro, dentro.map(() => 1), -Infinity, S.length - 1); cortes++; };
+    for (;;) {
+      const left = (o.tiempo || 120) - (now() - t0) / 1000;
+      if (left <= 0.5 || (ctx.detenido && ctx.detenido())) break;
+      // las iteraciones de cortes son relajaciones: su «mejor solución» no es factible; solo se informa la cota
+      sol = await ctx.solve(M.toLP(), { timeLimit: left, gap: gapIt, soloCota: true });
+      if (!sol.ok) break;
+      const val = (i, j) => sol.val(X(i, j)) > 0.5;
+      const rutas = []; let visitados = new Set();
+      for (const j of cl) if (val(h, j)) { const ru = [h, j]; visitados.add(j); let u = j, g = 0; while (g++ < cl.length + 2) { const nx = nodos.find((k) => k !== u && val(u, k)); if (nx === undefined || nx === h) break; ru.push(nx); visitados.add(nx); u = nx; } ru.push(h); rutas.push(ru); }
+      const violados = [];
+      rutas.forEach((ru) => { const S = ru.slice(1, -1); if (S.length && dem(S) > Q + 1e-9) violados.push(S); });
+      // clientes en ciclos sin depósito: subtours
+      const sinVisitar = cl.filter((i) => !visitados.has(i)), seen = new Set();
+      for (const i of sinVisitar) { if (seen.has(i)) continue; const C = []; let u = i, g = 0; do { C.push(u); seen.add(u); const nx = nodos.find((k) => k !== u && cl.includes(k) && val(u, k)); if (nx === undefined) break; u = nx; g++; } while (u !== i && g <= cl.length); if (u === i) violados.push(C); }
+      if (!violados.length) { valida = { rutas, obj: sol.obj, status: sol.status, gap: sol.gap, dual: sol.dual }; break; }
+      for (const S of violados) {
+        const esRuta = rutas.some((ru) => S.every((c) => ru.includes(c)));
+        if (esRuta) cortar(S); else subtour(S);   // una ruta con demasiada carga: corte de capacidad; un ciclo sin depósito: subtour
+      }
+    }
+    const fuente = valida || (sol && sol.ok ? { rutas: [], obj: sol.obj, status: sol.status, gap: sol.gap, dual: sol.dual } : null);
+    const seg = (now() - t0) / 1000;
+    if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [], cortes, seg, metodoSol: 'exacto', cota: sol && sol.dual != null && isFinite(sol.dual) ? sol.dual : null };
+    const R = valida.rutas, dists = R.map((ru) => ru.slice(1).reduce((a, v, q) => a + D[ru[q]][v], 0));
+    const info = R.map((ru, k) => ({ tipo: v0.tipo, depot: h, dist: dists[k], costo: cu * dists[k], carga: dem(ru.slice(1, -1)), cap: v0.cap, llegadas: null, entregas: null }));
+    const obj = info.reduce((a, x) => a + x.costo, 0), cota = fuente.dual != null && isFinite(fuente.dual) ? fuente.dual : null;
+    const gap = cota != null ? Math.max(0, (obj - cota) / Math.max(Math.abs(obj), 1e-9)) : null;
+    const estado = valida.status === 'óptimo' || (gap != null && gap <= 1e-6) ? 'óptimo' : 'límite de tiempo (mejor solución encontrada, no probada óptima)';
+    const informe = { modelo: 'Dos índices + cortes de capacidad redondeada', estado, objetivo: obj, cota, gap, tiempo: seg, variables: M.vars.length, binarias: M.vars.length, restricciones: M.cons.length, cortes, rutas: R.length, vehiculos: null, tiempoLimite: o.tiempo || 120, nodos: sol.nodos };
+    return { estado, objetivo: obj, total: dists.reduce((a, b) => a + b, 0), totalCosto: obj, rutas: R, dists, info, noVisitados: [], premio: 0, abiertos: null, gap, cota, cortes, seg, metodoSol: 'exacto', informe };
+  }
   /* costo simple: la función objetivo es exactamente la suma de costoKm × distancia (así se puede verificar una solución) */
   function esSimple(I, o) {
     const f = I.f || {};
@@ -201,8 +261,12 @@
     const nc = I.cust.length;
     if (nc < 20 || !esSimple(I, o) || o.heurInicial === false || typeof Heur === 'undefined') return null;
     let mejor = null;
-    for (const a of ['ahorros', 'vnd']) {
-      try { const r = Heur.resolver(I, a, { tiempo: 3, semilla: 1 }); if (r.factible && r.rutas && r.rutas.length && (!mejor || r.objetivo < mejor.objetivo - 1e-9)) mejor = r; } catch (e) { /* sigue con la otra */ }
+    /* ahorros y VND son casi instantáneos; la búsqueda grande vecindario (LNS) mejora unos 5 % en pocos segundos */
+    const parar = typeof hayParar === 'function' ? hayParar : () => false;
+    const tLns = Math.min(8, Math.max(2, (o.tiempo || 60) * 0.05));
+    for (const [a, t] of [['ahorros', 1], ['vnd', 3], ['lns', tLns]]) {
+      if (a === 'lns' && parar()) break;
+      try { const r = Heur.resolver(I, a, { tiempo: t, semilla: 1, parar }); if (r.factible && r.rutas && r.rutas.length && (!mejor || r.objetivo < mejor.objetivo - 1e-9)) mejor = r; } catch (e) { /* sigue con las demás */ }
     }
     return mejor;
   }
@@ -248,6 +312,6 @@
     if (esSimple(I, o) && r && r.rutas && r.rutas.length && !solucionValida(I, r)) r = Object.assign({}, r, { rutas: [], estado: 'solución no verificada (se descarta; revise el tiempo o los datos)' });
     return elegir(inc, r, I, parado);
   }
-  root.Vrp = { vrp, vrpExacto };
+  root.Vrp = { vrp, vrpExacto, arcoAplica };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.Vrp;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

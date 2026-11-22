@@ -11,7 +11,7 @@ const url = (process.argv[2] || 'http://127.0.0.1:8765').replace(/\/$/, ''), csv
   await p.goto(url + '/'); await p.waitForFunction(() => document.getElementById('pMotor').classList.contains('ok'), null, { timeout: 60000 });
   await p.click('#bImportar'); await p.setInputFiles('#archivo', csv); await p.waitForTimeout(1200); await p.click('[data-x="ok"]'); await p.waitForTimeout(2500);
   const nodos = await p.evaluate(() => App.S.ds.nodos.length); chk('proyecto de 101 nodos (100 clientes + CD)', nodos === 101, 'nodos=' + nodos);
-  for (const metodo of ['mtz', 'dfj']) {
+  for (const metodo of (process.env.METODOS || 'arco,mtz').split(',')) {
     console.log(`\n== Eliminación de subtours: ${metodo.toUpperCase()}`);
     await p.selectOption('#problema', 'vrp'); await p.selectOption('#vrpVar', 'cvrp'); await p.selectOption('#vrpMetodo', 'exacto'); await p.selectOption('#metodo', metodo);
     await p.fill('#tiempo', '240'); await p.fill('#vrpM', '5');

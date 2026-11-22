@@ -1,0 +1,73 @@
+# Pruebas de la app «Parcial de Grafos» (Parcial_Grafos_App) en cada cambio.
+# Corre: validación contra GAMS (27 variantes base y dos índices), heurísticas consistentes, regresión a escala,
+# y pruebas de interfaz en el navegador (VRP, parada, gráficas).
+name: Pruebas Parcial de Grafos
+
+on:
+  push:
+    paths:
+      - "Parcial_Grafos_App/**"
+      - ".github/workflows/pruebas-parcial-grafos.yml"
+  pull_request:
+    paths:
+      - "Parcial_Grafos_App/**"
+  workflow_dispatch:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: Parcial_Grafos_App
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "Dependencias de Python (HiGHS y el intérprete de GAMS de pruebas)"
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install highspy numpy scipy
+
+      - name: "Dependencias de Node (navegador para las pruebas de interfaz)"
+        working-directory: .
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: "Modelos base contra GAMS (27 variantes)"
+        run: node pruebas/validar_gams.js
+
+      - name: "Formulación de dos índices contra GAMS (CVRP-10)"
+        run: node pruebas/validar_arco.js
+
+      - name: "Heurísticas consistentes con el modelo exacto"
+        run: node pruebas/prueba_heur.js cvrp sdvrp minveh vrptw
+
+      - name: "Regresión a escala (20, 50 y 100 clientes)"
+        run: node pruebas/regresion_escala.js 30
+
+      - name: "Arrancar la app para las pruebas de interfaz"
+        run: |
+          SIN_NAVEGADOR=1 LATIDO_SEG=900 nohup python ejecutar_app.py >/tmp/app.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:8765/api/identidad && break; sleep 1; done
+
+      - name: "Interfaz: VRP, métodos y comparación"
+        run: node pruebas/e2e_vrp.js http://127.0.0.1:8765
+
+      - name: "Interfaz: parada y progreso en vivo"
+        run: node pruebas/e2e_parar.js http://127.0.0.1:8765
+
+      - name: "Interfaz: simulación, gráficas, sensibilidad y variantes nuevas"
+        run: node pruebas/e2e_graficas.js http://127.0.0.1:8765
+
+      - name: "Registro de la app (si algo falla)"
+        if: failure()
+        run: cat /tmp/app.log || true

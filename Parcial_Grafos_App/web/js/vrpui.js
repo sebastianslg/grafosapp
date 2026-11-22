@@ -47,9 +47,11 @@
     extraParams(p);
     let c; try { c = Va.construir(v.id, { D: ds.D, nodos: ds.nodos, flota: ds.flota, vt: ds.vt }, p); } catch (e) { return App.aviso(e.message); }
     const I = c.I; if (I.veh.length > 10 && met === 'exacto') c.notas.push('Muchos vehículos (' + I.veh.length + '): el modelo exacto puede tardar; use «Vehículos» para reducirlos.');
-    if (met === 'exacto' && I.cust.length >= 40) { const bin = I.veh.length * (I.cust.length + I.depots.length) ** 2; c.notas.push('Modelo grande: ' + I.cust.length + ' clientes y unas ' + Math.round(bin).toLocaleString('es-CO') + ' variables binarias. Primero se muestra una solución heurística con su brecha; el modelo la mejora en etapas. Para muchos clientes, la eliminación de subtours por cortes DFJ (en la tarjeta Problema) suele cerrar mejor la brecha. Puede parar en cualquier momento («Parar y ver lo mejor») y verá el tiempo estimado y la brecha.'); }
+    if (met === 'exacto' && I.cust.length >= 40) { const aplica = window.Vrp && Vrp.arcoAplica && Vrp.arcoAplica(I); c.notas.push('Modelo grande: ' + I.cust.length + ' clientes. ' + (aplica ? 'Se usa la formulación de dos índices con cortes de capacidad (más ajustada que la de vehículo-arco). ' : '') + 'Primero se muestra una solución heurística con su brecha; el modelo la mejora en etapas. Puede parar en cualquier momento («Parar y ver lo mejor») y verá el tiempo estimado y la brecha.'); }
+    if (met === 'exacto' && ds.metodo === 'arco' && !(window.Vrp && Vrp.arcoAplica && Vrp.arcoAplica(I))) c.notas.push('La formulación de dos índices solo aplica a flota homogénea sin ventanas, sin depósitos múltiples ni recogidas; se usa MTZ.');
     const algo = $('vrpAlgo').value, nombreMet = METODOS.find((x) => x[0] === met)[1];
-    const opt = { metodoSol: met, algo, tiempo: met === 'meta' || met === 'exacto' ? tiempo : Math.min(tiempo, 20), semilla: Math.round(App.num($('vrpSem').value, 1, 1, 1e9)), cota: $('vrpCota').checked, tiempoCota: App.num($('vrpTc').value, 8, 2, 3600), tiempoMeta: Math.max(1, Math.min(10, tiempo / 12)), brecha: 1e-6, metodo: ds.metodo };
+    const metodoSub = ds.metodoElegido || I.cust.length < 40 ? ds.metodo : 'arco';   // con 40 o más clientes, dos índices salvo que el usuario elija otro
+    const opt = { metodoSol: met, algo, tiempo: met === 'meta' || met === 'exacto' ? tiempo : Math.min(tiempo, 20), semilla: Math.round(App.num($('vrpSem').value, 1, 1, 1e9)), cota: $('vrpCota').checked, tiempoCota: App.num($('vrpTc').value, 8, 2, 3600), tiempoMeta: Math.max(1, Math.min(10, tiempo / 12)), brecha: 1e-6, metodo: metodoSub };
     const tit = v.nombre + ' · ' + (met === 'heur' || met === 'meta' ? H.ALGORITMOS[algo].nombre : nombreMet);
     if (c.notas.length) { $('log').classList.remove('oculto'); $('log').textContent = c.notas.map((x) => 'ℹ ' + x).join('\n') + '\n'; }
     return { kind: 'vrp', opt, datos: { I }, extra: { I, variante: v.id, notas: c.notas }, titulo: tit, keepLog: true };
@@ -97,12 +99,36 @@
       h += `<table><tr><th>Ruta</th><th>Vehículo</th><th>Recorrido</th><th>Carga</th><th>${u}</th><th>Costo</th></tr>` + x.rutas.map((ru, k) => `<tr class="clic ${k === S.rutaSel ? 'activa' : ''}" data-k="${k}"><td><span class="punto" style="background:${COL[k % COL.length]}"></span>${k + 1}</td><td>${esc(x.info[k].tipo)}${multi ? ' · ' + esc(corto(x.info[k].depot)) : ''}</td><td class="recorrido">${ru.map((v) => `<span title="${esc(nodo(v).nombre)}">${esc(corto(v))}</span>`).join(' → ')}</td><td class="tabular">${fmt(x.info[k].carga, 0)}${isFinite(x.info[k].cap) ? '/' + fmt(x.info[k].cap, 0) : ''}</td><td class="tabular">${fmt(x.dists[k], 2)}</td><td class="tabular">${fmt(x.info[k].costo, 2)}</td></tr>`).join('') + '</table>';
       const k = Math.min(S.rutaSel || 0, x.rutas.length - 1); h += `<div class="sep"></div><h3 style="font-size:15px;margin-bottom:6px">Detalle · ruta ${k + 1}</h3>` + App.pasos(x.rutas[k], x.info[k].llegadas);
     }
-    h += `<div class="sep"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec mini" data-e="gams">Código GAMS (.gms)</button><button class="btn sec mini" data-e="lp">Modelo LP (.lp)</button></div>`;
+    h += `<div class="sep"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec mini" data-e="informe">Informe (imprimir o PDF)</button><button class="btn sec mini" data-e="gams">Código GAMS (.gms)</button><button class="btn sec mini" data-e="lp">Modelo LP (.lp)</button></div>`;
     return h;
   }
   function descargar(nombre, texto) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([texto], { type: 'text/plain;charset=utf-8' })); a.download = nombre; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); }
+  /* informe de la corrida: página sencilla para imprimir o guardar como PDF (sin datos de otros proyectos) */
+  function informe(r) {
+    const I = r.extra.I, x = r.res, u = S.ds.unidad, v = Va.porId[r.extra.variante], q = x.informe || {}, esc = App.esc, fecha = new Date().toLocaleString('es-CO');
+    const filas = (x.rutas || []).map((ru, k) => `<tr><td>${k + 1}</td><td>${esc((x.info[k] && x.info[k].tipo) || '')}</td><td>${esc(ru.map((c) => corto(c)).join(' → '))}</td><td>${fmt(x.info[k] ? x.info[k].carga : 0, 1)}</td><td>${fmt(x.dists[k], 2)} ${u}</td></tr>`).join('');
+    const pc = (g) => (g == null || !isFinite(g) ? 'n/d' : fmt(g * 100, 2) + ' %');
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe · ${esc(v ? v.nombre : 'VRP')}</title>
+      <style>body{font:14px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1c1c1e;margin:32px;max-width:820px}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 8px}
+      table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #d9d9de;padding:6px 8px;text-align:left;vertical-align:top}th{font-size:12px;color:#66666b;font-weight:600}
+      .k{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.k div{background:#f2f2f7;border-radius:8px;padding:8px 10px}.k b{display:block;font-size:17px}.k span{font-size:11px;color:#66666b}
+      .nota{color:#66666b;font-size:12px;margin-top:14px}@media print{body{margin:14mm}}</style></head><body>
+      <h1>Informe de la corrida · ${esc(v ? v.nombre : 'VRP')}</h1>
+      <div class="nota">Proyecto: ${esc(S.ds.titulo || '')} · Generado el ${esc(fecha)} · Parcial de Grafos (optimización exacta, HiGHS)</div>
+      <h2>Resultado</h2>
+      <div class="k"><div><b>${esc(String(x.estado || '').split(' (')[0])}</b><span>Estado</span></div><div><b>${fmt(x.objetivo, 2)} ${u}</b><span>Función objetivo</span></div><div><b>${pc(x.gap)}</b><span>Brecha frente a la cota</span></div><div><b>${x.cota != null && isFinite(x.cota) ? fmt(x.cota, 2) + ' ' + u : 'n/d'}</b><span>Mejor cota (límite teórico)</span></div></div>
+      <p class="nota">${esc(x.estado || '')}</p>
+      <h2>Datos del modelo</h2>
+      <table><tr><th>Método</th><td>${esc(x.metodoSol || 'exacto')} · ${esc(q.modelo || '')}</td></tr><tr><th>Clientes</th><td>${I.cust.length}</td></tr><tr><th>Vehículos disponibles</th><td>${I.veh.length}</td></tr><tr><th>Tiempo de cálculo</th><td>${fmt(x.seg || 0, 2)} s (límite ${esc(String(q.tiempoLimite ?? '—'))} s)</td></tr><tr><th>Variables / binarias / restricciones</th><td>${esc(String(q.variables ?? '—'))} / ${esc(String(q.binarias ?? '—'))} / ${esc(String(q.restricciones ?? '—'))}</td></tr></table>
+      <h2>Rutas</h2>
+      <table><tr><th>Ruta</th><th>Vehículo</th><th>Recorrido (índices de nodo)</th><th>Carga</th><th>Distancia</th></tr>${filas}</table>
+      <p class="nota">Índices de nodo: el 0 es el depósito. Si la brecha es mayor que 0, la solución es buena pero no está probada óptima; la brecha indica cuánto podría mejorar como máximo.</p>
+      <script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script></body></html>`;
+    const w = window.open('', '_blank'); if (!w) return App.chip('El navegador bloqueó la ventana del informe: permita ventanas emergentes para este sitio'); w.document.open(); w.document.write(html); w.document.close();
+  }
   App.exportarVrp = (tipo) => {
     const r = S.res; if (!r || r.kind !== 'vrp') return false; const I = r.extra.I, id = r.extra.variante;
+    if (tipo === 'informe') { informe(r); return true; }
     if (tipo === 'gams') descargar('vrp_' + id + '.gms', window.Gams.generar(I, Va.porId[id].nombre)); else if (tipo === 'lp') {
       const m = new window.Solver.Model(); void m; descargar('vrp_' + id + '.txt', '* El modelo LP exacto se genera dentro del solver; use el código GAMS para ver las ecuaciones.\n' + window.Gams.generar(I, Va.porId[id].nombre));
     } else return false; return true;

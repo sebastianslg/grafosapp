@@ -1,0 +1,20 @@
+{
+ "20": {
+  "objetivo": 249.3274,
+  "gap": 0,
+  "estado": "óptimo",
+  "segundos": 11.5
+ },
+ "50": {
+  "objetivo": 313.3182,
+  "gap": 0.06811,
+  "estado": "límite de tiempo (solución heurística; el modelo matemático no la mejoró en el tiempo dado)",
+  "segundos": 63.2
+ },
+ "100": {
+  "objetivo": 447.4824,
+  "gap": 0.25176,
+  "estado": "límite de tiempo (solución heurística; el modelo matemático no la mejoró en el tiempo dado)",
+  "segundos": 63.1
+ }
+}
