@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1500, height: 900 } });
   const errs = []; p.on('pageerror', e => errs.push('pageerror ' + e)); p.on('console', m => { if (m.type() === 'error' && !/tile|ERR_|Failed to load resource/i.test(m.text())) errs.push('console ' + m.text()); });
   await p.goto(url); await p.waitForFunction(() => document.getElementById('pMotor').innerText.includes('HiGHS'), null, { timeout: 60000 });
+  await p.evaluate(() => { const d = document.getElementById('avanzado'); if (d) d.open = true; });   // métodos y «sin límite» están en «Opciones avanzadas»
   console.log('motor:', await p.innerText('#pMotor')); await p.waitForTimeout(1500);
   await p.click(`#modelos [data-m="${modelo}"]`); await p.check('#sinLimite');
   await p.click('#bResolver'); await p.waitForTimeout(process.argv[4] ? 3000 : 14000);

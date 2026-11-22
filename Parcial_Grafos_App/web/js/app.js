@@ -370,7 +370,7 @@
     const r = S.res;
     if (!r || r.ds !== S.clave) { el.innerHTML = `<div class="aviso info">Elija un problema y pulse <b>Resolver</b>${S.ds.parcial ? `, o use los atajos de <b>${esc(S.ds.titulo)}</b>` : ''}. El resultado aparece aquí y sobre el mapa.</div><p class="nota">Todo se resuelve con optimización exacta (programación lineal / entera mixta), sin algoritmos de grafos ni heurísticas. Para ubicar el <b>centro de distribución</b> óptimo, abra la pestaña <b>CD</b>.</p>`; return; }
     const x = r.res, u = S.ds.unidad; let h = `<h3 style="margin-bottom:10px">${esc(r.titulo)}</h3>`;
-    const hay = x.rutas?.length || x.aristas?.length || x.flujos?.length || x.dist || x.abiertas || x.valores;
+    const hay = x.rutas?.length || x.aristas?.length || x.flujos?.length || x.dist || x.abiertas?.length || x.valores;
     if (!hay || x.objetivo === undefined && !x.dist) { el.innerHTML = h + `<div class="aviso error">${esc(x.estado)}. No se obtuvo una solución; revise los datos o aumente el tiempo.</div>`; return; }
     const brecha = String(x.estado).startsWith('óptimo') ? '0 %' : (x.gap == null ? 'n/d' : fmt(x.gap * 100, 2) + ' %');
     const t = fmt(x.seg || 0, 2) + ' s';

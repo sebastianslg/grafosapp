@@ -441,7 +441,7 @@
     if (o.tipo === 'cobertura') {
       for (let i = 0; i < n; i++) {
         const ok = []; for (let j = 0; j < K; j++) if (dist[j][i] <= o.radio + 1e-9) ok.push('y_' + j);
-        if (!ok.length) return { estado: 'infactible: el cliente ' + (i + 1) + ' no queda a menos del radio de ningún candidato', abiertas: [] };
+        if (!ok.length) return { estado: 'infactible: el cliente ' + (i + 1) + ' no queda a menos del radio de ningún candidato', abiertas: [], asign: [] };
         M.addCon(ok, 1, 1, INF);
       }
     } else {
@@ -457,7 +457,7 @@
       else if (o.tipo !== 'fijo') M.addCon(ys, 1, 1, 1);
     }
     const sol = await ctx.solve(M.toLP(), { timeLimit: o.tiempo || 120, gap: 1e-7 });
-    if (!sol.ok) return { estado: sol.status, abiertas: [] };
+    if (!sol.ok) return { estado: sol.status, abiertas: [], asign: [] };
     const abiertas = []; for (let j = 0; j < K; j++) if (sol.val('y_' + j) > 0.5) abiertas.push(j);
     const asign = []; let transporte = 0, maxd = 0;
     for (let i = 0; i < n; i++) { let b = -1; abiertas.forEach((j) => { if (b < 0 || dist[j][i] < dist[b][i]) b = j; }); asign.push([i, b, dist[b][i]]); transporte += w[i] * dist[b][i]; maxd = Math.max(maxd, dist[b][i]); }

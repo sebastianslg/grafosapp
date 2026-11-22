@@ -6,6 +6,7 @@ const url = (process.argv[2] || 'http://127.0.0.1:8765').replace(/\/$/, ''), csv
   const b = await chromium.launch(); const p = await (await b.newContext({ viewport: { width: 1500, height: 920 } })).newPage();
   p.on('pageerror', (e) => console.log('PAGEERROR', e.message));
   await p.goto(url + '/'); await p.waitForFunction(() => document.getElementById('pMotor').classList.contains('ok'), null, { timeout: 60000 });
+  await p.evaluate(() => { const d = document.getElementById('avanzado'); if (d) d.open = true; });   // métodos y «sin límite» están en «Opciones avanzadas»
   await p.click('#bImportar'); await p.setInputFiles('#archivo', csv); await p.waitForTimeout(1200); await p.click('[data-x="ok"]'); await p.waitForTimeout(2500);
   await p.selectOption('#problema', 'vrp'); await p.selectOption('#vrpVar', 'cvrp'); await p.selectOption('#vrpMetodo', 'exacto'); await p.selectOption('#metodo', 'dfj');
   await p.fill('#tiempo', String(T)); await p.fill('#vrpM', '5');

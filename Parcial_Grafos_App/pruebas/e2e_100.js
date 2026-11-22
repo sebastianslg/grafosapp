@@ -9,6 +9,7 @@ const url = (process.argv[2] || 'http://127.0.0.1:8765').replace(/\/$/, ''), csv
   const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error' && !/net::|Failed to load/.test(m.text())) errs.push(m.text()); });
   let fallas = 0; const chk = (n, ok, extra) => { if (!ok) fallas++; console.log((ok ? 'OK    ' : 'FALLA ') + n + (extra ? '  ' + extra : '')); };
   await p.goto(url + '/'); await p.waitForFunction(() => document.getElementById('pMotor').classList.contains('ok'), null, { timeout: 60000 });
+  await p.evaluate(() => { const d = document.getElementById('avanzado'); if (d) d.open = true; });   // métodos y «sin límite» están en «Opciones avanzadas»
   await p.click('#bImportar'); await p.setInputFiles('#archivo', csv); await p.waitForTimeout(1200); await p.click('[data-x="ok"]'); await p.waitForTimeout(2500);
   const nodos = await p.evaluate(() => App.S.ds.nodos.length); chk('proyecto de 101 nodos (100 clientes + CD)', nodos === 101, 'nodos=' + nodos);
   for (const metodo of (process.env.METODOS || 'arco,mtz').split(',')) {

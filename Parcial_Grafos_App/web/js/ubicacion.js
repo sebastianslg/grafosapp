@@ -156,7 +156,7 @@
   }
   /* p-mediana / p-centro / cobertura sobre los propios nodos (desde la tarjeta Problema) */
   App.dibujarUbicarNodos = () => {
-    const r = S.res.res; Mapa.limpiarRutas(); const col = {};
+    const r = S.res.res; Mapa.limpiarRutas(); const col = {}; if (!r || !r.asign || !r.abiertas || !r.abiertas.length) return;   // detenido antes de hallar una solución
     const lineas = r.asign.map(([i, j]) => { col[i] = COL[r.abiertas.indexOf(j) % COL.length]; return { a: [nodo(i).lat, nodo(i).lon], b: [nodo(j).lat, nodo(j).lon], color: col[i], peso: 2, opacidad: 0.85 }; });
     Mapa.dibujarLineas(lineas); S.colores = col; S.tenue = null; Mapa.estiloNodos({ colores: col, seleccion: r.abiertas }); chip(`${r.abiertas.length} nodo(s) elegido(s): ${r.abiertas.map(corto).join(', ')}`); Mapa.ajustar();
   };
