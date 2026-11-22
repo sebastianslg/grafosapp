@@ -59,6 +59,17 @@
     else if (e.key === '?') App.hoja(`<h3>Atajos de teclado</h3><table><tr><td><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td><td>Resolver el problema elegido</td></tr><tr><td><kbd>Espacio</kbd></td><td>Reproducir o pausar la simulación de los vehículos</td></tr><tr><td><kbd>Esc</kbd></td><td>Cerrar ventanas y menús, salir de una herramienta</td></tr><tr><td><kbd>?</kbd></td><td>Mostrar esta ayuda</td></tr></table><p class="nota" style="margin-top:12px">Parcial de Grafos · Juan Sebastián Salas Lugo y Alejandro Álvarez Torres · Distribución y Transporte, Universidad Tecnológica de Bolívar.</p><div class="acc"><button class="btn" data-x="c">Entendido</button></div>`, () => App.cerrarHoja());
   });
 
+  /* ================= guía rápida (lenguaje sencillo) ================= */
+  $('bGuia').onclick = () => App.hoja(`<h3>Guía rápida</h3>
+    <ol class="guia">
+      <li><b>Elija el problema.</b> En la tarjeta «Problema», seleccione el tipo, por ejemplo «VRP» para repartir con vehículos.</li>
+      <li><b>Ponga los datos.</b> Use el mapa para agregar puntos, o importe un archivo (botón Importar). El centro de distribución es el punto de salida.</li>
+      <li><b>Pulse Resolver.</b> Verá una solución enseguida. Después, el programa intenta mejorarla.</li>
+      <li><b>Lea el resultado.</b> «Brecha» es qué tan lejos puede estar la solución del mejor posible: 0 % significa que está probada óptima.</li>
+      <li><b>Pare cuando le sirva.</b> «Parar y ver lo mejor» muestra la mejor solución encontrada, sin esperar al óptimo.</li>
+    </ol>
+    <p class="nota">Cada gráfica, tabla y resultado se puede descargar (CSV, PDF o imagen). Atajos: Ctrl+Enter resuelve; la barra espaciadora reproduce la simulación; ? muestra los atajos.</p>
+    <div class="acc"><button class="btn" data-x="c">Entendido</button></div>`, () => App.cerrarHoja());
   /* ================= solver (worker) ================= */
   const pill = (estado, texto) => { const p = $('pMotor'); p.className = 'pill ' + estado; p.querySelector('span').textContent = texto; };
   App.crearWorker = () => {
@@ -201,7 +212,7 @@
       <div class="fila" data-c="radio"><label class="campo">Radio de cobertura<input id="radio" type="number" min="0" value="1500"></label></div>
       <div class="fila" data-c="ponderar"><label class="check"><input type="checkbox" id="ponderar"> Ponderar por la demanda de cada nodo</label></div>
       <div class="fila" data-c="lp"><label class="campo" style="flex-basis:100%">Modelo en formato LP<textarea id="lp" rows="9" spellcheck="false" style="font:12px/1.4 var(--mono)">${LP_EJEMPLO}</textarea></label></div>
-      <div class="fila" data-c="metodo"><label class="campo">Eliminación de subtours<select id="metodo"><option value="mtz">MTZ · fórmulas del curso (un solo modelo)</option><option value="dfj">Cortes DFJ (más rápido, por iteraciones)</option><option value="arco">Dos índices + cortes de capacidad (recomendado con 40 o más clientes)</option></select></label></div>
+      <div class="fila" data-c="metodo"><label class="campo" title="Cómo se calcula el modelo. Para muchos clientes, elija la de dos índices.">Método de cálculo del modelo<select id="metodo"><option value="mtz">MTZ · fórmulas del curso (un solo modelo)</option><option value="dfj">Cortes DFJ (más rápido, por iteraciones)</option><option value="arco">Dos índices + cortes de capacidad (recomendado con 40 o más clientes)</option></select></label></div>
       <div class="fila" data-c="tiempo"><label class="campo">Tiempo máximo (s)<input id="tiempo" type="number" min="5" value="120"></label><label class="check"><input type="checkbox" id="sinLimite"> Sin límite: seguir hasta probar el óptimo (se puede parar cuando quiera)</label></div>
       <p class="nota" id="ayudaProb" style="margin:0 0 10px"></p>
       <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn sec" id="bParar" disabled title="Detiene la búsqueda y muestra la mejor solución hallada, con su brecha">Parar y ver lo mejor</button><button class="btn gris" id="bDetener" disabled title="Cancela sin resultado">Cancelar</button></div>

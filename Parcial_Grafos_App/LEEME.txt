@@ -14,6 +14,13 @@ COMO EJECUTARLO (UN SOLO CLIC)
   Si ya esta abierta y vuelve a hacer doble clic, se muestra la misma ventana (no se abre otra copia).
   Registro de errores (solo si algo falla): registro_app.txt, en la misma carpeta.
 
+USO EN 5 PASOS (también en la app: botón «Guía»)
+  1. Elija el problema en la tarjeta «Problema» (por ejemplo «VRP» para repartir con vehículos).
+  2. Ponga los datos: agregue puntos en el mapa o importe un archivo (botón Importar).
+  3. Pulse «Resolver». Verá una solución enseguida y el programa intenta mejorarla.
+  4. Lea el resultado: «Brecha» es qué tan lejos puede estar del mejor posible (0 % = óptima probada).
+  5. Pare cuando le sirva con «Parar y ver lo mejor».
+
 QUE ES
   Una aplicacion para construir grafos sobre un mapa y resolverlos con OPTIMIZACION EXACTA (programacion lineal / entera
   mixta, solver HiGHS), sin algoritmos de grafos ni heuristicas. Trae dos proyectos del parcial (ARA Cali y China Top 25)

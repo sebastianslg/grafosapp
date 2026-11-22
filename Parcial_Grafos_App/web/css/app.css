@@ -296,3 +296,6 @@ svg.ln .cruz { stroke: var(--viz-muted); stroke-width: 1; } svg.ln .hit { fill: 
   .simflota { width: min(220px, 60%); max-height: 46%; }
   .simbar { bottom: 44px; } .mapa-wrap:has(.simbar:not(.oculto)) .leyenda { bottom: calc(var(--sim-h, 90px) + 54px); }
 }
+
+/* ---- guía rápida ---- */
+ol.guia { padding-left: 22px; margin: 6px 0 12px; } ol.guia li { margin: 0 0 10px; line-height: 1.45; }

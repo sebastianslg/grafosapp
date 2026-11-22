@@ -214,12 +214,33 @@
     M.addCon(salD, salD.map(() => 1), -Infinity, m);                    // a lo sumo m vehículos
     M.addCon(salD.concat(entD), salD.map(() => 1).concat(entD.map(() => -1)), 0, 0);   // regresan los que salen
     if (isFinite(Q)) { const kmin = Math.ceil(dem(cl) / Q - 1e-9); if (kmin > 0) M.addCon(salD, salD.map(() => 1), kmin, Infinity); }   // cota de flota
-    let cortes = 0, sol = null, valida = null, gapIt = Math.max(o.brecha || 1e-6, 1e-6);
+    let cortes = 0, sol = null, valida = null, gapIt = Math.max(o.brecha || 1e-6, 1e-6), cotaLP = -Infinity;
+    /* corte de capacidad redondeada: al menos ceil(d(S)/Q) arcos saliendo de S */
+    const ponerCorte = (S, lb) => { const fuera = nodos.filter((j) => !S.includes(j)), out = arcs(S, fuera); M.addCon(out, out.map(() => 1), lb, Infinity); cortes++; };
     const cortar = (S) => {   // cortes válidos sobre el conjunto S de clientes
-      const dS = dem(S), inS = new Set(S), fuera = nodos.filter((j) => !inS.has(j));
-      if (isFinite(Q) && dS > Q + 1e-9) { const lb = Math.ceil(dS / Q - 1e-9), out = arcs(S, fuera); M.addCon(out, out.map(() => 1), lb, Infinity); cortes++; return true; }
+      const dS = dem(S);
+      if (isFinite(Q) && dS > Q + 1e-9) { ponerCorte(S, Math.ceil(dS / Q - 1e-9)); return true; }
       return false;
     };
+    /* Fase A: cortes con la relajación lineal (mucho más rápida que resolver el entero en cada ronda).
+       Las componentes del grafo de apoyo fraccional con demasiada salida reciben un corte de capacidad. */
+    const tA = Math.max(3, (o.tiempo || 120) * 0.3); const tIni = now();
+    for (let ronda = 0; ronda < 200; ronda++) {
+      const left = Math.min(tA - (now() - tIni) / 1000, (o.tiempo || 120) - (now() - t0) / 1000);
+      if (left <= 0.5 || !isFinite(Q)) break;
+      const sA = await ctx.solve(M.toLP(true), { timeLimit: left, gap: 0, soloCota: true });
+      if (!sA.ok) break;
+      if (sA.obj != null && isFinite(sA.obj)) cotaLP = Math.max(cotaLP, sA.obj);   // la relajación da una cota inferior válida
+      const xv = (i, j) => sA.val(X(i, j)), vistos = new Set(); let nuevos = 0;
+      for (const i of cl) {
+        if (vistos.has(i)) continue; const S = [i], cola = [i]; vistos.add(i);
+        while (cola.length) { const a = cola.pop(); for (const b of cl) if (!vistos.has(b) && (xv(a, b) + xv(b, a)) > 1e-6) { vistos.add(b); S.push(b); cola.push(b); } }
+        const lb = Math.ceil(dem(S) / Q - 1e-9), inS = new Set(S);
+        let salida = 0; for (const a of S) for (const b of nodos) if (!inS.has(b) && a !== b && isFinite(D[a][b])) salida += xv(a, b);
+        if (lb >= 1 && salida < lb - 1e-6) { ponerCorte(S, lb); nuevos++; }
+      }
+      if (!nuevos) break;
+    }
     const subtour = (S) => { const dentro = arcs(S, S); M.addCon(dentro, dentro.map(() => 1), -Infinity, S.length - 1); cortes++; };
     for (;;) {
       const left = (o.tiempo || 120) - (now() - t0) / 1000;
@@ -246,7 +267,8 @@
     if (!valida) return { estado: 'límite de tiempo (sin solución válida)', rutas: [], cortes, seg, metodoSol: 'exacto', cota: sol && sol.dual != null && isFinite(sol.dual) ? sol.dual : null };
     const R = valida.rutas, dists = R.map((ru) => ru.slice(1).reduce((a, v, q) => a + D[ru[q]][v], 0));
     const info = R.map((ru, k) => ({ tipo: v0.tipo, depot: h, dist: dists[k], costo: cu * dists[k], carga: dem(ru.slice(1, -1)), cap: v0.cap, llegadas: null, entregas: null }));
-    const obj = info.reduce((a, x) => a + x.costo, 0), cota = fuente.dual != null && isFinite(fuente.dual) ? fuente.dual : null;
+    const obj = info.reduce((a, x) => a + x.costo, 0);
+    const cotaMIP = fuente.dual != null && isFinite(fuente.dual) ? fuente.dual : -Infinity, cota = Math.max(cotaMIP, cotaLP) > -Infinity ? Math.max(cotaMIP, cotaLP) : null;   // la mejor cota de ambas fases
     const gap = cota != null ? Math.max(0, (obj - cota) / Math.max(Math.abs(obj), 1e-9)) : null;
     const estado = valida.status === 'óptimo' || (gap != null && gap <= 1e-6) ? 'óptimo' : 'límite de tiempo (mejor solución encontrada, no probada óptima)';
     const informe = { modelo: 'Dos índices + cortes de capacidad redondeada', estado, objetivo: obj, cota, gap, tiempo: seg, variables: M.vars.length, binarias: M.vars.length, restricciones: M.cons.length, cortes, rutas: R.length, vehiculos: null, tiempoLimite: o.tiempo || 120, nodos: sol.nodos };

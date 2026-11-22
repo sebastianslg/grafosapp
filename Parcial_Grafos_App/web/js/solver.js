@@ -13,7 +13,8 @@
       return name;
     }
     addCon(names, coefs, lo, hi) { this.cons.push({ names, coefs, lo, hi }); }
-    toLP() {
+    /* relajar: las binarias pasan a ser continuas en [0,1] (relajación lineal, para separar cortes con rapidez) */
+    toLP(relajar) {
       const fmt = (c) => { const a = Math.abs(c); const s = a === Math.round(a) ? String(a) : a.toFixed(6); return (c < 0 ? '- ' : '+ ') + s; };
       const expr = (names, coefs) => {
         const out = []; let line = [];
@@ -44,7 +45,8 @@
       L.push('Bounds');
       const bin = [], gen = [];
       this.vars.forEach((v) => {
-        if (v.int && v.lb === 0 && v.ub === 1) { bin.push(v.name); return; }
+        if (v.int && v.lb === 0 && v.ub === 1 && !relajar) { bin.push(v.name); return; }
+        if (v.int && v.lb === 0 && v.ub === 1) { L.push(' 0 <= ' + v.name + ' <= 1'); return; }
         if (v.int) gen.push(v.name);
         if (v.lb === 0 && v.ub === INF) return;
         L.push(' ' + (v.lb === -INF ? '-inf' : v.lb) + ' <= ' + v.name + ' <= ' + (v.ub === INF ? 'inf' : v.ub));

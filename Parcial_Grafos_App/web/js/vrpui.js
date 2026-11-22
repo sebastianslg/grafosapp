@@ -17,7 +17,7 @@
     const filas = document.createElement('div');
     filas.innerHTML = `<div class="fila" data-c="vrpvar"><label class="campo">Variante del VRP (${Va.VARIANTES.length} modelos)<select id="vrpVar">${fam.map(([g, l]) => `<optgroup label="${g}">${l.map((v) => `<option value="${v.id}">${esc(v.nombre)}</option>`).join('')}</optgroup>`).join('')}</select></label></div>
       <p class="nota" id="vrpDesc" data-c="vrpvar" style="margin:-4px 0 10px"></p>
-      <div class="fila" data-c="vrpmetodo"><label class="campo">Cómo resolver<select id="vrpMetodo">${METODOS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label><label class="campo" id="vrpAlgoF">Algoritmo<select id="vrpAlgo"></select></label></div>
+      <div class="fila" data-c="vrpmetodo"><label class="campo" title="Modelo matemático: solución óptima con brecha. Las heurísticas son solo referencia.">Método de solución<select id="vrpMetodo">${METODOS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label><label class="campo" id="vrpAlgoF">Algoritmo<select id="vrpAlgo"></select></label></div>
       <p class="nota" id="vrpAlgoDesc" data-c="vrpmetodo" style="margin:-4px 0 10px"></p>
       <div class="fila" data-c="vrpparams"><label class="campo" data-v="m">Vehículos<input id="vrpM" type="number" min="1" max="12" placeholder="de la flota"></label><label class="campo" data-v="L">Distancia máx. L<input id="vrpL" type="number" min="0" placeholder="automática"></label><label class="campo" data-v="P">Máx. clientes/ruta<input id="vrpP" type="number" min="0" placeholder="automático"></label><label class="campo" data-v="sem">Semilla<input id="vrpSem" type="number" value="1"></label></div>
       <div class="fila" data-c="vrpparams"><label class="campo" data-v="T">Jornada máx. por ruta (h)<input id="vrpT" type="number" min="0" step="0.5" placeholder="automática"></label><label class="campo" data-v="pen">Penalización por hora de retraso<input id="vrpPen" type="number" min="0" placeholder="automática"></label></div>
@@ -76,7 +76,7 @@
     const items = [estadoKpi(x), [fmt(x.objetivo, 2) + (f.obj === 'profit' || f.obj === 'top' ? '' : ' ' + u), f.obj === 'profit' ? 'Función objetivo (costo − premio)' : f.obj === 'top' ? 'Función objetivo (−premio)' : f.obj === 'latencia' ? 'Función objetivo (Σ llegadas en h + 0,001·costo)' : f.objetivo === 'maximo' ? 'Ruta más larga (+ε·costo)' : f.blandas ? 'Función objetivo (costo + retrasos)' : 'Función objetivo (costo)'], [pc(x.gap), 'Brecha (gap)']];
     if (x.latencia != null && isFinite(x.latencia)) items.push([fmt(x.latencia, 2) + ' h', 'Suma de las horas de llegada']);
     if (x.retraso != null && isFinite(x.retraso)) items.push([fmt(x.retraso * 60, 0) + ' min', 'Retraso total' + (x.tarde && x.tarde.length ? ' (' + x.tarde.length + ' cliente' + (x.tarde.length > 1 ? 's' : '') + ')' : '')]);
-    if (x.cota != null && isFinite(x.cota)) items.push([fmt(x.cota, 2), 'Mejor cota (óptimo ≥)']);
+    if (x.cota != null && isFinite(x.cota)) items.push([fmt(x.cota, 2), 'Mejor cota (el óptimo es igual o mayor)']);
     if (x.flota) items.push([x.flota + ' vehículos', 'Flota mínima (fase 1)']);
     items.push([x.metodoSol || '', 'Método', 'texto'], [fmt(x.seg || 0, 2) + ' s', 'Tiempo de cálculo']);
     let h = kpis(items);
