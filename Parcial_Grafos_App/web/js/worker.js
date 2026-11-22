@@ -120,6 +120,8 @@ async function correrSens(d, ctx) {
     if (hayParar()) { paro = true; break; }
     const S0 = { D: b.D, nodos: b.nodos, flota: JSON.parse(JSON.stringify(b.flota)), vt: Object.assign({}, b.vt) }, p = Object.assign({}, d.p);
     if (o.par === 'm') p.m = Math.max(1, Math.round(val)); else if (o.par === 'cap') S0.flota.forEach((t) => { t.cap = v.mixta ? (+t.cap || 0) * val : val; });
+    else if (o.par === 'vent') S0.nodos = b.nodos.map((n) => (n.vtOn ? Object.assign({}, n, { vtB: n.vtA + (n.vtB - n.vtA) * val }) : n));
+    else if (o.par === 'cierre') S0.vt.cierre = val; else if (o.par === 'pen') p.pen = val > 0 ? val : 1e-6;   // 0 significa «automática» en la interfaz: aquí, sin penalización
     else if (o.par === 'L') p.Lmax = val; else if (o.par === 'serv') S0.vt.servicio = val; else if (o.par === 'vel') S0.flota.forEach((t) => { t.vel = Math.max(1, (+t.vel || 30) * val); });
     let pt; ctx.log((o.par === 'm' ? 'Vehículos' : 'Valor') + ' = ' + val + '…');
     try { const { I } = Variantes.construir(d.variante, S0, p); const r = await Vrp.vrp(I, ctx, { tiempo: o.tiempo, brecha: 1e-6, metodo: o.metodo });

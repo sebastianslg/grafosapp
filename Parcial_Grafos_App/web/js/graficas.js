@@ -237,6 +237,9 @@
     if (v.cap || v.mixta) o.push(['cap', v.mixta ? 'Capacidad (multiplicador de toda la flota)' : 'Capacidad del vehículo']);
     if (v.lmaxDist) o.push(['L', 'Distancia máxima por ruta']);
     if (v.vt || v.f && v.f.tmax) o.push(['serv', 'Tiempo de servicio por cliente (min)']);
+    if (v.vt) o.push(['vent', 'Amplitud de las franjas horarias (× la original)']);
+    if (v.vt && !v.blandas) o.push(['cierre', 'Hora de cierre del depósito (h)']);
+    if (v.blandas) o.push(['pen', 'Penalización por hora de retraso']);
     o.push(['vel', 'Velocidad (multiplicador)']);
     return { v, o };
   }
@@ -246,6 +249,9 @@
     if (par === 'cap') return mix ? '0.8, 1, 1.25, 1.5' : [0.6, 0.8, 1, 1.25, 1.5].map((k) => Math.max(1, Math.round((+t0.cap || 15) * k))).join(', ');
     if (par === 'L') { const L = App.num($('vrpL') && $('vrpL').value, 0, 0); return L ? [0.8, 1, 1.2, 1.5].map((k) => +(L * k).toFixed(1)).join(', ') : '20, 30, 40, 60'; }
     if (par === 'serv') return '0, 5, 10, 20, 30';
+    if (par === 'vent') return '0.5, 0.75, 1, 1.5, 2';
+    if (par === 'cierre') return '9, 10, 12, 14, 16';
+    if (par === 'pen') return '0, 0.5, 1, 2, 4';
     return '0.5, 0.75, 1, 1.5';
   }
   function sensHtml() {
@@ -273,7 +279,7 @@
     b.disabled = !!S.corriendo;
     b.onclick = () => {
       const par = el.querySelector('#sPar').value, op = opcionesSens(); if (!op) return;
-      const vals = [...new Set(String(el.querySelector('#sVals').value).split(/[;,\s]+/).map((t) => App.num(t, NaN, 0, 1e9)).filter((v) => Number.isFinite(v) && (par === 'serv' || v > 0)))].sort((a, b) => a - b).slice(0, 12);
+      const vals = [...new Set(String(el.querySelector('#sVals').value).split(/[;,\s]+/).map((t) => App.num(t, NaN, 0, 1e9)).filter((v) => Number.isFinite(v) && (par === 'serv' || par === 'pen' || v > 0)))].sort((a, b) => a - b).slice(0, 12);
       if (!vals.length) return App.chip('Escriba al menos un valor válido (números positivos separados por coma)');
       const T = App.num(el.querySelector('#sT').value, 15, 3, 600); S.sensT = T; S.sensPar = par; S.sensVals = vals.join(', ');
       const base = window.VrpUi.base(); if (!base) return;
