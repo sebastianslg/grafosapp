@@ -18,7 +18,7 @@
   }
   App.distancias = distancias;
   const aviso = (via) => (via === 'recta*' ? ' (sin conexión a OSRM: distancia euclidiana)' : via === 'recta' ? ' (distancia euclidiana)' : ' (por carretera)');
-  const huboCambio = (limpiar = true) => { Datos.guardar(S.ds); if (limpiar) App.limpiarResultado(); App.pintarAristas(); if (['nodos', 'aristas', 'matriz', 'cd'].includes(S.panel)) App.renderPanel(); };
+  const huboCambio = (limpiar = true) => { Datos.guardar(S.ds); if (App.estimarPrevio) App.estimarPrevio(); if (limpiar) App.limpiarResultado(); App.pintarAristas(); if (['nodos', 'aristas', 'matriz', 'cd'].includes(S.panel)) App.renderPanel(); };
   App.huboCambio = huboCambio;
 
   /* recalcula la fila y columna de un nodo con el resto (ida y vuelta, promedio) */

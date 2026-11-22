@@ -163,7 +163,7 @@
     if (p.extra && p.extra.sens) { $('log').classList.add('oculto'); if (App.sensFin) App.sensFin(res); return; }
     S.res = { kind: p.kind, opt: p.opt, titulo: p.titulo, res, extra: p.extra, ds: p.ds || S.clave, hist: S.vivo && S.vivo.hist ? S.vivo.hist.slice() : [] }; S.rutaSel = 0; S.celda = null;
     if (S.res.ds !== S.clave) { S.res = null; $('log').classList.add('oculto'); chip('La corrida terminó, pero usted cambió de proyecto: vuelva a resolver en este proyecto'); return; }   // el resultado ya no corresponde
-    if (App.registrarCorrida) App.registrarCorrida(S.res);
+    if (App.registrarCorrida) App.registrarCorrida(S.res); if (App.registrarTiempo) App.registrarTiempo(S.res);
     $('log').classList.add('oculto'); S.animarKpi = true; App.setPanel('resultado');
     if (p.kind === 'ubicar') { App.dibujarUbicarNodos(); return; }
     await dibujarResultado();
@@ -216,6 +216,7 @@
       <div class="fila" data-c="tiempo"><label class="campo">Tiempo máximo (s)<input id="tiempo" type="number" min="5" value="120"></label></div>
       <details class="avanzado" id="avanzado"><summary>Opciones avanzadas</summary><div id="avzCuerpo"><div class="fila" data-c="tiempo"><label class="check"><input type="checkbox" id="sinLimite"> Sin límite de tiempo: seguir hasta probar el óptimo (se puede parar cuando quiera)</label></div></div></details>
       <p class="nota" id="ayudaProb" style="margin:0 0 10px"></p>
+      <div class="est-previo oculto" id="estPrevio" aria-live="polite"></div>
       <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn sec oculto" id="bParar" disabled title="Detiene la búsqueda y muestra la mejor solución hallada, con su brecha">Parar y ver lo mejor</button><button class="btn gris oculto" id="bDetener" disabled title="Cancela sin resultado">Cancelar</button></div>
       <div class="vivo oculto" id="vivo"></div><div class="barra-prog oculto" id="prog"><i></i></div><div class="log oculto" id="log"></div>`;
     $('avzCuerpo').prepend(document.querySelector('#cProblema [data-c="metodo"]'));
@@ -238,7 +239,7 @@
     document.querySelectorAll('#cProblema [data-c]').forEach((el) => el.classList.toggle('oculto', !vis.has(el.dataset.c)));
     $('tOrigen').textContent = ETQ_ORIGEN[p] || 'Origen'; $('ayudaProb').innerHTML = AYUDA[p] || '';
     $('balanceado').checked = !!S.ds.balanceado; $('metodo').value = S.ds.metodo; $('vtUsar').checked = !!S.ds.vt.usar; $('vtIni').value = App.hhmm(S.ds.vt.inicio); $('vtServ').value = S.ds.vt.servicio;
-    if (p === 'mtsp' || p === 'vrp') App.renderFlota(); if (window.VrpUi) VrpUi.refrescar();
+    if (p === 'mtsp' || p === 'vrp') App.renderFlota(); if (window.VrpUi) VrpUi.refrescar(); if (App.estimarPrevio) App.estimarPrevio();
     if (['tsp', 'mtsp'].includes(p)) { const d = Datos.dcIdx(S.ds); if (d >= 0 && S.ultimoProblema !== p) $('origen').value = d; }
     if (S.ultimoProblema !== p && ['nodos', 'aristas', 'modelo'].includes(S.panel)) setTimeout(() => App.renderPanel(), 0);
     S.ultimoProblema = p; App.pintarSeleccion();

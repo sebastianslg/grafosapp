@@ -325,3 +325,7 @@ body:not([data-panel="nodos"]):not([data-panel="aristas"]):not([data-panel="matr
 }
 label.campo { min-width: 0; } label.campo select, label.campo input { max-width: 100%; min-width: 0; }
 td.recorrido { min-width: 180px; width: 55%; }
+.est-previo { display: flex; gap: 10px; align-items: flex-start; background: var(--fill); border-radius: var(--r16); padding: 10px 12px; margin: 0 0 12px; font-size: 12.5px; line-height: 1.45; color: var(--muted-foreground); }
+.est-previo.oculto { display: none; }
+.est-previo b { color: var(--foreground); font-weight: 600; } .est-previo p { margin: 0; } .est-previo p + p { margin-top: 4px; }
+.est-ico { font-size: 15px; line-height: 1.2; }

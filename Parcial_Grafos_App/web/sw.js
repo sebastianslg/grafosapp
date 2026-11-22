@@ -2,11 +2,11 @@
    Red primero (así siempre se usa la versión nueva) y, si no hay respuesta, la copia guardada.
    La API local (/api/...) y el caché de rutas (12 MB) no se guardan. Las teselas del mapa y los
    servicios de calles (OSRM, búsqueda) son de internet y no pasan por aquí. */
-const VERSION = 'parcial-grafos-v2';
+const VERSION = 'parcial-grafos-v3';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'css/app.css',
   'vendor/leaflet.css', 'vendor/leaflet.js', 'vendor/highs.js', 'vendor/highs.wasm',
   'js/solver.js', 'js/datos.js', 'js/mapa.js', 'js/app.js', 'js/variantes.js', 'js/heur.js', 'js/gams.js',
-  'js/simulacion.js', 'js/graficas.js', 'js/modelos.js', 'js/vrpui.js', 'js/edicion.js', 'js/capas.js',
+  'js/simulacion.js', 'js/graficas.js', 'js/modelos.js', 'js/vrpui.js', 'js/estimacion.js', 'js/edicion.js', 'js/capas.js',
   'js/ubicacion.js', 'js/proyectos.js', 'js/vrp.js', 'js/worker.js', 'datos/cali.json', 'datos/china.json'];
 
 self.addEventListener('install', (e) => {

@@ -38,6 +38,7 @@
     const tl = $('tiempo'); if (tl) tl.closest('.fila').classList.toggle('oculto', met === 'heur' && false);
     /* la eliminación de subtours (MTZ / DFJ) solo afecta al modelo matemático */
     const fm = document.querySelector('#cProblema [data-c="metodo"]'); if (fm) fm.classList.toggle('oculto', met !== 'exacto');
+    if (App.estimarPrevio) App.estimarPrevio();
   }
   App.vrpInfo = () => { if (!$('problema') || $('problema').value !== 'vrp' || !$('vrpVar')) return null; const v = Va.porId[$('vrpVar').value]; return { vt: !!v.vt, cols: [v.f && (v.f.mode === 'backhaul' || v.f.mode === 'spd') ? 'rec' : null, v.f && v.f.mode === 'pd' ? 'par' : null, v.opcional ? 'premio' : null, v.f && v.f.locDepot ? 'costoApertura' : null].filter(Boolean), v }; };
 
