@@ -126,7 +126,7 @@
   App.actualizarHerramientas = () => {
     const c = $('cHerr'); if (!c) return; const ds = S.ds, dc = Datos.dcIdx(ds);
     const on = (m) => (S.modo === m ? ' on' : '');
-    c.innerHTML = `<h2>Herramientas</h2>
+    c.innerHTML = `<h2>Editar el mapa</h2>
       <div class="herr">
         <button class="btn sec h${on('nodo')}" data-m="nodo"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Agregar nodos</button>
         <button class="btn sec h${on('arista')}" data-m="arista"><svg viewBox="0 0 24 24"><circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M6.5 16.5 17.5 7.5"/></svg>Conectar nodos</button>

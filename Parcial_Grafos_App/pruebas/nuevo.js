@@ -7,6 +7,7 @@ const { chromium } = require('playwright');
   const S = (f) => p.evaluate(f); const clickMapa = async (lat, lon) => { const q = await p.evaluate(([la, lo]) => { const c = Mapa.map.latLngToContainerPoint([la, lo]), r = document.getElementById('mapa').getBoundingClientRect(); return [r.left + c.x, r.top + c.y]; }, [lat, lon]); await p.mouse.click(q[0], q[1]); };
   const esperaFin = () => p.waitForFunction(() => !document.getElementById('bResolver').disabled && !document.querySelector('[data-run]:disabled'), null, { timeout: 180000 });
   const kpis = async () => (await p.$$eval('.kpi', a => a.map(e => e.innerText.replace(/\n/g, ': ')))).join(' | ');
+  await p.evaluate(() => ['cHerr', 'cBusca'].forEach((id) => document.getElementById(id).classList.remove('cerrada')));   // «Editar el mapa» y «Buscar» empiezan plegadas
   // 1) mover el CD con la herramienta (decisión del usuario) y re-resolver
   const d0 = await S(() => App.S.ds.D[0][1]);
   await p.click('#cHerr [data-m="dc"]'); await clickMapa(3.4, -76.46); await p.waitForFunction(() => /distancias recalculadas/.test(document.getElementById('chipMapa').innerText), null, { timeout: 60000 });

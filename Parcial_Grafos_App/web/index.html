@@ -22,18 +22,18 @@
   <button class="btn gris" id="bProyecto" aria-label="Menú del proyecto" title="Proyecto"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="lbl">Proyecto</span></button>
   <div class="acciones">
     <span class="pill" id="pMotor"><i></i><span>Iniciando solver…</span></span>
-    <button class="btn sec" id="bImportar"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg><span class="lbl">Importar</span></button>
-    <button class="btn sec" id="bExportar"><svg viewBox="0 0 24 24"><path d="M12 15V3m0 0 4 4m-4-4-4 4M5 21h14"/></svg><span class="lbl">Exportar</span></button>
+    <button class="btn gris" id="bImportar"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg><span class="lbl">Importar</span></button>
+    <button class="btn gris" id="bExportar"><svg viewBox="0 0 24 24"><path d="M12 15V3m0 0 4 4m-4-4-4 4M5 21h14"/></svg><span class="lbl">Exportar</span></button>
     <button class="btn gris" id="bTema" title="Cambiar tema" aria-label="Cambiar tema"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg></button>
   </div>
 </header>
 
 <main class="app">
   <aside class="col izq">
-    <section class="tarjeta glass entra" style="--i:1" id="cBusca"></section>
-    <section class="tarjeta glass entra" style="--i:2" id="cHerr"></section>
-    <section class="tarjeta glass entra" style="--i:3" id="cProblema"></section>
-    <section class="tarjeta glass entra" style="--i:4" id="cParcial"></section>
+    <section class="tarjeta glass entra" style="--i:1" id="cProblema"></section>
+    <section class="tarjeta glass entra plegable" style="--i:2" id="cParcial"></section>
+    <section class="tarjeta glass entra plegable cerrada" style="--i:3" id="cHerr"></section>
+    <section class="tarjeta glass entra plegable cerrada" style="--i:4" id="cBusca"></section>
   </aside>
 
   <section class="tarjeta glass mapa-wrap entra" style="--i:2">
@@ -73,6 +73,12 @@
 <script src="js/ubicacion.js"></script>
 <script src="js/proyectos.js"></script>
 <script>App.arrancar();</script>
+<script>(function () {   // tarjetas plegables: un clic en el título las abre o cierra; se recuerda por tarjeta
+  document.querySelectorAll('.tarjeta.plegable').forEach(function (c) {
+    var k = 'parcial-grafos:plegable:' + c.id; try { var v = localStorage.getItem(k); if (v === '1') c.classList.remove('cerrada'); } catch (e) { /* sin almacenamiento */ }
+    c.addEventListener('click', function (ev) { var h = ev.target.closest('h2'); if (!h || h.parentElement !== c) return; c.classList.toggle('cerrada'); try { localStorage.setItem(k, c.classList.contains('cerrada') ? '0' : '1'); } catch (e) { /* */ } });
+  });
+})();</script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>
 </html>

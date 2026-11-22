@@ -145,7 +145,7 @@
   }
   const logLinea = (s) => { const l = $('log'); l.classList.remove('oculto'); l.textContent += s + '\n'; l.scrollTop = 1e9; };
   App.log = logLinea;
-  App.ocupado = (on) => { S.corriendo = on; $('bResolver').disabled = on; $('bDetener').disabled = !on; $('bParar').disabled = !on; if (!on) { $('bParar').textContent = 'Parar y ver lo mejor'; $('vivo').classList.add('oculto'); } else { $('vivo').classList.remove('oculto'); $('vivo').innerHTML = '<span class="nota">Preparando el modelo…</span>'; } $('prog').classList.toggle('oculto', !on); document.querySelectorAll('[data-run]').forEach((b) => (b.disabled = on)); };
+  App.ocupado = (on) => { S.corriendo = on; $('bResolver').disabled = on; $('bResolver').classList.toggle('oculto', on); $('bDetener').disabled = !on; $('bParar').disabled = !on; $('bParar').classList.toggle('oculto', !on); $('bDetener').classList.toggle('oculto', !on); if (!on) { $('bParar').textContent = 'Parar y ver lo mejor'; $('vivo').classList.add('oculto'); } else { $('vivo').classList.remove('oculto'); $('vivo').innerHTML = '<span class="nota">Preparando el modelo…</span>'; } $('prog').classList.toggle('oculto', !on); document.querySelectorAll('[data-run]').forEach((b) => (b.disabled = on)); };
 
   /* lanzar(kind, opt, titulo, extra, datos): extra se conserva con el resultado; datos viaja al solver */
   App.lanzar = async (kind, opt, titulo, extra, datos) => {
@@ -186,7 +186,7 @@
   };
   const ETQ_ORIGEN = { vrp: 'Depósito', tsp: 'Origen', mtsp: 'Depósito', camino: 'Origen', desde: 'Origen', arbol: 'Raíz', flujomax: 'Fuente' };
   const AYUDA = {
-    vrp: 'Elija la <b>variante</b> y <b>cómo resolverla</b>: con el <b>modelo matemático</b> (MILP: da la solución óptima y su brecha). Las heurísticas y metaheurísticas solo sirven de <b>referencia</b> en «Comparar»: muestran qué tan lejos quedan del óptimo. Los datos extra de cada variante se editan en <b>Nodos</b>.',
+    vrp: 'Los datos de cada cliente (demanda, ventanas, premio) se editan en la pestaña <b>Nodos</b>.',
     flujomax: 'Las capacidades se editan en la pestaña <b>Aristas</b>. Sin capacidad, una arista no tiene límite.',
     flujocosto: 'Defina el <b>balance</b> de cada nodo en <b>Nodos</b>: positivo = oferta, negativo = demanda (la suma debe ser 0). Costos y capacidades, en <b>Aristas</b>.',
     cartero: 'Recorrido cerrado de costo mínimo que cubre todas las aristas (el grafo debe ser conexo).',
@@ -213,10 +213,12 @@
       <div class="fila" data-c="ponderar"><label class="check"><input type="checkbox" id="ponderar"> Ponderar por la demanda de cada nodo</label></div>
       <div class="fila" data-c="lp"><label class="campo" style="flex-basis:100%">Modelo en formato LP<textarea id="lp" rows="9" spellcheck="false" style="font:12px/1.4 var(--mono)">${LP_EJEMPLO}</textarea></label></div>
       <div class="fila" data-c="metodo"><label class="campo" title="Cómo se calcula el modelo. Para muchos clientes, elija la de dos índices.">Método de cálculo del modelo<select id="metodo"><option value="mtz">MTZ · fórmulas del curso (un solo modelo)</option><option value="dfj">Cortes DFJ (más rápido, por iteraciones)</option><option value="arco">Dos índices + cortes de capacidad (recomendado con 40 o más clientes)</option></select></label></div>
-      <div class="fila" data-c="tiempo"><label class="campo">Tiempo máximo (s)<input id="tiempo" type="number" min="5" value="120"></label><label class="check"><input type="checkbox" id="sinLimite"> Sin límite: seguir hasta probar el óptimo (se puede parar cuando quiera)</label></div>
+      <div class="fila" data-c="tiempo"><label class="campo">Tiempo máximo (s)<input id="tiempo" type="number" min="5" value="120"></label></div>
+      <details class="avanzado" id="avanzado"><summary>Opciones avanzadas</summary><div id="avzCuerpo"><div class="fila" data-c="tiempo"><label class="check"><input type="checkbox" id="sinLimite"> Sin límite de tiempo: seguir hasta probar el óptimo (se puede parar cuando quiera)</label></div></div></details>
       <p class="nota" id="ayudaProb" style="margin:0 0 10px"></p>
-      <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn sec" id="bParar" disabled title="Detiene la búsqueda y muestra la mejor solución hallada, con su brecha">Parar y ver lo mejor</button><button class="btn gris" id="bDetener" disabled title="Cancela sin resultado">Cancelar</button></div>
+      <div style="display:flex; gap:8px"><button class="btn" id="bResolver"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>Resolver</button><button class="btn sec oculto" id="bParar" disabled title="Detiene la búsqueda y muestra la mejor solución hallada, con su brecha">Parar y ver lo mejor</button><button class="btn gris oculto" id="bDetener" disabled title="Cancela sin resultado">Cancelar</button></div>
       <div class="vivo oculto" id="vivo"></div><div class="barra-prog oculto" id="prog"><i></i></div><div class="log oculto" id="log"></div>`;
+    $('avzCuerpo').prepend(document.querySelector('#cProblema [data-c="metodo"]'));
     $('problema').onchange = App.camposProblema; $('modo').onchange = App.camposProblema; $('metodo').onchange = (e) => { S.ds.metodo = e.target.value; S.ds.metodoElegido = true; Datos.guardar(S.ds); }; $('balanceado').onchange = (e) => { S.ds.balanceado = e.target.checked; Datos.guardar(S.ds); App.camposProblema(); }; $('vtUsar').onchange = (e) => { S.ds.vt.usar = e.target.checked; Datos.guardar(S.ds); if (S.panel === 'nodos') App.renderPanel(); }; $('vtIni').onchange = (e) => { S.ds.vt.inicio = App.horas(e.target.value); Datos.guardar(S.ds); }; $('vtServ').onchange = (e) => { S.ds.vt.servicio = num(e.target.value, 10, 0, 1440); e.target.value = S.ds.vt.servicio; Datos.guardar(S.ds); }; $('origen').onchange = App.pintarSeleccion; $('destino').onchange = App.pintarSeleccion;
     $('bResolver').onclick = () => { const p = parametros(); if (p) App.lanzar(p.kind, p.opt, p.titulo, p.extra, p.datos); };
     $('bDetener').onclick = () => { if (!S.corriendo) return; App.ocupado(false); logLinea('Cancelado por el usuario.'); App.crearWorker(); };
@@ -342,7 +344,7 @@
     App.indicador(nav);
   };
   App.setPanel = (p) => { S.panel = p; const nav = $('tabsDer'); nav.querySelectorAll('button[role="tab"]').forEach((b) => b.setAttribute('aria-selected', b.dataset.p === p)); App.indicador(nav); const sel = nav.querySelector('[aria-selected="true"]'); if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest', inline: 'nearest' }); App.renderPanel(); };
-  App.renderPanel = () => {
+  App.renderPanel = () => { document.body.dataset.panel = S.panel;
     const c = $('contenido'); c.innerHTML = ''; const pan = App.paneles.find((x) => x.id === S.panel) || App.paneles[0];
     const div = document.createElement('div'); div.className = 'entra'; c.appendChild(div); pan.render(div); App.alRenderPanel && App.alRenderPanel(S.panel);
     if (S.animarKpi && S.panel === 'resultado') { S.animarKpi = false; contar(div); }

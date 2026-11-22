@@ -44,7 +44,7 @@
     const ds = S.ds, k = Datos.dcIdx(ds), dc = k >= 0 ? nodo(k) : null, nc = ds.candidatos.length, u = S.ubic;
     const obj = S.objCd || 'ruta1';
     let h = `<h3 style="font-size:15px;margin-bottom:6px">Centro de distribución</h3>
-      <p class="nota" style="margin:0 0 8px">El CD <b>no es un dato de entrada</b>: usted decide dónde va. Arrastre el marcador <b>CD</b> en el mapa, use «Mover el CD» en Herramientas, búsquelo por dirección, o pida la ubicación óptima abajo. Las distancias se recalculan solas.</p>`;
+      <p class="nota" style="margin:0 0 8px">El CD <b>no es un dato de entrada</b>: usted decide dónde va. Arrastre el marcador <b>CD</b> en el mapa, use «Mover el CD» en «Editar el mapa», búsquelo por dirección, o pida la ubicación óptima abajo. Las distancias se recalculan solas.</p>`;
     h += dc ? `<div class="fila"><label class="campo">Latitud<input id="dLat" value="${dc.lat}" inputmode="decimal"></label><label class="campo">Longitud<input id="dLon" value="${dc.lon}" inputmode="decimal"></label></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn mini" id="dAplicar">Mover a estas coordenadas</button><button class="btn mini sec" id="dClic">Colocar con un clic</button><button class="btn mini gris" id="dQuitar">Dejar de ser CD</button></div>`
       : `<div class="aviso info">Este proyecto no tiene centro de distribución.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn mini" id="dClic">Colocar con un clic</button><button class="btn mini sec" id="dCentro">Crear en el centro del mapa</button></div>`;
     h += `<div class="sep"></div><h3 style="font-size:15px;margin-bottom:6px">Ubicación óptima</h3>

@@ -229,7 +229,12 @@
     ahorros: { tipo: 'heuristica', nombre: 'Ahorros (Clarke-Wright)' },
     barrido: { tipo: 'heuristica', nombre: 'Barrido (sweep)' },
     insercion: { tipo: 'heuristica', nombre: 'Inserción más barata' },
+    dosopt: { tipo: 'heuristica', nombre: '2-opt (mejora dentro de cada ruta)' },
+    oropt: { tipo: 'heuristica', nombre: 'Or-opt (mover tramos de 1 a 3 clientes)' },
     vnd: { tipo: 'heuristica', nombre: 'Constructiva + mejora local (VND)' },
+    split: { tipo: 'heuristica', nombre: 'Ruta primero, agrupa después (Split)' },
+    fisher: { tipo: 'heuristica', nombre: 'Fisher-Jaikumar (asignación + TSP)' },
+    petalos: { tipo: 'heuristica', nombre: 'Pétalos (partición de conjuntos)' },
     sa: { tipo: 'meta', nombre: 'Recocido simulado' },
     tabu: { tipo: 'meta', nombre: 'Búsqueda tabú' },
     ga: { tipo: 'meta', nombre: 'Algoritmo genético' },
@@ -250,12 +255,88 @@
     const construir = () => { const S = E.insercion(rand, false); return S; };
     const inicial = () => (o.inicial === 'vecino' ? E.vecino() : o.inicial === 'ahorros' ? E.ahorros() : o.inicial === 'barrido' ? E.barrido() : construir());
     const par = o.params || {};
+    /* --- mejora local simple (las de la exposición, sin combinarlas como el VND) --- */
+    const intra = (S, mov) => {   // primera mejora con un solo tipo de movimiento dentro de cada ruta
+      let T = E.clon(S), cambio = true, guard = 0;
+      while (cambio && guard++ < 500 && vivo()) { cambio = false;
+        for (let k = 0; k < E.m; k++) { const a = T.R[k];
+          for (const nv of mov(a)) { const c = E.ruta(k, nv); if (c < T.rc[k] - 1e-9) { T.R[k] = nv; E.reeval(T, new Set([k])); cambio = true; break; } } } }
+      return T;
+    };
+    const sinPares = !(I.pairs && I.pairs.length);
+    function* movs2opt(a) { for (let i = 0; i < a.length - 1; i++) for (let j = i + 1; j < a.length; j++) yield [...a.slice(0, i), ...a.slice(i, j + 1).reverse(), ...a.slice(j + 1)]; }
+    function* movsOr(a) { for (const L of [1, 2, 3]) for (let i = 0; i + L <= a.length; i++) { const seg = a.slice(i, i + L), resto = [...a.slice(0, i), ...a.slice(i + L)]; for (let q = 0; q <= resto.length; q++) if (q !== i) yield [...resto.slice(0, q), ...seg, ...resto.slice(q)]; } }
+    const dosOpt = (S) => (sinPares ? intra(S, movs2opt) : S);
+    const orOpt = (S) => {   // Or-opt dentro de la ruta y entre rutas (tramo de 1 a 3 clientes a la mejor posición)
+      if (!sinPares) return S; let T = intra(S, movsOr), cambio = true, guard = 0;
+      while (cambio && guard++ < 300 && vivo()) { cambio = false;
+        for (let k = 0; k < E.m && !cambio; k++) for (const L of [1, 2, 3]) for (let i = 0; i + L <= T.R[k].length && !cambio; i++) {
+          const seg = T.R[k].slice(i, i + L), resto = [...T.R[k].slice(0, i), ...T.R[k].slice(i + L)], cr = E.ruta(k, resto);
+          for (let k2 = 0; k2 < E.m && !cambio; k2++) { if (k2 === k) continue; const b = T.R[k2];
+            for (let q = 0; q <= b.length; q++) { const nv = [...b.slice(0, q), ...seg, ...b.slice(q)]; if (cr + E.ruta(k2, nv) < T.rc[k] + T.rc[k2] - 1e-9) { const N = E.clon(T); N.R[k] = resto; N.R[k2] = nv; E.reeval(N, new Set([k, k2])); if (N.f < T.f - 1e-9) { T = N; cambio = true; break; } } } } }
+        if (cambio) T = intra(T, movsOr); }
+      return T;
+    };
+    const tsp = (S) => orOpt(dosOpt(S));   // orden de visita de cada grupo (fase 2 de los métodos de dos fases)
+    /* asigna grupos (secuencias de clientes) a vehículos libres: el más barato para cada grupo, primero los grupos grandes */
+    const asignar = (grupos) => {
+      const R = Array.from({ length: E.m }, () => []), libres = E.veh.map((_, k) => k), sobran = [];
+      grupos.slice().sort((a, b) => b.length - a.length).forEach((g) => { if (!libres.length) { sobran.push(...g); return; } let bk = libres[0], bc = INF; for (const k of libres) { const c = E.ruta(k, g); if (c < bc) { bc = c; bk = k; } } R[bk] = g; libres.splice(libres.indexOf(bk), 1); });
+      const S = E.sol(R); for (const x of sobran) { const un = E.UN[E.unitOf.get(x)]; if (un[0] !== x) continue; const b = E.mejorInsercion(S, un); S.R[b.k] = b.ns; E.reeval(S, new Set([b.k])); }
+      return S;
+    };
+    /* partición óptima de una secuencia de unidades en a lo sumo m rutas consecutivas (programación dinámica, Bellman) */
+    const particion = (seq) => {
+      const n = seq.length, mm = E.m, F = Array.from({ length: mm + 1 }, () => new Array(n + 1).fill(INF)), Pd = Array.from({ length: mm + 1 }, () => new Array(n + 1).fill(-1)); F[0][0] = 0;
+      for (let r = 1; r <= mm; r++) for (let i = 0; i < n; i++) { if (!isFinite(F[r - 1][i])) continue; let s = [];
+        for (let j = i; j < n; j++) { s = s.concat(seq[j]); const c = E.ruta(0, s); if (c >= E.P * 0.5 && j > i) break; if (F[r - 1][i] + c < F[r][j + 1]) { F[r][j + 1] = F[r - 1][i] + c; Pd[r][j + 1] = i; } } }
+      let br = -1; for (let r = 1; r <= mm; r++) if (br < 0 || F[r][n] < F[br][n]) br = r;
+      if (br < 0 || !isFinite(F[br][n])) return null; const gr = []; let j = n; for (let r = br; r >= 1; r--) { const i = Pd[r][j]; gr.unshift(seq.slice(i, j).flat()); j = i; }
+      return { costo: F[br][n], grupos: gr };
+    };
+    function split() {   // fase 1: tour gigante (vecino más cercano + 2-opt sin capacidad); fase 2: corte óptimo
+      const h = E.veh[0].depot, pend = new Set(E.UN.map((_, q) => q)), seq = []; let cur = h;
+      while (pend.size) { let bq = -1, bd = INF; for (const q of pend) { const d = E.D[cur][E.UN[q][0]]; if (d < bd) { bd = d; bq = q; } } seq.push(E.UN[bq]); cur = E.UN[bq][E.UN[bq].length - 1]; pend.delete(bq); }
+      const lg = (t) => { let d = E.D[h][t[0][0]]; for (let q = 1; q < t.length; q++) d += E.D[t[q - 1][t[q - 1].length - 1]][t[q][0]]; return d + E.D[t[t.length - 1][t[t.length - 1].length - 1]][h]; };
+      let mejora = true, g = 0; while (mejora && g++ < 50 && seq.length > 3) { mejora = false; const base = lg(seq);
+        for (let i = 0; i < seq.length - 1 && !mejora; i++) for (let j = i + 1; j < seq.length && !mejora; j++) { const t = [...seq.slice(0, i), ...seq.slice(i, j + 1).reverse(), ...seq.slice(j + 1)]; if (sinPares && lg(t) < base - 1e-9) { seq.splice(0, seq.length, ...t); mejora = true; } } }
+      let mejor = null; const giros = Math.min(seq.length, 12);
+      for (let q = 0; q < giros; q++) { const rot = [...seq.slice(q), ...seq.slice(0, q)], p = particion(rot); if (p && (!mejor || p.costo < mejor.costo)) mejor = p; }
+      return mejor ? asignar(mejor.grupos) : E.insercion(rand, false);
+    }
+    function fisher() {   // semillas alejadas, asignación generalizada por arrepentimiento (regret) con capacidad, TSP por ruta
+      const h = E.veh[0].depot, D = E.D, sem = [], uns = E.UN.map((_, q) => q);
+      const dmin = (x) => Math.min(D[h][x], ...sem.map((s) => D[s][x]));
+      while (sem.length < Math.min(E.m, uns.length)) { let bq = -1, bd = -1; for (const q of uns) { const x = E.UN[q][0]; if (sem.includes(x)) continue; const d = dmin(x); if (d > bd) { bd = d; bq = q; } } sem.push(E.UN[bq][0]); }
+      const cAs = (x, k) => D[h][x] + D[x][sem[k]] - D[h][sem[k]], grupos = sem.map(() => []), carga = sem.map(() => 0), capk = (k) => (isFinite(E.veh[k].cap) ? E.veh[k].cap : INF);
+      const pend = uns.slice();
+      while (pend.length) {
+        let bi = -1, bk = -1, breg = -INF;
+        pend.forEach((q, pi) => { const un = E.UN[q], wq = un.reduce((a, x) => a + (E.w[x] || 0), 0), cs = sem.map((_, k) => (carga[k] + wq <= capk(k) + 1e-9 ? un.reduce((a, x) => a + cAs(x, k), 0) : INF)).map((c, k) => [c, k]).sort((a, b) => a[0] - b[0]);
+          const reg = isFinite(cs[0][0]) ? (cs.length > 1 && isFinite(cs[1][0]) ? cs[1][0] - cs[0][0] : 1e9) : -1; if (reg > breg) { breg = reg; bi = pi; bk = isFinite(cs[0][0]) ? cs[0][1] : sem.reduce((b, _, k) => (carga[k] < carga[b] ? k : b), 0); } });
+        const q = pend.splice(bi, 1)[0]; grupos[bk].push(...E.UN[q]); carga[bk] += E.UN[q].reduce((a, x) => a + (E.w[x] || 0), 0);
+      }
+      const R = grupos.map((g) => g.slice().sort((a, b) => Math.atan2(I.xy ? I.xy[a][1] - I.xy[h][1] : 0, I.xy ? I.xy[a][0] - I.xy[h][0] : a) - Math.atan2(I.xy ? I.xy[b][1] - I.xy[h][1] : 0, I.xy ? I.xy[b][0] - I.xy[h][0] : b)));
+      return tsp(asignar(sinPares ? R : grupos));
+    }
+    function petalos() {   // rutas candidatas = tramos consecutivos en orden angular; la partición exacta del círculo se resuelve por programación dinámica
+      const h = E.veh[0].depot, xy = I.xy; if (!xy) return split();
+      const ang = (u) => Math.atan2(xy[u[0]][1] - xy[h][1], xy[u[0]][0] - xy[h][0]), ord = E.UN.slice().sort((a, b) => ang(a) - ang(b));
+      let mejor = null; const n = ord.length, giros = n <= 60 ? n : 40;
+      for (let t = 0; t < giros && vivo(); t++) { const q = Math.floor(t * n / giros), rot = [...ord.slice(q), ...ord.slice(0, q)], p = particion(rot); if (p && (!mejor || p.costo < mejor.costo)) mejor = p; }
+      return mejor ? tsp(asignar(mejor.grupos)) : E.barrido();
+    }
     switch (algo) {
       case 'vecino': mejorQue(E.vecino()); break;
       case 'ahorros': mejorQue(E.ahorros()); break;
       case 'barrido': mejorQue(E.barrido()); break;
       case 'insercion': mejorQue(E.insercion(rand, false)); break;
       case 'vnd': { const S = E.vnd(E.insercion(rand, false), tmax); mejorQue(S); break; }
+      case 'dosopt': { const S0 = E.barrido(); mejorQue(S0); mejorQue(dosOpt(S0)); break; }
+      case 'oropt': { const S0 = E.barrido(); mejorQue(S0); mejorQue(orOpt(S0)); break; }
+      case 'split': { mejorQue(split()); break; }
+      case 'fisher': { mejorQue(fisher()); break; }
+      case 'petalos': { mejorQue(petalos()); break; }
       case 'sa': {
         let S = E.vnd(inicial(), tmax / 5), T = par.T0 || Math.max(1e-6, Math.abs(S.f) * 0.05), a = par.alpha || 0.995; const L = par.L || 100; mejorQue(S);
         const Tini = T; while (vivo()) { T = Math.max(1e-9, Tini * Math.pow(1e-3, Math.min(1, (now() - t0) / Math.max(1, tmax)))); for (let q = 0; q < L; q++) { const N = rand() < 0.1 ? E.opcional(S, rand) : E.mover(S, rand); if (!N) continue; const d = N.f - S.f; if (d <= 0 || rand() < Math.exp(-d / T)) { S = N; if (S.f < mejor.f) mejorQue(S); } } void a; }

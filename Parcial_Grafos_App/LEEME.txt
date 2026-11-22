@@ -58,8 +58,14 @@ PROBLEMAS QUE RESUELVE
   Modelo propio: escriba cualquier modelo lineal/entero en formato LP y resuelvalo.
   "Optimo probado" = optimo global. Si se agota el tiempo se muestra la mejor solucion y su brecha.
 
+PANTALLA
+  Izquierda: el problema (lo único necesario para resolver) y los ejemplos del parcial. «Editar el mapa» y «Buscar en el mapa»
+  están plegadas: un clic en el título las abre. Los ajustes técnicos (formulación, semilla, sin límite de tiempo) están en
+  «Opciones avanzadas». Derecha: estado, objetivo, brecha y tiempo; el informe completo de la corrida se abre con un clic.
+  En el teléfono el orden es: problema, mapa y resultado.
+
 CONSTRUIR SU PROPIO GRAFO  (boton "+" -> Proyecto nuevo)
-  Herramientas: Agregar nodos (clic en el mapa) · Conectar nodos (clic en dos nodos) · Mover nodos · Colocar/Mover el CD.
+  Tarjeta «Editar el mapa» (abrala con un clic en su título): Agregar nodos (clic en el mapa) · Conectar nodos (clic en dos nodos) · Mover nodos · Colocar/Mover el CD.
   Pestanas: Nodos (nombre, coordenadas, tipo cliente/CD, demanda, balance) · Aristas (costo y capacidad) · Matriz.
   Las distancias nuevas pueden ser linea recta x factor o por carretera (OSRM, requiere internet).
 
@@ -157,8 +163,11 @@ VRP · 34 VARIANTES
   CCVRP (latencia mínima), HFVRP, FSMVRP, HFVRPTW, MDVRP, MDVRPTW, MDVRP abierto, LRP, VRPB (backhaul), VRPSPD, VRPPD,
   SDVRP (entrega dividida), VRP con beneficios, TOP, Orienteering (un vehículo) y Tour rentable.
 - Cómo resolver: modelo matemático (MILP con HiGHS). Es la única solución que se entrega como resultado.
-- «Comparar con heurísticas (referencia)»: vecino más cercano, ahorros, barrido, inserción, VND (relocate, swap, 2-opt, Or-opt,
-  2-opt*), recocido, tabú, genético, hormigas, GRASP, VNS, ILS y LNS; muestra la brecha de cada uno frente al óptimo.
+- «Comparar con heurísticas (referencia)»: los 18 algoritmos de la exposición. Constructivos: vecino más cercano, ahorros,
+  barrido, inserción más barata. Mejora local: 2-opt, Or-opt, VND (relocate, swap, 2-opt, Or-opt, 2-opt*). Dos fases: Split
+  (ruta primero, agrupa después), Fisher-Jaikumar (asignación + TSP), Pétalos (partición de conjuntos). Metaheurísticas:
+  recocido, tabú, genético, hormigas, GRASP, VNS, ILS y LNS. El branch and bound es el propio modelo matemático (HiGHS).
+  Cada uno muestra su brecha frente al óptimo.
 - MinVeh: primero se minimiza la flota y luego la distancia con esa flota (dos fases). Se informa el número de vehículos.
 - Datos extra por variante (Recoge, Par, Premio, Abrir) en la pestaña Nodos; jornada máxima y penalización por retraso en la
   tarjeta Problema. La pestaña «Modelo» muestra la función objetivo y las restricciones de la variante elegida.

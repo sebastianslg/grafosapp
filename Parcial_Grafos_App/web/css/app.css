@@ -299,3 +299,29 @@ svg.ln .cruz { stroke: var(--viz-muted); stroke-width: 1; } svg.ln .hit { fill: 
 
 /* ---- guía rápida ---- */
 ol.guia { padding-left: 22px; margin: 6px 0 12px; } ol.guia li { margin: 0 0 10px; line-height: 1.45; }
+
+/* ---------- interfaz despejada: tarjetas plegables, opciones avanzadas, orden en móvil ---------- */
+.tarjeta.plegable > h2 { cursor: pointer; user-select: none; }
+.tarjeta.plegable > h2::after { content: ""; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .2s ease; flex: none; margin-right: 4px; }
+.tarjeta.plegable.cerrada > h2::after { transform: rotate(-45deg); }
+.tarjeta.plegable.cerrada > :not(h2) { display: none !important; }
+.tarjeta.plegable.cerrada > h2 { margin-bottom: 0; }
+details.avanzado { margin: 2px 0 12px; border-radius: var(--r16); background: var(--fill); padding: 8px 12px; }
+details.avanzado > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted-foreground); list-style: none; display: flex; align-items: center; gap: 8px; }
+details.avanzado > summary::-webkit-details-marker { display: none; }
+details.avanzado > summary::before { content: ""; width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .2s ease; }
+details.avanzado[open] > summary::before { transform: rotate(45deg); }
+details.avanzado[open] > summary { margin-bottom: 10px; }
+details.avanzado .fila:last-child { margin-bottom: 0; }
+#bParar, #bDetener { flex: 1; }
+#bResolver { flex: 1; justify-content: center; }
+details.informe { margin-top: 10px; }
+/* los recuadros de nodos y aristas solo aparecen con las pestañas de datos */
+body:not([data-panel="nodos"]):not([data-panel="aristas"]):not([data-panel="matriz"]) #stats { display: none; }
+@media (max-width: 1020px) {
+  /* en el teléfono: problema, mapa y resultado primero; lo demás después */
+  .col.izq { display: contents; }
+  #cProblema { order: 1; } .mapa-wrap { order: 2; } .col.der { order: 3; } #cParcial { order: 4; } #cHerr { order: 5; } #cBusca { order: 6; }
+}
+label.campo { min-width: 0; } label.campo select, label.campo input { max-width: 100%; min-width: 0; }
+td.recorrido { min-width: 180px; width: 55%; }

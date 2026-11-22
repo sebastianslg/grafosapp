@@ -51,7 +51,7 @@
       if (lugar) { h.querySelector('#npMsg').textContent = 'Buscando el lugar…'; try { const r = (await (await fetch('/api/buscar', { method: 'POST', body: JSON.stringify({ q: lugar, limite: 1 }) })).json()).resultados[0]; if (r) { centro = [r.lat, r.lon]; zoom = 13; } else { h.querySelector('#npMsg').textContent = 'No se encontró ese lugar; se usa la vista actual.'; } } catch (e) { h.querySelector('#npMsg').textContent = 'Sin conexión para buscar el lugar; se usa la vista actual.'; } }
       const ds = Datos.nuevo({ titulo: nombre, centro, zoom, plantilla: pl === 'cd' ? 'cd' : null, modoDist: h.querySelector('#npDist').value, base: S.ds.base, copiaDe: pl === 'copia' ? S.ds : null });
       S.sets[ds.clave] = ds; App.cerrarHoja(); App.proyectosRender(); App.cambiarTab(ds.clave);
-      chip(pl === 'blanco' ? 'Proyecto en blanco: use «Agregar nodos» y «Conectar» en Herramientas' : 'Proyecto creado');
+      chip(pl === 'blanco' ? 'Proyecto en blanco: use «Agregar nodos» y «Conectar» en «Editar el mapa»' : 'Proyecto creado');
     });
   }
   App.nuevoProyecto = nuevoProyecto;
