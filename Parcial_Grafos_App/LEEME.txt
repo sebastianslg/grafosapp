@@ -58,6 +58,15 @@ PROBLEMAS QUE RESUELVE
   Modelo propio: escriba cualquier modelo lineal/entero en formato LP y resuelvalo.
   "Optimo probado" = optimo global. Si se agota el tiempo se muestra la mejor solucion y su brecha.
 
+EJEMPLOS DE LA EXPOSICION (tarjeta a la izquierda, bajo «Problema»)
+  Un ejemplo por cada modelo de GAMS_modelos (34) y por cada algoritmo de GAMS_algoritmos (18), con los MISMOS datos de los
+  archivos .gms, cada uno en un mapa de una ciudad distinta. Elija el ejemplo y pulse «Cargar y resolver»: se abre como el
+  proyecto «Ejemplo» y se resuelve con el modelo matematico. Debajo del resultado se compara con el valor de GAMS.
+  Comprobado en el navegador: los 34 dan el mismo valor que GAMS; 32 con optimo probado en segundos (MDVRP y LRP ~30 s) y
+  VRPSPD y CCVRP hallan el mismo valor pero en el navegador tardan mas de 2 min en probar que es optimo.
+  Los algoritmos se resuelven con «Comparar»: el modelo da el optimo (425,05) y la fila del algoritmo queda resaltada.
+  Las distancias son las del archivo GAMS (unidades u, en linea recta); el mapa solo ubica los puntos.
+
 TIEMPO ESTIMADO (antes de resolver)
   Sobre el boton Resolver se muestra cuanto tardara probar el optimo, segun el numero de clientes, la variante y la formulacion,
   cuando aparece la primera solucion y si su limite de tiempo alcanza. En «Comparar» la duracion es casi exacta.

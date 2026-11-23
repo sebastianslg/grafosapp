@@ -198,6 +198,7 @@
   function arcoAplica(I) {
     const f = I.f || {}, veh = I.veh || [];
     if (!veh.length || (I.depots || []).length !== 1 || f.open || f.locDepot || f.vt || f.blandas || f.balanced || f.minVeh) return false;
+    if (f.tmax > 0 || f.lmin > 0 || (f.lmax > 0 && f.lmax < (I.cust || []).length)) return false;   // jornada máxima y mínimo/máximo de clientes por ruta: solo en la formulación por vehículo
     if (f.mode && f.mode !== 'entrega') return false;
     if ((f.obj && f.obj !== 'costo') || f.objetivo === 'maximo' || (I.optional && I.optional.some(Boolean)) || (I.pairs && I.pairs.length)) return false;
     const v0 = veh[0]; return veh.every((v) => v.cap === v0.cap && v.costoKm === v0.costoKm && v.depot === v0.depot && !(v.fijo > 0) && !isFinite(v.Lmax) && !v.lstops);

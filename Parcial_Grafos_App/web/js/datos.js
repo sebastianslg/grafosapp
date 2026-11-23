@@ -27,7 +27,7 @@
   const dcIdx = (ds) => ds.nodos.findIndex((n) => n.tipo === 'dc');
   const clientes = (ds) => ds.nodos.map((n, i) => i).filter((i) => ds.nodos[i].tipo !== 'dc');
   const serializar = (ds) => ({ clave: ds.clave, titulo: ds.titulo, subtitulo: ds.subtitulo, unidad: ds.unidad, centro: ds.centro, zoom: ds.zoom, origen_defecto: ds.origen_defecto,
-    nodos: ds.nodos, D: aNull(ds.D), cap: aNull(ds.cap), dirigido: ds.dirigido, factor: ds.factor, modoDist: ds.modoDist, pesoArista: aNull(ds.pesoArista), vt: ds.vt, flota: ds.flota, balanceado: ds.balanceado, metodo: ds.metodo, candidatos: ds.candidatos, area: ds.area, fondo: ds.fondo, base: ds.base, usuario: !!ds.usuario, grafoRalo: !!ds.grafoRalo });
+    ejemplo: !!ds.ejemplo, nodos: ds.nodos, D: aNull(ds.D), cap: aNull(ds.cap), dirigido: ds.dirigido, factor: ds.factor, modoDist: ds.modoDist, pesoArista: aNull(ds.pesoArista), vt: ds.vt, flota: ds.flota, balanceado: ds.balanceado, metodo: ds.metodo, candidatos: ds.candidatos, area: ds.area, fondo: ds.fondo, base: ds.base, usuario: !!ds.usuario, grafoRalo: !!ds.grafoRalo });
 
   async function cargar(clave) {
     let ds = null;

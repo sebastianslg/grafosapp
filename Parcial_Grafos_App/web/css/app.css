@@ -329,3 +329,5 @@ td.recorrido { min-width: 180px; width: 55%; }
 .est-previo.oculto { display: none; }
 .est-previo b { color: var(--foreground); font-weight: 600; } .est-previo p { margin: 0; } .est-previo p + p { margin-top: 4px; }
 .est-ico { font-size: 15px; line-height: 1.2; }
+tr.resaltada td { background: color-mix(in srgb, var(--viz-s2, #eb6834) 18%, transparent); font-weight: 600; }
+tr.resaltada td:first-child { box-shadow: inset 3px 0 0 var(--viz-s2, #eb6834); }

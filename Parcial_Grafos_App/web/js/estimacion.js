@@ -28,28 +28,34 @@
     const p = $('problema') ? $('problema').value : ''; const vrp = p === 'vrp' && $('vrpVar') && window.Variantes ? window.Variantes.porId[$('vrpVar').value] : null;
     const met = vrp && $('vrpMetodo') ? $('vrpMetodo').value : 'exacto', n = tamano();
     const f = (vrp && vrp.f) || {}, homog = S.ds && S.ds.flota && S.ds.flota.filter((t) => +t.n > 0).length <= 1 && !(vrp && (vrp.multi || vrp.mixta));
-    const aplica = homog && vrp && !vrp.vt && !vrp.opcional && !f.open && !f.locDepot && !f.blandas && !f.balanced && !f.minVeh && (!f.mode || f.mode === 'entrega') && (!f.obj || f.obj === 'costo') && f.objetivo !== 'maximo';   // misma regla que Vrp.arcoAplica
+    const aplica = homog && vrp && !vrp.vt && !vrp.latencia && !vrp.jornada && !vrp.multi && !vrp.minVeh && !vrp.blandas && !(f.lmin > 0) && !vrp.opcional && !f.open && !f.locDepot && !f.blandas && !f.balanced && !f.minVeh && (!f.mode || f.mode === 'entrega') && (!f.obj || f.obj === 'costo') && f.objetivo !== 'maximo';   // misma regla que Vrp.arcoAplica
     const metodo0 = vrp && !(S.ds && S.ds.metodoElegido) && aplica ? 'arco' : ($('metodo') ? $('metodo').value : 'mtz');   // igual que la app: dos índices por defecto si la flota es homogénea
     const lim = $('sinLimite') && $('sinLimite').checked ? Infinity : +($('tiempo') ? $('tiempo').value : 120) || 120;
     const metodo = metodo0 === 'arco' && !aplica ? 'mtz' : metodo0;   // si el usuario eligió dos índices pero no aplica, la app usa MTZ
     return { p, vrp, met, metodo, aplica, lim, n, variante: vrp ? vrp.id : p };
   }
   /* nivel de dificultad del modelo exacto */
+  const BASE10 = { mdvrp: 2, lrp: 2, vrpspd: 3, ccvrp: 3 };   // medido: 33 s, 31 s, > 120 s, > 120 s con 10 clientes
   function nivel(c) {
     const n = c.n; let k;
     if (['camino', 'desde', 'arbol', 'flujomax', 'flujocosto', 'cartero'].includes(c.p)) return { k: 0, extra: [] };
     if (['pmediana', 'pcentro', 'cobertura'].includes(c.p)) k = n <= 60 ? 0 : n <= 150 ? 1 : 2;
     else if (c.p === 'libre') return null;
     else if (c.p === 'tsp') k = n <= 12 ? 0 : n <= 20 ? 1 : n <= 45 ? 2 : n <= 70 ? 3 : 4;   // TSP Cali 26 nodos: óptimo en 24 s
-    else k = c.metodo === 'arco' ? (n <= 30 ? 0 : n <= 40 ? 2 : n <= 60 ? 3 : 4) : (n <= 10 ? 0 : n <= 15 ? 1 : n <= 20 ? 2 : n <= 40 ? 3 : 4);   // CVRP Cali 25: dos índices 0,2 s; MTZ sin óptimo en 600 s
+    else if (c.metodo === 'arco') k = n <= 30 ? 0 : n <= 40 ? 2 : n <= 60 ? 3 : 4;   // CVRP Cali 25: dos índices 0,2 s
+    else {
+      /* formulación por vehículo (MTZ): nivel medido en el navegador con 10 clientes (ejemplos GAMS) + crecimiento con el tamaño
+         (CVRP Cali 25 con MTZ: sin óptimo en 600 s). Con 10 clientes casi todas < 4 s; MDVRP y LRP ~30 s; VRPSPD y CCVRP > 2 min. */
+      const base = BASE10[c.variante] || 0, inc = n <= 12 ? 0 : n <= 16 ? 1 : n <= 22 ? 2 : n <= 40 ? 3 : 4;
+      k = base + inc;
+    }
     const extra = [], v = c.vrp, f = (v && v.f) || {};
     if (v) {
       if (v.vt) extra.push('ventanas de tiempo'); if (f.obj === 'latencia') extra.push('suma de llegadas'); if (v.jornada) extra.push('jornada máxima');
       if (f.minVeh) extra.push('flota mínima (dos fases)'); if (v.multi) extra.push('varios depósitos'); if (v.mixta) extra.push('flota mixta');
-      if (f.objetivo === 'maximo') extra.push('min-max'); if (f.mode === 'pd' || f.mode === 'split') extra.push(f.mode === 'pd' ? 'recoger y entregar' : 'entrega dividida');
+      if (f.objetivo === 'maximo') extra.push('min-max'); if (f.mode === 'pd' || f.mode === 'split' || f.mode === 'spd') extra.push(f.mode === 'pd' ? 'recoger y entregar' : f.mode === 'spd' ? 'entrega y recogida simultánea' : 'entrega dividida');
       if (c.metodo !== 'arco' && c.aplica && n >= 15) extra.push('formulación ' + c.metodo.toUpperCase() + ' (la de dos índices es más rápida)');
     }
-    if (extra.some((e) => !e.startsWith('formulación')) && k < 3 && n > 8) k++;   // la dificultad extra sube un nivel, sin llegar a «horas» sin medición
     return { k: Math.min(4, k), extra };
   }
   /* corridas anteriores parecidas, de cualquier proyecto */

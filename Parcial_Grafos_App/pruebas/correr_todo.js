@@ -15,6 +15,7 @@ const PRUEBAS = [
   ['formulación de dos índices: mismo óptimo que MTZ', ['validar_arco.js']],
   ['regresión de escala (20, 50 y 100 clientes)', ['regresion_escala.js']],
   ['interfaz: métodos, MinVeh, SDVRP, comparación', ['e2e_vrp.js', URL]],
+  ['ejemplos de la exposición: los 34 modelos dan el mismo valor que GAMS', ['e2e_ejemplos.js', URL, '5']],
   ['interfaz: parar y progreso en vivo', ['e2e_parar.js', URL]],
   ['interfaz: simulación, gráficas, sensibilidad, variantes nuevas', ['e2e_graficas.js', URL]],
   ['caos: 300 acciones al azar (semilla 11)', ['caos.js', URL, '300', '11']],

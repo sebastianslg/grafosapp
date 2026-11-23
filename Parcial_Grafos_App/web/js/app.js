@@ -310,7 +310,7 @@
     const g = grupos(), r0 = S.res;
     if (!g.length) { if (window.Sim) Sim.limpiar(); Mapa.limpiarRutas(); S.colores = null; S.tenue = null; App.pintarSeleccion(); App.renderLeyenda(null); return; }
     const todos = g.flatMap((x) => x.pares);
-    const usarCalles = todos.length <= 140;
+    const usarCalles = todos.length <= 140 && !S.ds.ejemplo;   // los ejemplos GAMS usan distancias del archivo: se dibujan en línea recta
     /* dibujo progresivo: primero lo que ya está en caché (o en línea recta), al instante; luego, si faltan calles, se piden y se redibuja */
     let { sinGeom, total } = Mapa.dibujar(g);
     if (usarCalles && sinGeom) {
@@ -318,7 +318,7 @@
       await Mapa.asegurar(todos, (a, b) => chip(`Trazando calles… ${a}/${b}`)); if (S.res !== r0) return;
       ({ sinGeom, total } = Mapa.dibujar(g));
     }
-    chip(sinGeom ? `${total - sinGeom} de ${total} tramos por calles · ${sinGeom} en línea recta (sin conexión a OSRM)` : `${total} tramos trazados por las calles`);
+    if (S.ds.ejemplo) chip('Ejemplo GAMS: distancias del archivo; rutas en línea recta'); else chip(sinGeom ? `${total - sinGeom} de ${total} tramos por calles · ${sinGeom} en línea recta (sin conexión a OSRM)` : `${total} tramos trazados por las calles`);
     estilo(g, r0, true);
   }
   function estilo(g, r0, final) {

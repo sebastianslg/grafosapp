@@ -218,6 +218,18 @@ Los algoritmos en GAMS no usan `solve` (salvo 12, 16, 17 y 18): son **programas 
 ### Paso 5 (opcional) — Exportar a GAMS (30 s)
 Con un resultado del modelo en pantalla, baja en el panel derecho y pulsa el botón **«Código GAMS (.gms)»**: la app descarga el `.gms` de la variante con los datos de Cali. Di: «el modelo que resuelve la app es el mismo que se puede correr en GAMS».
 
+### Paso 6 — Los ejemplos de GAMS en la app (el mejor puente entre diapositivas y app)
+En la tarjeta **«Ejemplos de la exposición»** (izquierda, bajo Problema) hay un ejemplo por cada archivo `.gms`: 34 modelos y 18 algoritmos, con **los mismos datos de GAMS**, cada uno en un mapa de una ciudad distinta.
+1. Elige **«08 · CVRP — Santa Marta»** → **Cargar y resolver**. Sale **425,05 con óptimo probado** y la nota **«GAMS reporta 425,05; la app obtuvo 425,05 → coinciden»**.
+2. Muestra uno más visual: **«19 · MDVRP — Valledupar»** (dos depósitos, ~30 s) o **«21 · LRP — Lima»** (abre depósitos, ~30 s).
+3. Para un algoritmo: **«07 · Recocido simulado — …»** → corre «Comparar», resalta su fila y dice su brecha frente al óptimo 425,05.
+
+**Lo que digo:** «cada modelo de las diapositivas tiene su ejemplo en la app con los mismos datos del archivo GAMS; aquí se ve que dan **el mismo valor**.»
+
+Tiempos medidos en el navegador (10 clientes): casi todos **menos de 4 s**; MDVRP y LRP **~30 s**. **Evita VRPSPD (23) y CCVRP (31) en vivo**: hallan el mismo valor de GAMS, pero tardan más de 2 min en *probar* el óptimo. Si te preguntan, la nota lo explica.
+
+Ojo: en los ejemplos de algoritmos, el valor de la app puede diferir del de GAMS (cada implementación y semilla es distinta, por ejemplo barrido). Lo que se compara es contra el **óptimo 425,05**.
+
 ### Si algo falla durante la demo
 - **No abre / pantalla en blanco:** cierra y vuelve a abrir `Ejecutar_App.bat`. Si sigue, pasa a tus **capturas**.
 - **El indicador no dice HiGHS:** espera 10 s; si dice «servidor», igual funciona.
@@ -286,7 +298,7 @@ Dos ideas técnicas que suman puntos:
 | Introducción y lo visto en clase | 1–5 | 2 min |
 | Modelos y GAMS | 6–23 | 12 min (explica bien la 15: CVRP en GAMS) |
 | Algoritmos | 24–49 | 11 min (detente en 2-opt, tabú, recocido y branch and bound) |
-| Demo de la app | — | 6 min (pasos 1–4) |
+| Demo de la app | — | 6–8 min (pasos 1–4 y 6) |
 | Ejemplos, conclusiones | 51–58 | 3 min |
 | Preguntas | — | el resto |
 
