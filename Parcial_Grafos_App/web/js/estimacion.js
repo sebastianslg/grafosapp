@@ -1,5 +1,5 @@
 /* Estimación del tiempo ANTES de resolver.
-   Base: mediciones propias con HiGHS (CVRP, formulación de dos índices, holgura de capacidad ~30 %):
+   Base: datos reales de la app (Cali, 25 clientes: CVRP dos índices 0,2 s, MTZ sin óptimo en 600 s; TSP 26 nodos 24 s) y mediciones con HiGHS (CVRP, formulación de dos índices, holgura de capacidad ~30 %):
      10 clientes 0,8 s · 15 → 1,8 s · 20 → 2,5 s · 25 → 9,5 s · 30 → 4,7 s (óptimo probado);
      40–60 → sin óptimo probado en 150 s; 100 → brecha ~3 % a los 80 s (MTZ: ~11 %).
    Ventanas de tiempo, latencia, jornada, flota mínima, varios depósitos o flota mixta hacen el modelo más difícil: se sube un nivel.
@@ -27,9 +27,12 @@
   function contexto() {
     const p = $('problema') ? $('problema').value : ''; const vrp = p === 'vrp' && $('vrpVar') && window.Variantes ? window.Variantes.porId[$('vrpVar').value] : null;
     const met = vrp && $('vrpMetodo') ? $('vrpMetodo').value : 'exacto', n = tamano();
-    const metodo = vrp && !(S.ds && S.ds.metodoElegido) && n >= 40 ? 'arco' : ($('metodo') ? $('metodo').value : 'mtz');   // igual que la app: con 40+ clientes usa dos índices
+    const f = (vrp && vrp.f) || {}, homog = S.ds && S.ds.flota && S.ds.flota.filter((t) => +t.n > 0).length <= 1 && !(vrp && (vrp.multi || vrp.mixta));
+    const aplica = homog && vrp && !vrp.vt && !vrp.opcional && !f.open && !f.locDepot && !f.blandas && !f.balanced && !f.minVeh && (!f.mode || f.mode === 'entrega') && (!f.obj || f.obj === 'costo') && f.objetivo !== 'maximo';   // misma regla que Vrp.arcoAplica
+    const metodo0 = vrp && !(S.ds && S.ds.metodoElegido) && aplica ? 'arco' : ($('metodo') ? $('metodo').value : 'mtz');   // igual que la app: dos índices por defecto si la flota es homogénea
     const lim = $('sinLimite') && $('sinLimite').checked ? Infinity : +($('tiempo') ? $('tiempo').value : 120) || 120;
-    return { p, vrp, met, metodo, lim, n, variante: vrp ? vrp.id : p };
+    const metodo = metodo0 === 'arco' && !aplica ? 'mtz' : metodo0;   // si el usuario eligió dos índices pero no aplica, la app usa MTZ
+    return { p, vrp, met, metodo, aplica, lim, n, variante: vrp ? vrp.id : p };
   }
   /* nivel de dificultad del modelo exacto */
   function nivel(c) {
@@ -37,16 +40,16 @@
     if (['camino', 'desde', 'arbol', 'flujomax', 'flujocosto', 'cartero'].includes(c.p)) return { k: 0, extra: [] };
     if (['pmediana', 'pcentro', 'cobertura'].includes(c.p)) k = n <= 60 ? 0 : n <= 150 ? 1 : 2;
     else if (c.p === 'libre') return null;
-    else if (c.p === 'tsp') k = n <= 25 ? 0 : n <= 45 ? 1 : n <= 70 ? 2 : 3;
-    else k = n <= 12 ? 0 : n <= 22 ? 1 : n <= 32 ? 2 : n <= 50 ? 3 : 4;
+    else if (c.p === 'tsp') k = n <= 12 ? 0 : n <= 20 ? 1 : n <= 45 ? 2 : n <= 70 ? 3 : 4;   // TSP Cali 26 nodos: óptimo en 24 s
+    else k = c.metodo === 'arco' ? (n <= 30 ? 0 : n <= 40 ? 2 : n <= 60 ? 3 : 4) : (n <= 10 ? 0 : n <= 15 ? 1 : n <= 20 ? 2 : n <= 40 ? 3 : 4);   // CVRP Cali 25: dos índices 0,2 s; MTZ sin óptimo en 600 s
     const extra = [], v = c.vrp, f = (v && v.f) || {};
     if (v) {
       if (v.vt) extra.push('ventanas de tiempo'); if (f.obj === 'latencia') extra.push('suma de llegadas'); if (v.jornada) extra.push('jornada máxima');
       if (f.minVeh) extra.push('flota mínima (dos fases)'); if (v.multi) extra.push('varios depósitos'); if (v.mixta) extra.push('flota mixta');
       if (f.objetivo === 'maximo') extra.push('min-max'); if (f.mode === 'pd' || f.mode === 'split') extra.push(f.mode === 'pd' ? 'recoger y entregar' : 'entrega dividida');
-      if (c.metodo !== 'arco' && n >= 30) extra.push('formulación ' + c.metodo.toUpperCase() + ' (la de dos índices es más rápida)');
+      if (c.metodo !== 'arco' && c.aplica && n >= 15) extra.push('formulación ' + c.metodo.toUpperCase() + ' (la de dos índices es más rápida)');
     }
-    if (extra.length && k < 4 && n > 8) k++;
+    if (extra.some((e) => !e.startsWith('formulación')) && k < 3 && n > 8) k++;   // la dificultad extra sube un nivel, sin llegar a «horas» sin medición
     return { k: Math.min(4, k), extra };
   }
   /* corridas anteriores parecidas, de cualquier proyecto */

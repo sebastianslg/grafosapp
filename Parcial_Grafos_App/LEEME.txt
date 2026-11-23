@@ -58,6 +58,13 @@ PROBLEMAS QUE RESUELVE
   Modelo propio: escriba cualquier modelo lineal/entero en formato LP y resuelvalo.
   "Optimo probado" = optimo global. Si se agota el tiempo se muestra la mejor solucion y su brecha.
 
+TIEMPO ESTIMADO (antes de resolver)
+  Sobre el boton Resolver se muestra cuanto tardara probar el optimo, segun el numero de clientes, la variante y la formulacion,
+  cuando aparece la primera solucion y si su limite de tiempo alcanza. En «Comparar» la duracion es casi exacta.
+  Medido con los datos reales: CVRP Cali (25 clientes) optimo en 0,4 s con la formulacion de dos indices (con MTZ no se
+  probaba en 10 min); TSP Cali (26 nodos) en 24 s. Cada corrida guarda lo que tardo y la estimacion muestra las parecidas.
+  La formulacion de dos indices se usa por defecto cuando aplica (flota homogenea, un deposito, sin ventanas); si no, MTZ.
+
 PANTALLA
   Izquierda: el problema (lo único necesario para resolver) y los ejemplos del parcial. «Editar el mapa» y «Buscar en el mapa»
   están plegadas: un clic en el título las abre. Los ajustes técnicos (formulación, semilla, sin límite de tiempo) están en

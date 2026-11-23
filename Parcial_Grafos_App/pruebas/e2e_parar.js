@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
   let fallas = 0; const chk = (n, ok, extra) => { if (!ok) fallas++; console.log((ok ? 'OK    ' : 'FALLA ') + n + (extra ? '  ' + extra : '')); };
   await p.goto(url + '?motor=servidor');
   await p.waitForFunction(() => /HiGHS/.test(document.getElementById('pMotor').innerText), null, { timeout: 60000 });
-  await p.selectOption('#problema', 'vrp'); await p.selectOption('#vrpVar', 'cvrp'); await p.selectOption('#vrpMetodo', 'exacto');
+  await p.selectOption('#problema', 'vrp'); await p.selectOption('#vrpVar', 'vrptw'); await p.selectOption('#vrpMetodo', 'exacto');
   await p.fill('#tiempo', '300');
   await p.click('#bResolver');
   await p.waitForTimeout(25000);
