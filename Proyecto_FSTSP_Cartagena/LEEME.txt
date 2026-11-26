@@ -1,0 +1,17 @@
+Parte 1 · Caso FSTSP Cartagena (30 clientes, camión y dron) · Distribución y Transporte · UTB
+Juan Sebastián Salas Lugo y Alejandro Álvarez Torres
+
+Informe_Ejecutivo_FSTSP_Cartagena.pdf / .docx   Informe ejecutivo con indicadores clave.
+datos/FSTSP_vehiculo_dron_30_clientes.xlsx       Archivo original del caso.
+datos/FSTSP_Cartagena_proyecto_app.json          Proyecto para la app (Importar): camión.
+datos/FSTSP_Cartagena_camion_dron_app.json       Proyecto para la app: camión + dron (flota mixta).
+datos/FSTSP_Cartagena_nodos_app.csv              Nodos en CSV (también se puede importar).
+soporte/convertir_excel_a_app.py                 Conversión del Excel al formato de la app.
+soporte/resultados_app.json, resultado_camion_dron_*.json   Resultados exportados de la app.
+soporte/generar_informe.py                       Arma el informe con los resultados y capturas de la app.
+soporte/App_Parcial_Grafos.zip                   Aplicación usada (versión final, sin cambios).
+capturas/                                        Capturas de pantalla de la app (y recortes usados en el informe).
+
+Cómo reproducir: abrir la app (Ejecutar_App.bat), Importar el .json, Tipo de problema VRP,
+variante CVRP (camión) o HFVRP (camión + dron), Vehículos 1, Modelo matemático → Resolver;
+luego «Comparar con heurísticas» para las metaheurísticas.

@@ -1,0 +1,279 @@
+{
+ "comparacion": [
+  {
+   "metodo": "Modelo matemático (MILP)",
+   "tipo": "exacto",
+   "obj": 5.506664,
+   "seg": 8.30069999999972,
+   "factible": true,
+   "gapProp": 0.652233794092031,
+   "veh": null,
+   "gap": 0.652233794092031
+  },
+  {
+   "metodo": "Vecino más cercano",
+   "tipo": "heuristica",
+   "obj": 2.8511381550000006,
+   "seg": 0.002,
+   "factible": true,
+   "veh": null,
+   "gap": 0.3283273056650601
+  },
+  {
+   "metodo": "Ahorros (Clarke-Wright)",
+   "tipo": "heuristica",
+   "obj": 2.384529487799999,
+   "seg": 0.0023999999999068677,
+   "factible": true,
+   "veh": null,
+   "gap": 0.196893283858345
+  },
+  {
+   "metodo": "Barrido (sweep)",
+   "tipo": "heuristica",
+   "obj": 3.0502128309,
+   "seg": 0.0008999999999068678,
+   "factible": true,
+   "veh": null,
+   "gap": 0.3721645823891745
+  },
+  {
+   "metodo": "Inserción más barata",
+   "tipo": "heuristica",
+   "obj": 4.615666,
+   "seg": 0.011,
+   "factible": true,
+   "veh": null,
+   "gap": 0.5851017715558274
+  },
+  {
+   "metodo": "2-opt (mejora dentro de cada ruta)",
+   "tipo": "heuristica",
+   "obj": 2.2909404236999995,
+   "seg": 0.054,
+   "factible": true,
+   "veh": null,
+   "gap": 0.164084920463748
+  },
+  {
+   "metodo": "Or-opt (mover tramos de 1 a 3 clientes)",
+   "tipo": "heuristica",
+   "obj": 2.2848871509,
+   "seg": 0.012399999999906867,
+   "factible": true,
+   "veh": null,
+   "gap": 0.16187035944611824
+  },
+  {
+   "metodo": "Constructiva + mejora local (VND)",
+   "tipo": "heuristica",
+   "obj": 4.183552,
+   "seg": 0.012,
+   "factible": true,
+   "veh": null,
+   "gap": 0.5422474379450762
+  },
+  {
+   "metodo": "Ruta primero, agrupa después (Split)",
+   "tipo": "heuristica",
+   "obj": 2.290950423600001,
+   "seg": 0.016899999999906868,
+   "factible": true,
+   "veh": null,
+   "gap": 0.1640885691970942
+  },
+  {
+   "metodo": "Fisher-Jaikumar (asignación + TSP)",
+   "tipo": "heuristica",
+   "obj": 2.2277201414000003,
+   "seg": 0.028699999999720602,
+   "factible": true,
+   "veh": null,
+   "gap": 0.14036255681267612
+  },
+  {
+   "metodo": "Pétalos (partición de conjuntos)",
+   "tipo": "heuristica",
+   "obj": 2.2500774989999996,
+   "seg": 0.09770000000018626,
+   "factible": true,
+   "veh": null,
+   "gap": 0.1489041389280609
+  },
+  {
+   "metodo": "Recocido simulado",
+   "tipo": "meta",
+   "obj": 2.2205502131,
+   "seg": 10.011600000000094,
+   "factible": true,
+   "veh": null,
+   "gap": 0.13758687590472493
+  },
+  {
+   "metodo": "Búsqueda tabú",
+   "tipo": "meta",
+   "obj": 4.183552,
+   "seg": 10.0025,
+   "factible": true,
+   "veh": null,
+   "gap": 0.5422474379450762
+  },
+  {
+   "metodo": "Algoritmo genético",
+   "tipo": "meta",
+   "obj": 2.2205502131000006,
+   "seg": 10.014100000000093,
+   "factible": true,
+   "veh": null,
+   "gap": 0.1375868759047251
+  },
+  {
+   "metodo": "Colonia de hormigas",
+   "tipo": "meta",
+   "obj": 2.2205502131000006,
+   "seg": 10.081399999999906,
+   "factible": true,
+   "veh": null,
+   "gap": 0.1375868759047251
+  },
+  {
+   "metodo": "GRASP",
+   "tipo": "meta",
+   "obj": 4.0877300000000005,
+   "seg": 10.003,
+   "factible": true,
+   "veh": null,
+   "gap": 0.5315170898053443
+  },
+  {
+   "metodo": "VNS (búsqueda de vecindario variable)",
+   "tipo": "meta",
+   "obj": 2.2205502131,
+   "seg": 10.010399999999906,
+   "factible": true,
+   "veh": null,
+   "gap": 0.13758687590472493
+  },
+  {
+   "metodo": "ILS (búsqueda local iterada)",
+   "tipo": "meta",
+   "obj": 2.2205502131000006,
+   "seg": 10.008,
+   "factible": true,
+   "veh": null,
+   "gap": 0.1375868759047251
+  },
+  {
+   "metodo": "LNS (destruir y reparar)",
+   "tipo": "meta",
+   "obj": 3.5414924382000006,
+   "seg": 10.002899999999906,
+   "factible": true,
+   "veh": null,
+   "gap": 0.45925858097742145
+  }
+ ],
+ "estado": "heurístico: solución factible",
+ "objetivo": 2.2205502131,
+ "total": 67.45479999999999,
+ "gap": 0.13758687590472493,
+ "cota": 1.91503164649,
+ "seg": 89.16770000000018,
+ "rutas": [
+  [
+   0,
+   2,
+   29,
+   11,
+   18,
+   19,
+   24,
+   21,
+   22,
+   30,
+   1,
+   12,
+   23,
+   14,
+   13,
+   4,
+   27,
+   25,
+   7,
+   5,
+   3,
+   16,
+   17,
+   6,
+   15,
+   8,
+   26,
+   9,
+   28,
+   0
+  ],
+  [
+   0,
+   10,
+   20,
+   0
+  ]
+ ],
+ "dists": [
+  65.3607,
+  2.0941
+ ],
+ "info": [
+  {
+   "tipo": "TRUCK01 (camión)",
+   "depot": 0,
+   "dist": 65.3607,
+   "costo": 2.1786682131,
+   "carga": 88,
+   "cap": 200,
+   "llegadas": null
+  },
+  {
+   "tipo": "DRON",
+   "depot": 0,
+   "dist": 2.0941,
+   "costo": 0.041882,
+   "carga": 2,
+   "cap": 5,
+   "llegadas": null
+  }
+ ],
+ "nombres": [
+  "DC01 · Centro Distribucion Bosque",
+  "DR001 · Drogueria Paula",
+  "DR002 · Drogueria La Economia",
+  "DR003 · Drogueria Panorama Drug Store",
+  "DR004 · Drogueria Kety",
+  "DR005 · Farmatodo Bocagrande",
+  "DR006 · Drogueria Colsubsidio",
+  "DR007 · Cliente Centro-Getsemani 1",
+  "DR008 · Cliente Manga 1",
+  "DR009 · Cliente Pie de la Popa 1",
+  "DR010 · Cliente Bosque 1",
+  "DR011 · Cliente Alpes 1",
+  "DR012 · Cliente Olaya Herrera 1",
+  "DR013 · Cliente Paseo Bolivar 1",
+  "DR014 · Cliente Crespo 1",
+  "DR015 · Cliente Bocagrande 1",
+  "DR016 · Cliente Castillogrande 1",
+  "DR017 · Cliente El Laguito 1",
+  "DR018 · Cliente San Fernando 1",
+  "DR019 · Cliente Los Caracoles 1",
+  "DR020 · Cliente Nuevo Bosque 1",
+  "DR021 · Cliente Ternera 1",
+  "DR022 · Cliente El Pozon 1",
+  "DR023 · Cliente La Boquilla 1",
+  "DR024 · Cliente Nelson Mandela 1",
+  "DR025 · Cliente Centro-Getsemani 2",
+  "DR026 · Cliente Manga 2",
+  "DR027 · Cliente Pie de la Popa 2",
+  "DR028 · Cliente Bosque 2",
+  "DR029 · Cliente Alpes 2",
+  "DR030 · Cliente Olaya Herrera 2"
+ ]
+}
