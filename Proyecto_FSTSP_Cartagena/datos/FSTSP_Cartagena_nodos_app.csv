@@ -1,0 +1,32 @@
+﻿id,nombre,lat,lon,tipo,demanda
+0,DC01 · Centro Distribucion Bosque,10.3945,-75.5145,dc,0.0
+1,DR001 · Drogueria Paula,10.3932295,-75.48322,cliente,2.0
+2,DR002 · Drogueria La Economia,10.39546,-75.50072,cliente,3.0
+3,DR003 · Drogueria Panorama Drug Store,10.4046087,-75.55427,cliente,4.0
+4,DR004 · Drogueria Kety,10.4302416,-75.53347,cliente,5.0
+5,DR005 · Farmatodo Bocagrande,10.4076471,-75.5515,cliente,1.0
+6,DR006 · Drogueria Colsubsidio,10.4001551,-75.55934,cliente,2.0
+7,DR007 · Cliente Centro-Getsemani 1,10.42713544,-75.55495383,cliente,3.0
+8,DR008 · Cliente Manga 1,10.40286628,-75.53852121,cliente,4.0
+9,DR009 · Cliente Pie de la Popa 1,10.40723756,-75.52187891,cliente,5.0
+10,DR010 · Cliente Bosque 1,10.38745003,-75.51517602,cliente,1.0
+11,DR011 · Cliente Alpes 1,10.39086907,-75.49019326,cliente,2.0
+12,DR012 · Cliente Olaya Herrera 1,10.39919156,-75.47920771,cliente,3.0
+13,DR013 · Cliente Paseo Bolivar 1,10.4341172,-75.52533322,cliente,4.0
+14,DR014 · Cliente Crespo 1,10.44568117,-75.51376024,cliente,5.0
+15,DR015 · Cliente Bocagrande 1,10.40282129,-75.55126353,cliente,1.0
+16,DR016 · Cliente Castillogrande 1,10.40457757,-75.55527438,cliente,2.0
+17,DR017 · Cliente El Laguito 1,10.39604418,-75.56696803,cliente,3.0
+18,DR018 · Cliente San Fernando 1,10.37999717,-75.49354039,cliente,4.0
+19,DR019 · Cliente Los Caracoles 1,10.37451358,-75.48746391,cliente,5.0
+20,DR020 · Cliente Nuevo Bosque 1,10.38914641,-75.51305317,cliente,1.0
+21,DR021 · Cliente Ternera 1,10.35069014,-75.46013276,cliente,2.0
+22,DR022 · Cliente El Pozon 1,10.38591146,-75.46168941,cliente,3.0
+23,DR023 · Cliente La Boquilla 1,10.48357505,-75.49889697,cliente,4.0
+24,DR024 · Cliente Nelson Mandela 1,10.35794129,-75.50813859,cliente,5.0
+25,DR025 · Cliente Centro-Getsemani 2,10.41817656,-75.5439372,cliente,1.0
+26,DR026 · Cliente Manga 2,10.41201688,-75.53075861,cliente,2.0
+27,DR027 · Cliente Pie de la Popa 2,10.41738152,-75.53494559,cliente,3.0
+28,DR028 · Cliente Bosque 2,10.39870735,-75.51768892,cliente,4.0
+29,DR029 · Cliente Alpes 2,10.39635434,-75.49643834,cliente,5.0
+30,DR030 · Cliente Olaya Herrera 2,10.3925119,-75.47946001,cliente,1.0
